@@ -51,7 +51,7 @@ import { ProfileAvatar } from "@/components/studybook-shell";
 import { useMusic } from "@/components/music-context";
 import { useSupabaseUser } from "@/components/use-supabase-user";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { HOLIDAYS, getUpcomingHoliday } from "@/lib/holidays";
+import { HOLIDAYS } from "@/lib/holidays";
 import { isPlayableSource } from "@/lib/music-store";
 
 const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
@@ -2451,7 +2451,7 @@ export function SettingsView() {
     setTheme,
     theme,
   } = useStudybook();
-  const upcoming = getUpcomingHoliday(new Date());
+  const { upcoming } = useMusic();
 
   return (
     <>

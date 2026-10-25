@@ -15,6 +15,7 @@ import {
   getUpcomingHoliday,
   melodyKeyForHoliday,
   MELODIES,
+  toDayKey,
   type Holiday,
 } from "@/lib/holidays";
 import {
@@ -99,12 +100,16 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     DEFAULT_MUSIC_SETTINGS,
   );
   const [holiday, setHoliday] = useState<Holiday | null>(null);
+  const [upcoming, setUpcoming] = useState<
+    ReturnType<typeof getUpcomingHoliday>
+  >(null);
   const [ready, setReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [error, setError] = useState("");
 
   const settingsRef = useRef<MusicSettings>(DEFAULT_MUSIC_SETTINGS);
+  const dayKeyRef = useRef("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const objectUrlRef = useRef<string | null>(null);
   const synthStopRef = useRef<(() => void) | null>(null);
@@ -115,8 +120,6 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     () => resolveTrack(holiday, settings),
     [holiday, settings],
   );
-
-  const upcoming = getUpcomingHoliday(new Date());
 
   const commit = useCallback((next: MusicSettings) => {
     settingsRef.current = next;
@@ -451,9 +454,12 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const loaded = loadMusicSettings();
+      const now = new Date();
+      dayKeyRef.current = toDayKey(now);
       settingsRef.current = loaded;
       setSettings(loaded);
-      setHoliday(getHoliday(new Date()));
+      setHoliday(getHoliday(now));
+      setUpcoming(getUpcomingHoliday(now));
       setReady(true);
     }, 0);
     return () => window.clearTimeout(timer);
@@ -461,10 +467,13 @@ export function MusicProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      const today = getHoliday(new Date());
-      setHoliday((current) =>
-        current?.key === today?.key ? current : today,
-      );
+      const now = new Date();
+      const dayKey = toDayKey(now);
+      if (dayKey === dayKeyRef.current) return;
+
+      dayKeyRef.current = dayKey;
+      setHoliday(getHoliday(now));
+      setUpcoming(getUpcomingHoliday(now));
     }, 60_000);
     return () => window.clearInterval(timer);
   }, []);
