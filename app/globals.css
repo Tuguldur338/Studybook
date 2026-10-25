@@ -771,6 +771,163 @@ a {
   gap: 16px;
 }
 
+.exam-panel {
+  margin-bottom: 16px;
+}
+
+.exam-panel .panel-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.exam-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.exam-heading-actions .exam-select {
+  width: auto;
+  max-width: 210px;
+  height: 34px;
+  padding: 0 30px 0 10px;
+  font-size: 11px;
+}
+
+.exam-heading-actions .exam-add-button {
+  display: inline-flex;
+  height: 34px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.exam-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.exam-hero-copy {
+  min-width: 0;
+}
+
+.exam-title {
+  margin: 2px 0 3px;
+  font-size: 22px;
+  font-weight: 750;
+  letter-spacing: -0.5px;
+  overflow-wrap: anywhere;
+}
+
+.exam-date {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.exam-hero-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.exam-badge {
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  padding: 4px 9px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.exam-badge.past {
+  background: var(--surface-muted);
+  color: var(--muted);
+}
+
+.countdown-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.countdown-unit {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-muted);
+  padding: 10px 6px;
+  text-align: center;
+}
+
+.countdown-value {
+  display: block;
+  font-size: 24px;
+  font-weight: 750;
+  line-height: 1.1;
+  letter-spacing: -1px;
+  font-variant-numeric: tabular-nums;
+}
+
+.countdown-unit.seconds .countdown-value {
+  color: var(--accent-strong);
+}
+
+.countdown-label {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.exam-form {
+  margin-top: 16px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.exam-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 0 4px;
+  text-align: center;
+}
+
+.exam-empty-icon {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border-radius: 14px;
+  margin-bottom: 8px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.exam-empty .empty-state-title {
+  margin: 0;
+}
+
+.exam-empty .empty-state-copy {
+  max-width: 360px;
+  margin: 4px 0 12px;
+}
+
 .empty-state {
   display: grid;
   min-height: 160px;
@@ -3382,6 +3539,10 @@ button.messenger-row:hover {
     grid-template-columns: 1fr;
   }
 
+  .countdown-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
   .settings-grid {
     grid-template-columns: 1fr;
   }
@@ -3471,6 +3632,42 @@ button.messenger-row:hover {
   .music-volume input {
     flex: 1;
     width: auto;
+  }
+
+  .exam-panel .panel-heading {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .exam-heading-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .exam-select {
+    max-width: none;
+    flex: 1;
+  }
+
+  .exam-heading-actions .exam-select {
+    max-width: none;
+    flex: 1;
+  }
+
+  .exam-title {
+    font-size: 19px;
+  }
+
+  .countdown-grid {
+    gap: 6px;
+  }
+
+  .countdown-unit {
+    padding: 8px 4px;
+  }
+
+  .countdown-value {
+    font-size: 19px;
   }
 
   .theme-choices {

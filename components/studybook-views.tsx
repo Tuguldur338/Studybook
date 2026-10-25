@@ -48,6 +48,7 @@ import {
   type StudyTask,
 } from "@/components/studybook-context";
 import { ProfileAvatar } from "@/components/studybook-shell";
+import ExamReminder from "@/components/exam-reminder";
 import { useMusic } from "@/components/music-context";
 import { useSupabaseUser } from "@/components/use-supabase-user";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -400,6 +401,8 @@ export default function DashboardView() {
           </div>
         </div>
       </section>
+
+      <ExamReminder />
 
       <div className="dashboard-grid">
         <section className="panel">

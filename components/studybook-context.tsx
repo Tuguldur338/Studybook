@@ -31,6 +31,14 @@ export type StudyTask = {
   completed: boolean;
 };
 
+export type Exam = {
+  id: string;
+  title: string;
+  /** ISO timestamp of the exam start. */
+  date: string;
+  createdAt: string;
+};
+
 export const NOTE_COLORS = [
   "default",
   "sage",
@@ -93,6 +101,8 @@ type StudybookContextValue = {
   setSavedClasses: Dispatch<SetStateAction<SavedClass[]>>;
   tasks: StudyTask[];
   setTasks: Dispatch<SetStateAction<StudyTask[]>>;
+  exams: Exam[];
+  setExams: Dispatch<SetStateAction<Exam[]>>;
   notes: StudyNote[];
   setNotes: Dispatch<SetStateAction<StudyNote[]>>;
   profile: StudentProfile;
@@ -154,6 +164,17 @@ function isStudyTask(value: unknown): value is StudyTask {
   );
 }
 
+function isExam(value: unknown): value is Exam {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.title === "string" &&
+    typeof value.date === "string" &&
+    typeof value.createdAt === "string" &&
+    !Number.isNaN(new Date(value.date).getTime())
+  );
+}
+
 function isStudyNote(value: unknown): value is StudyNote {
   return (
     isRecord(value) &&
@@ -211,6 +232,7 @@ function readStudybookData() {
       ? parsed.savedClasses.filter(isSavedClass)
       : [],
     tasks: Array.isArray(parsed.tasks) ? parsed.tasks.filter(isStudyTask) : [],
+    exams: Array.isArray(parsed.exams) ? parsed.exams.filter(isExam) : [],
     notes: Array.isArray(parsed.notes) ? parsed.notes.filter(isStudyNote) : [],
     profile: {
       name: typeof profile.name === "string" ? profile.name : "Student",
@@ -227,6 +249,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
   const [classChecks, setClassChecks] = useState<ClassChecks>({});
   const [savedClasses, setSavedClasses] = useState<SavedClass[]>([]);
   const [tasks, setTasks] = useState<StudyTask[]>([]);
+  const [exams, setExams] = useState<Exam[]>([]);
   const [notes, setNotes] = useState<StudyNote[]>([]);
   const [profile, setProfile] = useState(defaultProfile);
   const [theme, setTheme] = useState<"light" | "dark">("light");
@@ -273,6 +296,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
           setClassChecks(saved.classChecks);
           setSavedClasses(saved.savedClasses);
           setTasks(saved.tasks);
+          setExams(saved.exams);
           setNotes(saved.notes);
           setProfile(saved.profile);
           setTheme(saved.theme);
@@ -308,6 +332,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
           classChecks,
           savedClasses,
           tasks,
+          exams,
           notes,
           profile,
           theme,
@@ -327,6 +352,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
   }, [
     classChecks,
     classes,
+    exams,
     font,
     holidayEffects,
     isLoaded,
@@ -348,6 +374,8 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
         setSavedClasses,
         tasks,
         setTasks,
+        exams,
+        setExams,
         notes,
         setNotes,
         profile,
