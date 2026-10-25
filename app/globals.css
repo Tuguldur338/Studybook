@@ -2038,6 +2038,149 @@ button.messenger-row:hover {
   line-height: 1.5;
 }
 
+.messenger-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.messenger-section-head h3 {
+  margin: 0;
+}
+
+.group-avatar {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.group-member {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.group-member input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+}
+
+.group-member .messenger-avatar {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  font-size: 10px;
+}
+
+.bubble-sender {
+  color: var(--accent-strong);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.bubble-image-link {
+  display: block;
+}
+
+.bubble-image {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  border-radius: 9px;
+  object-fit: cover;
+}
+
+.chat-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 2px 0;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-radius: 999px;
+  background: var(--surface);
+  padding: 2px 9px;
+  color: var(--accent-strong);
+  font-size: 10px;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.chat-link:hover {
+  background: var(--accent-soft);
+}
+
+.composer-attach {
+  position: relative;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.composer-attach:hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.composer-attach input {
+  display: none;
+}
+
+.composer-input {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 5px;
+}
+
+.composer-input .input {
+  width: 100%;
+}
+
+.attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-chip button {
+  display: grid;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-muted);
+  color: var(--muted);
+}
+
+.messenger-notice {
+  margin: 0;
+  padding: 8px 14px;
+}
+
 .messenger .notice {
   margin: 0;
 }

@@ -52,23 +52,41 @@ these variables for browser-based Auth.
 
 ## Messaging and friend requests
 
-Messaging uses Supabase Realtime on top of two extra tables:
+Messaging uses Supabase Realtime on top of these tables:
 
 - `friendships` stores a pending request between two users. Accepting it makes
   the pair friends; declining removes the request so either person can ask
   again later.
-- `messages` stores direct messages with a `read_at` timestamp used for the
-  unread badge.
+- `conversations` and `conversation_members` hold both direct chats and group
+  chats. A direct chat is a two-person conversation keyed by the two user ids;
+  a group has a title and any number of members.
+- `messages` stores text and one image attachment per message
+  (`attachment_url` / `attachment_type`). Read state is kept per member with
+  `conversation_members.last_read_at`, which powers the unread badge.
 
-Only accepted friends can insert messages — this is enforced in RLS, not just
-in the UI. Attachments and group chats are not supported yet.
+Only members can read or insert messages, and direct chats can only be opened
+with accepted friends — enforced in RLS and in the `start_direct_conversation`
+function, not just in the UI. Group creation is limited to friends of the
+creator.
 
-Apply [`migrations/messaging.sql`](./migrations/messaging.sql) after the base
-schema (either with `supabase db push` or by pasting it into the SQL Editor).
-The migration adds both tables to the `supabase_realtime` publication; if you
-prefer the dashboard, make sure both tables are toggled on under
-**Database → Publications → supabase_realtime**.
+Apply the migrations in order after the base schema:
+
+1. [`migrations/messaging.sql`](./migrations/messaging.sql) — friendships,
+   direct messages, the email lookup helper.
+2. [`migrations/messaging-v2.sql`](./migrations/messaging-v2.sql) — converts
+   direct messages into conversations, adds group chats and attachments, and
+   creates the `chat-images` Storage bucket.
+
+The migrations add the tables to the `supabase_realtime` publication; if you
+prefer the dashboard, make sure everything is toggled on under
+**Database → Publications → supabase_realtime**. The `chat-images` bucket is
+public-readable with 5 MB image uploads; tighten its policies if you need
+private media.
 
 To start a chat, open **Messages** in the sidebar, sign in, and send a friend
 request to the email address the other person used to register. Once they
-accept, the conversation appears in both sidebars and new messages arrive live.
+accept, click their name under **Friends** to open a direct chat, or use
+**+ New group** to create a group with two or more friends. Messages, group
+invites, and friend requests arrive live; pictures are uploaded when you press
+Send, and pasted links (TikTok, Instagram, YouTube, and any other URL) render as
+tappable link cards.

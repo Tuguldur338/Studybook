@@ -21,19 +21,48 @@ export type Friendship = {
   created_at: string;
 };
 
+export type ConversationKind = "direct" | "group";
+
+export type ConversationRow = {
+  id: string;
+  kind: ConversationKind;
+  title: string | null;
+  created_by: string;
+  created_at: string;
+};
+
+export type ConversationMember = {
+  conversation_id: string;
+  user_id: string;
+  joined_at: string;
+  last_read_at: string | null;
+};
+
 export type ChatMessage = {
   id: string;
+  conversation_id: string;
   sender_id: string;
-  recipient_id: string;
   body: string;
+  attachment_url: string | null;
+  attachment_type: "image" | null;
   created_at: string;
-  read_at: string | null;
 };
 
 export type PersonInfo = {
   id: string;
   name: string;
   avatar: string;
+};
+
+export type ConversationSummary = {
+  id: string;
+  kind: ConversationKind;
+  title: string;
+  avatar: string;
+  members: PersonInfo[];
+  unread: number;
+  lastMessage: ChatMessage | null;
+  updatedAt: string;
 };
 
 export type MessagingApi = {
@@ -44,16 +73,21 @@ export type MessagingApi = {
   incomingRequests: Friendship[];
   outgoingRequests: Friendship[];
   friends: PersonInfo[];
-  messages: ChatMessage[];
+  conversations: ConversationSummary[];
   totalUnread: number;
-  unreadByFriend: Record<string, number>;
   person: (id: string) => PersonInfo;
-  conversation: (friendId: string | null) => ChatMessage[];
+  messagesFor: (conversationId: string | null) => ChatMessage[];
   refresh: () => Promise<void>;
   sendFriendRequest: (email: string) => Promise<string>;
   respondToRequest: (request: Friendship, accept: boolean) => Promise<void>;
-  sendMessage: (recipientId: string, body: string) => Promise<void>;
-  markConversationRead: (friendId: string) => Promise<void>;
+  startDirectChat: (friendId: string) => Promise<string>;
+  createGroup: (title: string, memberIds: string[]) => Promise<string>;
+  sendMessage: (
+    conversationId: string,
+    body: string,
+    image?: File | null,
+  ) => Promise<void>;
+  markConversationRead: (conversationId: string) => Promise<void>;
 };
 
 export function useMessaging(user: User | null): MessagingApi {
@@ -61,6 +95,8 @@ export function useMessaging(user: User | null): MessagingApi {
   const userId = user?.id ?? "";
 
   const [friendships, setFriendships] = useState<Friendship[]>([]);
+  const [conversations, setConversations] = useState<ConversationRow[]>([]);
+  const [members, setMembers] = useState<ConversationMember[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [people, setPeople] = useState<Record<string, PersonInfo>>({});
   const [loading, setLoading] = useState(false);
@@ -104,28 +140,46 @@ export function useMessaging(user: User | null): MessagingApi {
     setLoading(true);
     try {
       const supabase = getSupabaseBrowserClient();
-      const [friendshipResult, messageResult] = await Promise.all([
-        supabase
-          .from("friendships")
-          .select("id, requester_id, addressee_id, status, created_at")
-          .order("created_at", { ascending: false })
-          .limit(200),
-        supabase
-          .from("messages")
-          .select("id, sender_id, recipient_id, body, created_at, read_at")
-          .order("created_at", { ascending: false })
-          .limit(500),
-      ]);
+      const [friendResult, conversationResult, memberResult, messageResult] =
+        await Promise.all([
+          supabase
+            .from("friendships")
+            .select("id, requester_id, addressee_id, status, created_at")
+            .order("created_at", { ascending: false })
+            .limit(200),
+          supabase
+            .from("conversations")
+            .select("id, kind, title, created_by, created_at")
+            .order("created_at", { ascending: false })
+            .limit(200),
+          supabase
+            .from("conversation_members")
+            .select("conversation_id, user_id, joined_at, last_read_at"),
+          supabase
+            .from("messages")
+            .select(
+              "id, conversation_id, sender_id, body, attachment_url, attachment_type, created_at",
+            )
+            .order("created_at", { ascending: false })
+            .limit(500),
+        ]);
 
-      if (friendshipResult.error) throw friendshipResult.error;
+      if (friendResult.error) throw friendResult.error;
+      if (conversationResult.error) throw conversationResult.error;
+      if (memberResult.error) throw memberResult.error;
       if (messageResult.error) throw messageResult.error;
 
-      const nextFriendships = (friendshipResult.data ?? []) as Friendship[];
+      const nextFriendships = (friendResult.data ?? []) as Friendship[];
+      const nextConversations = (conversationResult.data ??
+        []) as ConversationRow[];
+      const nextMembers = (memberResult.data ?? []) as ConversationMember[];
       const nextMessages = (
         (messageResult.data ?? []) as ChatMessage[]
       ).reverse();
 
       setFriendships(nextFriendships);
+      setConversations(nextConversations);
+      setMembers(nextMembers);
       setMessages(nextMessages);
 
       const ids = new Set<string>();
@@ -133,10 +187,8 @@ export function useMessaging(user: User | null): MessagingApi {
         ids.add(row.requester_id);
         ids.add(row.addressee_id);
       }
-      for (const row of nextMessages) {
-        ids.add(row.sender_id);
-        ids.add(row.recipient_id);
-      }
+      for (const row of nextMembers) ids.add(row.user_id);
+      for (const row of nextMessages) ids.add(row.sender_id);
       ids.delete(userId);
       await loadPeople([...ids]);
       setError("");
@@ -161,12 +213,7 @@ export function useMessaging(user: User | null): MessagingApi {
       .channel(`studybook-messaging-${userId}`)
       .on(
         "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `recipient_id=eq.${userId}`,
-        },
+        { event: "INSERT", schema: "public", table: "messages" },
         (payload: RealtimePostgresChangesPayload<ChatMessage>) => {
           const row = payload.new as ChatMessage;
           setMessages((current) =>
@@ -174,7 +221,7 @@ export function useMessaging(user: User | null): MessagingApi {
               ? current
               : [...current, row],
           );
-          if (!knownPeople.current.has(row.sender_id)) {
+          if (row.sender_id !== userId && !knownPeople.current.has(row.sender_id)) {
             void loadPeople([row.sender_id]);
           }
         },
@@ -182,10 +229,10 @@ export function useMessaging(user: User | null): MessagingApi {
       .on(
         "postgres_changes",
         {
-          event: "*",
+          event: "INSERT",
           schema: "public",
-          table: "friendships",
-          filter: `addressee_id=eq.${userId}`,
+          table: "conversation_members",
+          filter: `user_id=eq.${userId}`,
         },
         () => {
           void refresh();
@@ -193,12 +240,14 @@ export function useMessaging(user: User | null): MessagingApi {
       )
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "friendships",
-          filter: `requester_id=eq.${userId}`,
+        { event: "INSERT", schema: "public", table: "friendships" },
+        () => {
+          void refresh();
         },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "friendships" },
         () => {
           void refresh();
         },
@@ -222,7 +271,8 @@ export function useMessaging(user: User | null): MessagingApi {
     const seen = new Set<string>();
     for (const row of friendships) {
       if (row.status !== "accepted") continue;
-      const other = row.requester_id === userId ? row.addressee_id : row.requester_id;
+      const other =
+        row.requester_id === userId ? row.addressee_id : row.requester_id;
       if (seen.has(other)) continue;
       seen.add(other);
       result.push(person(other));
@@ -246,36 +296,74 @@ export function useMessaging(user: User | null): MessagingApi {
     [friendships, userId],
   );
 
-  const unreadByFriend = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const message of messages) {
-      if (message.recipient_id !== userId || message.read_at) continue;
-      counts[message.sender_id] = (counts[message.sender_id] ?? 0) + 1;
-    }
-    return counts;
-  }, [messages, userId]);
+  const conversationsView = useMemo(() => {
+    const result: ConversationSummary[] = conversations.map((conversation) => {
+      const conversationMembers = members.filter(
+        (member) => member.conversation_id === conversation.id,
+      );
+      const mine = conversationMembers.find(
+        (member) => member.user_id === userId,
+      );
+      const others = conversationMembers
+        .filter((member) => member.user_id !== userId)
+        .map((member) => person(member.user_id));
+      const conversationMessages = messages.filter(
+        (message) => message.conversation_id === conversation.id,
+      );
+      const lastMessage =
+        conversationMessages[conversationMessages.length - 1] ?? null;
+      const unread = mine
+        ? conversationMessages.filter(
+            (message) =>
+              message.sender_id !== userId &&
+              (!mine.last_read_at ||
+                new Date(message.created_at).getTime() >
+                  new Date(mine.last_read_at).getTime()),
+          ).length
+        : 0;
+
+      const title =
+        conversation.kind === "group"
+          ? conversation.title?.trim() || "Group chat"
+          : others[0]?.name ?? "Direct chat";
+
+      return {
+        id: conversation.id,
+        kind: conversation.kind,
+        title,
+        avatar: conversation.kind === "direct" ? others[0]?.avatar ?? "" : "",
+        members: others,
+        unread,
+        lastMessage,
+        updatedAt: lastMessage?.created_at ?? conversation.created_at,
+      };
+    });
+
+    return result.sort(
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
+  }, [conversations, members, messages, person, userId]);
 
   const totalUnread = useMemo(
     () =>
       userId
-        ? Object.values(unreadByFriend).reduce(
-            (total, count) => total + count,
+        ? conversationsView.reduce(
+            (total, conversation) => total + conversation.unread,
             0,
           )
         : 0,
-    [unreadByFriend, userId],
+    [conversationsView, userId],
   );
 
-  const conversation = useCallback(
-    (friendId: string | null) => {
-      if (!friendId) return [];
+  const messagesFor = useCallback(
+    (conversationId: string | null) => {
+      if (!conversationId) return [];
       return messages.filter(
-        (message) =>
-          (message.sender_id === userId && message.recipient_id === friendId) ||
-          (message.sender_id === friendId && message.recipient_id === userId),
+        (message) => message.conversation_id === conversationId,
       );
     },
-    [messages, userId],
+    [messages],
   );
 
   const sendFriendRequest = useCallback(
@@ -331,7 +419,6 @@ export function useMessaging(user: User | null): MessagingApi {
           .eq("id", request.id);
         if (updateError) throw updateError;
       } else {
-        // Removing the row lets either side send a fresh request later.
         const { error: deleteError } = await supabase
           .from("friendships")
           .delete()
@@ -344,17 +431,80 @@ export function useMessaging(user: User | null): MessagingApi {
     [configured, refresh, userId],
   );
 
+  const startDirectChat = useCallback(
+    async (friendId: string) => {
+      if (!configured || !userId) throw new Error("Sign in to message.");
+      const supabase = getSupabaseBrowserClient();
+      const { data, error: rpcError } = await supabase.rpc(
+        "start_direct_conversation",
+        { other_user: friendId },
+      );
+      if (rpcError) throw rpcError;
+      await refresh();
+      return data as string;
+    },
+    [configured, refresh, userId],
+  );
+
+  const createGroup = useCallback(
+    async (title: string, memberIds: string[]) => {
+      if (!configured || !userId) throw new Error("Sign in to create a group.");
+      const supabase = getSupabaseBrowserClient();
+      const { data, error: rpcError } = await supabase.rpc(
+        "create_group_conversation",
+        { group_title: title.trim(), member_ids: memberIds },
+      );
+      if (rpcError) throw rpcError;
+      await refresh();
+      return data as string;
+    },
+    [configured, refresh, userId],
+  );
+
   const sendMessage = useCallback(
-    async (recipientId: string, body: string) => {
+    async (conversationId: string, body: string, image?: File | null) => {
       if (!configured || !userId) throw new Error("Sign in to send messages.");
       const text = body.trim();
-      if (!text) return;
+      if (!text && !image) return;
+      if (text.length > 2000) throw new Error("Messages can be 2000 characters.");
 
       const supabase = getSupabaseBrowserClient();
+      let attachmentUrl: string | null = null;
+      let attachmentType: "image" | null = null;
+
+      if (image) {
+        const safeName = image.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const unique =
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        const path = `${conversationId}/${unique}-${safeName}`;
+        const { error: uploadError } = await supabase.storage
+          .from("chat-images")
+          .upload(path, image, {
+            cacheControl: "3600",
+            contentType: image.type,
+            upsert: false,
+          });
+        if (uploadError) throw uploadError;
+        attachmentUrl = supabase.storage
+          .from("chat-images")
+          .getPublicUrl(path).data.publicUrl;
+        attachmentType = "image";
+      }
+
       const { data, error: insertError } = await supabase
         .from("messages")
-        .insert({ sender_id: userId, recipient_id: recipientId, body: text })
-        .select("id, sender_id, recipient_id, body, created_at, read_at")
+        .insert({
+          conversation_id: conversationId,
+          sender_id: userId,
+          body: text,
+          attachment_url: attachmentUrl,
+          attachment_type: attachmentType,
+        })
+        .select(
+          "id, conversation_id, sender_id, body, attachment_url, attachment_type, created_at",
+        )
         .single();
       if (insertError) throw insertError;
 
@@ -371,36 +521,35 @@ export function useMessaging(user: User | null): MessagingApi {
   );
 
   const markConversationRead = useCallback(
-    async (friendId: string) => {
+    async (conversationId: string) => {
       if (!configured || !userId) return;
 
       const readAt = new Date().toISOString();
-      setMessages((current) => {
+      setMembers((current) => {
         let changed = false;
-        const next = current.map((message) => {
+        const next = current.map((member) => {
           if (
-            message.recipient_id === userId &&
-            message.sender_id === friendId &&
-            !message.read_at
+            member.conversation_id === conversationId &&
+            member.user_id === userId &&
+            (!member.last_read_at ||
+              new Date(member.last_read_at).getTime() <
+                new Date(readAt).getTime())
           ) {
             changed = true;
-            return { ...message, read_at: readAt };
+            return { ...member, last_read_at: readAt };
           }
-          return message;
+          return member;
         });
         return changed ? next : current;
       });
 
       const supabase = getSupabaseBrowserClient();
       const { error: updateError } = await supabase
-        .from("messages")
-        .update({ read_at: readAt })
-        .eq("recipient_id", userId)
-        .eq("sender_id", friendId)
-        .is("read_at", null);
-      if (updateError) {
-        setError(updateError.message);
-      }
+        .from("conversation_members")
+        .update({ last_read_at: readAt })
+        .eq("conversation_id", conversationId)
+        .eq("user_id", userId);
+      if (updateError) setError(updateError.message);
     },
     [configured, userId],
   );
@@ -413,14 +562,15 @@ export function useMessaging(user: User | null): MessagingApi {
     incomingRequests,
     outgoingRequests,
     friends,
-    messages,
+    conversations: conversationsView,
     totalUnread,
-    unreadByFriend,
     person,
-    conversation,
+    messagesFor,
     refresh,
     sendFriendRequest,
     respondToRequest,
+    startDirectChat,
+    createGroup,
     sendMessage,
     markConversationRead,
   };

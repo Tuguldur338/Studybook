@@ -1,16 +1,29 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+/* eslint-disable @next/next/no-img-element -- chat images come from Supabase Storage */
+
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import type { User } from "@supabase/supabase-js";
 import {
   LuArrowLeft,
   LuCheck,
+  LuExternalLink,
+  LuImagePlus,
   LuMessageCircle,
   LuSend,
   LuUserPlus,
+  LuUsers,
   LuX,
 } from "react-icons/lu";
 import type {
+  ChatMessage,
+  ConversationSummary,
   Friendship,
   MessagingApi,
   PersonInfo,
@@ -44,6 +57,67 @@ function PersonAvatar({ person }: { person: PersonInfo }) {
   );
 }
 
+function GroupAvatar({ title }: { title: string }) {
+  return (
+    <span aria-hidden="true" className="messenger-avatar group-avatar">
+      {initials(title)}
+    </span>
+  );
+}
+
+const URL_PATTERN = /(https?:\/\/[^\s]+)/g;
+
+function linkLabel(url: string) {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "");
+    if (host.includes("tiktok")) return "TikTok";
+    if (host.includes("instagram")) return "Instagram";
+    if (host.includes("youtu")) return "YouTube";
+    if (host === "x.com" || host.includes("twitter")) return "X / Twitter";
+    if (host.includes("spotify")) return "Spotify";
+    if (host.includes("github")) return "GitHub";
+    if (host.includes("pinterest")) return "Pinterest";
+    if (host.includes("snapchat")) return "Snapchat";
+    return host;
+  } catch {
+    return url;
+  }
+}
+
+function MessageBody({ body }: { body: string }) {
+  if (!body) return null;
+  const parts = body.split(URL_PATTERN);
+
+  return (
+    <p>
+      {parts.map((part, index) =>
+        /^https?:\/\//.test(part) ? (
+          <a
+            className="chat-link"
+            href={part}
+            key={`${part}-${index}`}
+            rel="noreferrer noopener"
+            target="_blank"
+          >
+            <LuExternalLink aria-hidden="true" size={12} />
+            <span>{linkLabel(part)}</span>
+          </a>
+        ) : (
+          <span key={`text-${index}`}>{part}</span>
+        ),
+      )}
+    </p>
+  );
+}
+
+function conversationPreview(conversation: ConversationSummary) {
+  if (!conversation.lastMessage) return "No messages yet";
+  if (conversation.lastMessage.body) return conversation.lastMessage.body;
+  return conversation.lastMessage.attachment_type === "image"
+    ? "Sent a picture"
+    : "New message";
+}
+
 export default function MessagingPanel({
   api,
   onClose,
@@ -53,16 +127,26 @@ export default function MessagingPanel({
   onClose: () => void;
   user: User | null;
 }) {
-  const [activeFriendId, setActiveFriendId] = useState<string | null>(null);
+  const [activeConversationId, setActiveConversationId] = useState<
+    string | null
+  >(null);
+  const [creatingGroup, setCreatingGroup] = useState(false);
+  const [groupTitle, setGroupTitle] = useState("");
+  const [groupMemberIds, setGroupMemberIds] = useState<string[]>([]);
   const [email, setEmail] = useState("");
   const [draft, setDraft] = useState("");
+  const [image, setImage] = useState<File | null>(null);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const threadRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  const activeFriend = activeFriendId ? api.person(activeFriendId) : null;
-  const conversation = api.conversation(activeFriendId);
+  const activeConversation = activeConversationId
+    ? api.conversations.find((item) => item.id === activeConversationId) ??
+      null
+    : null;
+  const thread = api.messagesFor(activeConversationId);
   const { markConversationRead } = api;
 
   useEffect(() => {
@@ -74,25 +158,31 @@ export default function MessagingPanel({
   }, [onClose]);
 
   useEffect(() => {
-    if (!activeFriendId) return;
-    void markConversationRead(activeFriendId);
-  }, [activeFriendId, markConversationRead]);
+    if (!activeConversationId) return;
+    void markConversationRead(activeConversationId);
+  }, [activeConversationId, markConversationRead]);
 
   useEffect(() => {
-    if (!activeFriendId || !user) return;
-    const hasUnread = api.messages.some(
+    if (!activeConversationId) return;
+    const hasUnread = thread.some(
       (message) =>
-        message.recipient_id === user.id &&
-        message.sender_id === activeFriendId &&
-        !message.read_at,
+        user &&
+        message.sender_id !== user.id &&
+        activeConversation?.unread !== 0,
     );
-    if (hasUnread) void markConversationRead(activeFriendId);
-  }, [activeFriendId, api.messages, markConversationRead, user]);
+    if (hasUnread) void markConversationRead(activeConversationId);
+  }, [
+    activeConversation?.unread,
+    activeConversationId,
+    markConversationRead,
+    thread,
+    user,
+  ]);
 
   useEffect(() => {
     const node = threadRef.current;
     if (node) node.scrollTop = node.scrollHeight;
-  }, [activeFriendId, conversation.length]);
+  }, [activeConversationId, thread.length]);
 
   async function handleAddFriend(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -125,18 +215,76 @@ export default function MessagingPanel({
     }
   }
 
+  async function handleOpenFriend(friendId: string) {
+    setError("");
+    setBusy(true);
+    try {
+      const conversationId = await api.startDirectChat(friendId);
+      setActiveConversationId(conversationId);
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Could not open the chat.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleCreateGroup(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+
+    if (groupMemberIds.length < 2) {
+      setError("Pick at least two friends for a group chat.");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const conversationId = await api.createGroup(groupTitle, groupMemberIds);
+      setCreatingGroup(false);
+      setGroupTitle("");
+      setGroupMemberIds([]);
+      setActiveConversationId(conversationId);
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Could not create the group.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Choose an image file.");
+      event.target.value = "";
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Images must be smaller than 5 MB.");
+      event.target.value = "";
+      return;
+    }
+    setError("");
+    setImage(file);
+  }
+
   async function handleSend(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!activeFriendId) return;
-    const body = draft.trim();
-    if (!body) return;
+    if (!activeConversationId) return;
+    if (!draft.trim() && !image) return;
 
     setError("");
     setBusy(true);
     try {
-      await api.sendMessage(activeFriendId, body);
+      await api.sendMessage(activeConversationId, draft, image);
       setDraft("");
-      void api.markConversationRead(activeFriendId);
+      setImage(null);
+      if (fileRef.current) fileRef.current.value = "";
+      void api.markConversationRead(activeConversationId);
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "Could not send the message.",
@@ -145,6 +293,20 @@ export default function MessagingPanel({
       setBusy(false);
     }
   }
+
+  function toggleGroupMember(friendId: string) {
+    setGroupMemberIds((current) =>
+      current.includes(friendId)
+        ? current.filter((id) => id !== friendId)
+        : [...current, friendId],
+    );
+  }
+
+  const title = creatingGroup
+    ? "New group"
+    : activeConversation
+      ? activeConversation.title
+      : "Messages";
 
   return (
     <div className="modal-backdrop" onClick={onClose} role="presentation">
@@ -156,11 +318,20 @@ export default function MessagingPanel({
         role="dialog"
       >
         <header className="messenger-head">
-          {activeFriend ? (
+          {creatingGroup || activeConversation ? (
             <button
-              aria-label="Back to friends"
+              aria-label="Back"
               className="icon-button"
-              onClick={() => setActiveFriendId(null)}
+              onClick={() => {
+                if (creatingGroup) {
+                  setCreatingGroup(false);
+                  setGroupTitle("");
+                  setGroupMemberIds([]);
+                } else {
+                  setActiveConversationId(null);
+                }
+                setError("");
+              }}
               type="button"
             >
               <LuArrowLeft size={17} />
@@ -171,8 +342,16 @@ export default function MessagingPanel({
             </span>
           )}
           <div className="messenger-title">
-            <h2>{activeFriend ? activeFriend.name : "Messages"}</h2>
-            <p>{activeFriend ? "Live chat" : "Friends and requests"}</p>
+            <h2>{title}</h2>
+            <p>
+              {creatingGroup
+                ? "Choose friends to add"
+                : activeConversation
+                  ? activeConversation.kind === "group"
+                    ? `${activeConversation.members.length + 1} members`
+                    : "Direct message"
+                  : "Chats, friends and requests"}
+            </p>
           </div>
           <button
             aria-label="Close messages"
@@ -201,44 +380,154 @@ export default function MessagingPanel({
               Use the Register or Sign in button in the top bar.
             </p>
           </div>
-        ) : activeFriend && activeFriendId ? (
+        ) : creatingGroup ? (
+          <form className="messenger-body" onSubmit={handleCreateGroup}>
+            <div className="field">
+              <label htmlFor="group-title">Group name</label>
+              <input
+                autoFocus
+                className="input"
+                id="group-title"
+                maxLength={80}
+                onChange={(event) => setGroupTitle(event.target.value)}
+                placeholder="e.g. Biology study group"
+                required
+                value={groupTitle}
+              />
+            </div>
+
+            <section className="messenger-section">
+              <h3>Add friends</h3>
+              {api.friends.length === 0 && (
+                <p className="messenger-hint">
+                  You need friends first — add someone by email below.
+                </p>
+              )}
+              {api.friends.map((friend) => (
+                <label className="group-member" key={friend.id}>
+                  <input
+                    checked={groupMemberIds.includes(friend.id)}
+                    onChange={() => toggleGroupMember(friend.id)}
+                    type="checkbox"
+                  />
+                  <PersonAvatar person={friend} />
+                  <span>{friend.name}</span>
+                </label>
+              ))}
+            </section>
+
+            {error && <p className="notice">{error}</p>}
+
+            <div className="form-actions">
+              <button
+                className="secondary-button"
+                onClick={() => {
+                  setCreatingGroup(false);
+                  setGroupMemberIds([]);
+                  setGroupTitle("");
+                  setError("");
+                }}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="primary-button"
+                disabled={busy || !groupTitle.trim()}
+                type="submit"
+              >
+                <LuUsers size={15} /> Create group
+              </button>
+            </div>
+          </form>
+        ) : activeConversation && activeConversationId ? (
           <>
             <div className="messenger-thread" ref={threadRef}>
-              {conversation.length ? (
-                conversation.map((message) => {
-                  const mine = message.sender_id === user.id;
-                  return (
-                    <div
-                      className={`bubble${mine ? " mine" : ""}`}
-                      key={message.id}
-                    >
-                      <p>{message.body}</p>
-                      <time dateTime={message.created_at}>
-                        {new Date(message.created_at).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </time>
-                    </div>
-                  );
-                })
-              ) : (
+              {thread.length === 0 && (
                 <p className="messenger-hint messenger-thread-empty">
                   No messages yet. Say hello.
                 </p>
               )}
+              {thread.map((message: ChatMessage) => {
+                const mine = message.sender_id === user.id;
+                return (
+                  <div
+                    className={`bubble${mine ? " mine" : ""}`}
+                    key={message.id}
+                  >
+                    {activeConversation.kind === "group" && !mine && (
+                      <span className="bubble-sender">
+                        {api.person(message.sender_id).name}
+                      </span>
+                    )}
+                    {message.attachment_type === "image" &&
+                      message.attachment_url && (
+                        <a
+                          className="bubble-image-link"
+                          href={message.attachment_url}
+                          rel="noreferrer noopener"
+                          target="_blank"
+                        >
+                          <img
+                            alt="Shared attachment"
+                            className="bubble-image"
+                            loading="lazy"
+                            src={message.attachment_url}
+                          />
+                        </a>
+                      )}
+                    <MessageBody body={message.body} />
+                    <time dateTime={message.created_at}>
+                      {new Date(message.created_at).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </time>
+                  </div>
+                );
+              })}
             </div>
+
+            {error && <p className="notice messenger-notice">{error}</p>}
+
             <form className="messenger-composer" onSubmit={handleSend}>
-              <input
-                aria-label={`Message ${activeFriend.name}`}
-                className="input"
-                onChange={(event) => setDraft(event.target.value)}
-                placeholder="Write a message..."
-                value={draft}
-              />
+              <label className="composer-attach" title="Attach a picture">
+                <LuImagePlus size={18} />
+                <input
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  onChange={handleImageChange}
+                  ref={fileRef}
+                  type="file"
+                />
+              </label>
+              <div className="composer-input">
+                <input
+                  aria-label={`Message ${activeConversation.title}`}
+                  className="input"
+                  maxLength={2000}
+                  onChange={(event) => setDraft(event.target.value)}
+                  placeholder="Write a message or paste a link..."
+                  value={draft}
+                />
+                {image && (
+                  <span className="attachment-chip">
+                    {image.name}
+                    <button
+                      aria-label="Remove picture"
+                      onClick={() => {
+                        setImage(null);
+                        if (fileRef.current) fileRef.current.value = "";
+                      }}
+                      type="button"
+                    >
+                      <LuX size={12} />
+                    </button>
+                  </span>
+                )}
+              </div>
               <button
                 className="primary-button"
-                disabled={busy || !draft.trim()}
+                disabled={busy || (!draft.trim() && !image)}
                 type="submit"
               >
                 <LuSend size={15} />
@@ -248,28 +537,6 @@ export default function MessagingPanel({
           </>
         ) : (
           <div className="messenger-body">
-            <form className="messenger-add" onSubmit={handleAddFriend}>
-              <label htmlFor="friend-email">Add a friend by email</label>
-              <div className="messenger-add-row">
-                <input
-                  className="input"
-                  id="friend-email"
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="friend@example.com"
-                  required
-                  type="email"
-                  value={email}
-                />
-                <button
-                  className="primary-button"
-                  disabled={busy}
-                  type="submit"
-                >
-                  <LuUserPlus size={15} /> Request
-                </button>
-              </div>
-            </form>
-
             {notice && <p className="notice success-notice">{notice}</p>}
             {error && <p className="notice">{error}</p>}
             {api.error && <p className="notice">{api.error}</p>}
@@ -311,39 +578,104 @@ export default function MessagingPanel({
             )}
 
             <section className="messenger-section">
-              <h3>Friends</h3>
+              <div className="messenger-section-head">
+                <h3>Chats</h3>
+                <button
+                  className="text-button"
+                  onClick={() => {
+                    setCreatingGroup(true);
+                    setError("");
+                  }}
+                  type="button"
+                >
+                  + New group
+                </button>
+              </div>
               {api.loading && <p className="messenger-hint">Loading…</p>}
-              {!api.loading && api.friends.length === 0 && (
+              {!api.loading && api.conversations.length === 0 && (
                 <p className="messenger-hint">
-                  No friends yet. Send a request above.
+                  No chats yet. Start one from your friends below.
                 </p>
               )}
-              {api.friends.map((friend) => {
-                const unread = api.unreadByFriend[friend.id] ?? 0;
-                return (
-                  <button
-                    className="messenger-row messenger-friend"
-                    key={friend.id}
-                    onClick={() => {
-                      setActiveFriendId(friend.id);
-                      setError("");
-                    }}
-                    type="button"
-                  >
-                    <PersonAvatar person={friend} />
-                    <div className="messenger-row-main">
-                      <strong>{friend.name}</strong>
-                      <span>
-                        {unread > 0
-                          ? `${unread} new message${unread === 1 ? "" : "s"}`
-                          : "Open chat"}
-                      </span>
-                    </div>
-                    {unread > 0 && <span className="nav-badge">{unread}</span>}
-                  </button>
-                );
-              })}
+              {api.conversations.map((conversation) => (
+                <button
+                  className="messenger-row"
+                  key={conversation.id}
+                  onClick={() => {
+                    setActiveConversationId(conversation.id);
+                    setError("");
+                  }}
+                  type="button"
+                >
+                  {conversation.kind === "group" ? (
+                    <GroupAvatar title={conversation.title} />
+                  ) : (
+                    <PersonAvatar
+                      person={
+                        conversation.members[0] ?? {
+                          id: conversation.id,
+                          name: conversation.title,
+                          avatar: conversation.avatar,
+                        }
+                      }
+                    />
+                  )}
+                  <div className="messenger-row-main">
+                    <strong>{conversation.title}</strong>
+                    <span>{conversationPreview(conversation)}</span>
+                  </div>
+                  {conversation.unread > 0 && (
+                    <span className="nav-badge">{conversation.unread}</span>
+                  )}
+                </button>
+              ))}
             </section>
+
+            <section className="messenger-section">
+              <h3>Friends</h3>
+              {api.friends.length === 0 && (
+                <p className="messenger-hint">
+                  No friends yet. Send a request below.
+                </p>
+              )}
+              {api.friends.map((friend) => (
+                <button
+                  className="messenger-row"
+                  disabled={busy}
+                  key={friend.id}
+                  onClick={() => handleOpenFriend(friend.id)}
+                  type="button"
+                >
+                  <PersonAvatar person={friend} />
+                  <div className="messenger-row-main">
+                    <strong>{friend.name}</strong>
+                    <span>Message</span>
+                  </div>
+                </button>
+              ))}
+            </section>
+
+            <form className="messenger-add" onSubmit={handleAddFriend}>
+              <label htmlFor="friend-email">Add a friend by email</label>
+              <div className="messenger-add-row">
+                <input
+                  className="input"
+                  id="friend-email"
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="friend@example.com"
+                  required
+                  type="email"
+                  value={email}
+                />
+                <button
+                  className="primary-button"
+                  disabled={busy}
+                  type="submit"
+                >
+                  <LuUserPlus size={15} /> Request
+                </button>
+              </div>
+            </form>
 
             {api.outgoingRequests.length > 0 && (
               <section className="messenger-section">
