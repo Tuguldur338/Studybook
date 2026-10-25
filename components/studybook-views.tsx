@@ -21,6 +21,7 @@ import {
   LuCircleAlert,
   LuCircleCheck,
   LuClock,
+  LuExternalLink,
   LuFileText,
   LuNotebookPen,
   LuPencil,
@@ -28,8 +29,12 @@ import {
   LuSearch,
   LuSun,
   LuMoon,
+  LuMusic,
+  LuPause,
+  LuPlay,
   LuTrash2,
   LuUpload,
+  LuVolume2,
 } from "react-icons/lu";
 import {
   FONT_OPTIONS,
@@ -43,8 +48,11 @@ import {
   type StudyTask,
 } from "@/components/studybook-context";
 import { ProfileAvatar } from "@/components/studybook-shell";
+import { useMusic } from "@/components/music-context";
 import { useSupabaseUser } from "@/components/use-supabase-user";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { HOLIDAYS, getUpcomingHoliday } from "@/lib/holidays";
+import { isPlayableSource } from "@/lib/music-store";
 
 const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const shortWeekdays = ["Mon", "Tue", "Wed", "Thu", "Fri"];
@@ -1974,10 +1982,18 @@ export function AccountView() {
           .update({ display_name: value })
           .eq("id", user.id);
         if (error) throw error;
-        await supabase.auth.updateUser({ data: { display_name: value } });
+
+        const { error: metaError } = await supabase.auth.updateUser({
+          data: { display_name: value },
+        });
+
         setProfile((current) => ({ ...current, name: value }));
         setDraft(null);
-        setUsernameStatus("Your display name now matches your username.");
+        setUsernameStatus(
+          metaError
+            ? "Display name updated. Reload if it does not show right away."
+            : "Your display name now matches your username.",
+        );
         notify("Display name updated.");
       } catch (cause) {
         setUsernameError(
@@ -2427,7 +2443,15 @@ const FONT_META: Record<
 };
 
 export function SettingsView() {
-  const { font, setFont, setTheme, theme } = useStudybook();
+  const {
+    font,
+    holidayEffects,
+    setFont,
+    setHolidayEffects,
+    setTheme,
+    theme,
+  } = useStudybook();
+  const upcoming = getUpcomingHoliday(new Date());
 
   return (
     <>
@@ -2507,7 +2531,352 @@ export function SettingsView() {
             </div>
           </div>
         </section>
+
+        <section className="panel settings-wide">
+          <div className="panel-heading">
+            <h2 className="panel-title">Holiday effects</h2>
+          </div>
+          <div className="panel-body">
+            <label className="setting-toggle">
+              <input
+                checked={holidayEffects}
+                onChange={(event) =>
+                  setHolidayEffects(event.target.checked)
+                }
+                type="checkbox"
+              />
+              <span aria-hidden="true" className="setting-toggle-track" />
+              <span className="setting-toggle-copy">
+                <strong>Celebration animations</strong>
+                <span>
+                  A short, one-time celebration on each special day — snow on
+                  Christmas, bats on Halloween, confetti on Naadam. It fades
+                  after a few seconds and never repeats that holiday.
+                </span>
+              </span>
+            </label>
+            <div className="settings-actions">
+              <button
+                className="secondary-button"
+                disabled={!holidayEffects}
+                onClick={() => {
+                  window.dispatchEvent(
+                    new CustomEvent("studybook-preview-holiday", {
+                      detail: upcoming?.holiday.key ?? "christmas",
+                    }),
+                  );
+                }}
+                type="button"
+              >
+                {upcoming
+                  ? `Preview ${upcoming.holiday.emoji} ${upcoming.holiday.name}`
+                  : "Preview effects"}
+              </button>
+            </div>
+          </div>
+        </section>
       </div>
+    </>
+  );
+}
+
+const SOURCE_LABELS: Record<string, string> = {
+  file: "Audio file",
+  url: "Audio link",
+  youtube: "YouTube",
+  spotify: "Spotify",
+  link: "Link",
+  builtin: "Built-in theme",
+};
+
+export function MusicView() {
+  const {
+    addFileTrack,
+    addUrlTrack,
+    blocked,
+    currentTrack,
+    error,
+    holiday,
+    isPlaying,
+    playTrack,
+    removeTrack,
+    setVolume,
+    settings,
+    toggle,
+    upcoming,
+  } = useMusic();
+
+  const [title, setTitle] = useState("");
+  const [url, setUrl] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [dayChoice, setDayChoice] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [notice, setNotice] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+  const selectedDay =
+    dayChoice ??
+    holiday?.key ??
+    upcoming?.holiday.key ??
+    Object.keys(HOLIDAYS)[0];
+
+  const dayLabel = (key: string) =>
+    key === "any" ? "Any day" : (HOLIDAYS[key]?.name ?? key);
+
+  async function handleAdd(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormError("");
+    setNotice("");
+
+    if (!file && !url.trim()) {
+      setFormError("Paste a link or choose an audio file first.");
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const track = file
+        ? await addFileTrack(file, selectedDay, title)
+        : await addUrlTrack(url, selectedDay, title);
+      setNotice(`Added “${track.title}”.`);
+      setTitle("");
+      setUrl("");
+      setFile(null);
+      if (fileRef.current) fileRef.current.value = "";
+    } catch (cause) {
+      setFormError(
+        cause instanceof Error ? cause.message : "Could not add that track.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function handleFile(event: ChangeEvent<HTMLInputElement>) {
+    const next = event.target.files?.[0] ?? null;
+    if (next && next.size > 30 * 1024 * 1024) {
+      setFormError("Audio files must be smaller than 30 MB.");
+      event.target.value = "";
+      return;
+    }
+    setFile(next);
+    setFormError("");
+  }
+
+  return (
+    <>
+      <PageHeading
+        eyebrow="Set the mood"
+        subtitle="A quiet soundtrack for celebrations, chosen by you."
+        title="Music"
+      />
+
+      <section className="panel music-hero">
+        <div className="music-hero-main">
+          <span aria-hidden="true" className="music-hero-emoji">
+            {holiday?.emoji ?? "🎵"}
+          </span>
+          <div>
+            <p className="eyebrow">
+              {holiday ? "Today's celebration" : "Background music"}
+            </p>
+            <h2 className="music-hero-title">
+              {holiday ? holiday.name : "No special day today"}
+            </h2>
+            <p className="page-subtitle">
+              {currentTrack
+                ? `Now: ${currentTrack.title}`
+                : holiday
+                  ? "The built-in theme will play once you press Play."
+                  : "Add a track for an upcoming celebration, or wait for the next special day."}
+            </p>
+          </div>
+        </div>
+        <div className="music-hero-actions">
+          <button
+            className="primary-button"
+            disabled={!currentTrack}
+            onClick={toggle}
+            type="button"
+          >
+            {isPlaying ? <LuPause size={15} /> : <LuPlay size={15} />}
+            {isPlaying ? "Pause" : "Play"}
+          </button>
+          <label className="music-volume" title="Music volume">
+            <LuVolume2 aria-hidden="true" size={15} />
+            <input
+              aria-label="Music volume"
+              max={1}
+              min={0}
+              onChange={(event) => setVolume(Number(event.target.value))}
+              step={0.05}
+              type="range"
+              value={settings.volume}
+            />
+          </label>
+        </div>
+      </section>
+
+      {upcoming && (
+        <p className="page-subtitle music-upcoming">
+          {upcoming.days === 0
+            ? `${upcoming.holiday.emoji} Today is ${upcoming.holiday.name}.`
+            : `${upcoming.holiday.emoji} Next up: ${upcoming.holiday.name} in ${upcoming.days} day${upcoming.days === 1 ? "" : "s"}.`}
+        </p>
+      )}
+
+      {error && <p className="notice">{error}</p>}
+      {blocked && (
+        <p className="notice">
+          Your browser needs one tap before it can play audio. Press Play.
+        </p>
+      )}
+
+      <form className="panel form-panel" onSubmit={handleAdd}>
+        <h2 className="panel-title">Add a song</h2>
+        <div className="form-grid">
+          <div className="field">
+            <label htmlFor="music-title">Title (optional)</label>
+            <input
+              className="input"
+              id="music-title"
+              maxLength={120}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder="e.g. Spooky strings"
+              value={title}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="music-day">Plays on</label>
+            <div className="select-wrap">
+              <select
+                className="select"
+                id="music-day"
+                onChange={(event) => setDayChoice(event.target.value)}
+                value={selectedDay}
+              >
+                {Object.values(HOLIDAYS).map((item) => (
+                  <option key={item.key} value={item.key}>
+                    {item.emoji} {item.name}
+                  </option>
+                ))}
+              </select>
+              <span aria-hidden="true" className="select-chevron">
+                <LuChevronDown size={15} strokeWidth={2.5} />
+              </span>
+            </div>
+          </div>
+          <div className="field full-width">
+            <label htmlFor="music-url">Link</label>
+            <input
+              className="input"
+              id="music-url"
+              onChange={(event) => setUrl(event.target.value)}
+              placeholder="YouTube, Spotify, or a direct audio URL"
+              value={url}
+            />
+          </div>
+          <div className="field full-width">
+            <label htmlFor="music-file">…or upload an audio file</label>
+            <input
+              accept="audio/*,video/mp4,video/webm"
+              className="input music-file-input"
+              id="music-file"
+              onChange={handleFile}
+              ref={fileRef}
+              type="file"
+            />
+          </div>
+        </div>
+        <p className="field-hint">
+          Audio files and direct audio links can play in the background.
+          YouTube and Spotify links are saved to your list and open in their own
+          apps.
+        </p>
+        {formError && <p className="notice">{formError}</p>}
+        {notice && <p className="notice success-notice">{notice}</p>}
+        <div className="form-actions">
+          <button className="primary-button" disabled={busy} type="submit">
+            <LuPlus size={15} /> Add track
+          </button>
+        </div>
+      </form>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <h2 className="panel-title">Your music</h2>
+          <span className="panel-link">
+            {settings.tracks.length} track
+            {settings.tracks.length === 1 ? "" : "s"}
+          </span>
+        </div>
+        <div className="panel-body">
+          {settings.tracks.length ? (
+            <div className="music-list">
+              {settings.tracks.map((track) => {
+                const current = currentTrack?.id === track.id;
+                const playable = isPlayableSource(track.source);
+                return (
+                  <div
+                    className={`music-row${current ? " current" : ""}`}
+                    key={track.id}
+                  >
+                    <span aria-hidden="true" className="music-row-icon">
+                      {current && isPlaying ? (
+                        <LuVolume2 size={15} />
+                      ) : (
+                        <LuMusic size={15} />
+                      )}
+                    </span>
+                    <div className="music-row-main">
+                      <strong>{track.title}</strong>
+                      <span>
+                        {dayLabel(track.day)} ·{" "}
+                        {SOURCE_LABELS[track.source] ?? track.source}
+                      </span>
+                    </div>
+                    {current && <span className="music-tag">Now playing</span>}
+                    {playable ? (
+                      <button
+                        aria-label={`Play ${track.title}`}
+                        className="small-icon-button"
+                        onClick={() => void playTrack(track)}
+                        type="button"
+                      >
+                        <LuPlay size={13} />
+                      </button>
+                    ) : (
+                      <a
+                        aria-label={`Open ${track.title}`}
+                        className="small-icon-button"
+                        href={track.url}
+                        rel="noreferrer noopener"
+                        target="_blank"
+                      >
+                        <LuExternalLink size={13} />
+                      </a>
+                    )}
+                    <button
+                      aria-label={`Remove ${track.title}`}
+                      className="small-icon-button danger"
+                      onClick={() => removeTrack(track.id)}
+                      type="button"
+                    >
+                      <LuTrash2 size={13} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <EmptyState
+              copy="Add a song above and choose which celebration it belongs to."
+              icon={<LuMusic aria-hidden="true" size={22} />}
+              title="No tracks yet"
+            />
+          )}
+        </div>
+      </section>
     </>
   );
 }

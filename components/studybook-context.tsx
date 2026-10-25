@@ -101,6 +101,8 @@ type StudybookContextValue = {
   setTheme: Dispatch<SetStateAction<"light" | "dark">>;
   font: FontFamily;
   setFont: Dispatch<SetStateAction<FontFamily>>;
+  holidayEffects: boolean;
+  setHolidayEffects: Dispatch<SetStateAction<boolean>>;
   isLoaded: boolean;
   storageError: string;
   toasts: Toast[];
@@ -198,6 +200,7 @@ function readStudybookData() {
   const font: FontFamily = FONT_OPTIONS.includes(parsed.font as FontFamily)
     ? (parsed.font as FontFamily)
     : "geist";
+  const holidayEffects = parsed.holidayEffects !== false;
 
   return {
     classes: Array.isArray(parsed.classes)
@@ -216,6 +219,7 @@ function readStudybookData() {
     },
     theme,
     font,
+    holidayEffects,
   };
 }
 export function StudybookProvider({ children }: { children: ReactNode }) {
@@ -227,6 +231,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState(defaultProfile);
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [font, setFont] = useState<FontFamily>("geist");
+  const [holidayEffects, setHolidayEffects] = useState(true);
   const [isLoaded, setIsLoaded] = useState(false);
   const [storageError, setStorageError] = useState("");
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -272,6 +277,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
           setProfile(saved.profile);
           setTheme(saved.theme);
           setFont(saved.font);
+          setHolidayEffects(saved.holidayEffects);
         } else {
           const prefersDark = window.matchMedia?.(
             "(prefers-color-scheme: dark)",
@@ -306,6 +312,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
           profile,
           theme,
           font,
+          holidayEffects,
         }),
       );
     } catch (error) {
@@ -321,6 +328,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     classChecks,
     classes,
     font,
+    holidayEffects,
     isLoaded,
     notes,
     profile,
@@ -348,6 +356,8 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
         setTheme,
         font,
         setFont,
+        holidayEffects,
+        setHolidayEffects,
         isLoaded,
         storageError,
         toasts,

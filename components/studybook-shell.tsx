@@ -25,6 +25,7 @@ import {
   LuMenu,
   LuMessageCircle,
   LuMoon,
+  LuMusic,
   LuNotebookPen,
   LuSettings,
   LuSun,
@@ -41,6 +42,9 @@ import {
   useStudybook,
 } from "@/components/studybook-context";
 import MessagingPanel from "@/components/messaging-panel";
+import HolidayEffects from "@/components/holiday-effects";
+import { MusicProvider } from "@/components/music-context";
+import MusicPlayer from "@/components/music-player";
 import { useMessaging } from "@/components/use-messaging";
 import {
   getSupabaseBrowserClient,
@@ -52,6 +56,7 @@ const navigation = [
   { label: "Weekly schedule", href: "/schedule", icon: LuCalendarDays },
   { label: "To-do list", href: "/to-do-list", icon: LuCheck },
   { label: "My notes", href: "/notes", icon: LuNotebookPen },
+  { label: "Music", href: "/music", icon: LuMusic },
   { label: "Settings", href: "/settings", icon: LuSettings },
 ];
 
@@ -60,6 +65,7 @@ const pageNames: Record<string, string> = {
   "/schedule": "Weekly schedule",
   "/to-do-list": "To-do list",
   "/notes": "My notes",
+  "/music": "Music",
   "/settings": "Settings",
   "/account": "My account",
   "/profile": "Profile",
@@ -438,21 +444,44 @@ function StudybookFrame({ children }: { children: ReactNode }) {
           : typeof metadata.name === "string"
             ? metadata.name
             : "";
-    const displayName = rawName.trim();
+    const metadataName = rawName.trim();
     const fallbackName = authUser.email ? authUser.email.split("@")[0] : "";
-    const avatar =
+    const metadataAvatar =
       typeof metadata.avatar_url === "string"
         ? metadata.avatar_url
         : typeof metadata.picture === "string"
           ? metadata.picture
           : "";
 
-    setProfile((current) => ({
-      ...current,
-      name: displayName || fallbackName || current.name,
-      email: authUser.email ?? current.email,
-      avatar: current.avatar || avatar,
-    }));
+    let active = true;
+    const supabase = getSupabaseBrowserClient();
+    supabase
+      .from("profiles")
+      .select("display_name, avatar_url")
+      .eq("id", authUser.id)
+      .single()
+      .then(
+        ({
+          data,
+        }: {
+          data: { display_name: string | null; avatar_url: string | null } | null;
+        }) => {
+          if (!active) return;
+          const profileName = data?.display_name?.trim() ?? "";
+          const profileAvatar = data?.avatar_url ?? "";
+
+          setProfile((current) => ({
+            ...current,
+            name: profileName || metadataName || fallbackName || current.name,
+            email: authUser.email ?? current.email,
+            avatar: current.avatar || profileAvatar || metadataAvatar,
+          }));
+        },
+      );
+
+    return () => {
+      active = false;
+    };
   }, [authUser, isLoaded, setProfile]);
 
   useEffect(() => {
@@ -792,6 +821,8 @@ function StudybookFrame({ children }: { children: ReactNode }) {
           </div>
         ))}
       </div>
+      <HolidayEffects />
+      <MusicPlayer />
     </>
   );
 }
@@ -799,7 +830,9 @@ function StudybookFrame({ children }: { children: ReactNode }) {
 export default function StudybookShell({ children }: { children: ReactNode }) {
   return (
     <StudybookProvider>
-      <StudybookFrame>{children}</StudybookFrame>
+      <MusicProvider>
+        <StudybookFrame>{children}</StudybookFrame>
+      </MusicProvider>
     </StudybookProvider>
   );
 }
