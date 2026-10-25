@@ -23,6 +23,7 @@ import {
   LuInfo,
   LuLogIn,
   LuMenu,
+  LuMessageCircle,
   LuMoon,
   LuNotebookPen,
   LuSun,
@@ -38,6 +39,8 @@ import {
   StudybookProvider,
   useStudybook,
 } from "@/components/studybook-context";
+import MessagingPanel from "@/components/messaging-panel";
+import { useMessaging } from "@/components/use-messaging";
 import {
   getSupabaseBrowserClient,
   isSupabaseConfigured,
@@ -339,8 +342,14 @@ function StudybookFrame({ children }: { children: ReactNode }) {
   } = useStudybook();
   const [authMode, setAuthMode] = useState<AuthMode | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [messagesOpen, setMessagesOpen] = useState(false);
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [authError, setAuthError] = useState("");
+
+  const messaging = useMessaging(authUser);
+  const messagesBadge = authUser
+    ? messaging.totalUnread + messaging.incomingRequests.length
+    : 0;
 
   const pendingCount = tasks.filter((task) => !task.completed).length;
 
@@ -482,6 +491,22 @@ function StudybookFrame({ children }: { children: ReactNode }) {
                 )}
               </Link>
             ))}
+            <button
+              className="nav-link nav-button"
+              onClick={() => {
+                setMessagesOpen(true);
+                setMobileMenuOpen(false);
+                void messaging.refresh();
+              }}
+              title="Messages"
+              type="button"
+            >
+              <LuMessageCircle size={18} />
+              <span className="nav-text">Messages</span>
+              {messagesBadge > 0 && (
+                <span className="nav-badge">{messagesBadge}</span>
+              )}
+            </button>
           </nav>
           <div className="sidebar-bottom">
             <div className="sidebar-tip">
@@ -607,6 +632,13 @@ function StudybookFrame({ children }: { children: ReactNode }) {
           <AuthModal
             initialMode={authMode}
             onClose={() => setAuthMode(null)}
+          />
+        )}
+        {messagesOpen && (
+          <MessagingPanel
+            api={messaging}
+            onClose={() => setMessagesOpen(false)}
+            user={authUser}
           />
         )}
       </div>

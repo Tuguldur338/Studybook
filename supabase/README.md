@@ -49,3 +49,26 @@ project credentials are not committed. The example file is safe to commit, but
 do not put real keys in it. Never expose a Supabase secret key or legacy
 `service_role` key in a `NEXT_PUBLIC_` variable or browser code. The app uses
 these variables for browser-based Auth.
+
+## Messaging and friend requests
+
+Messaging uses Supabase Realtime on top of two extra tables:
+
+- `friendships` stores a pending request between two users. Accepting it makes
+  the pair friends; declining removes the request so either person can ask
+  again later.
+- `messages` stores direct messages with a `read_at` timestamp used for the
+  unread badge.
+
+Only accepted friends can insert messages — this is enforced in RLS, not just
+in the UI. Attachments and group chats are not supported yet.
+
+Apply [`migrations/messaging.sql`](./migrations/messaging.sql) after the base
+schema (either with `supabase db push` or by pasting it into the SQL Editor).
+The migration adds both tables to the `supabase_realtime` publication; if you
+prefer the dashboard, make sure both tables are toggled on under
+**Database → Publications → supabase_realtime**.
+
+To start a chat, open **Messages** in the sidebar, sign in, and send a friend
+request to the email address the other person used to register. Once they
+accept, the conversation appears in both sidebars and new messages arrive live.
