@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   useEffect,
+  useMemo,
   useState,
   type ChangeEvent,
   type FormEvent,
@@ -10,19 +11,25 @@ import {
 } from "react";
 import {
   LuArrowRight,
+  LuCalendarDays,
   LuCalendarPlus,
-  LuCheck,
   LuChevronDown,
+  LuCircleAlert,
   LuCircleCheck,
+  LuClock,
   LuFileText,
+  LuNotebookPen,
   LuPencil,
   LuPlus,
+  LuSearch,
   LuTrash2,
   LuUpload,
 } from "react-icons/lu";
 import {
+  NOTE_COLORS,
   useStudybook,
   type ClassSession,
+  type NoteColor,
   type StudyNote,
   type StudyTask,
 } from "@/components/studybook-context";
@@ -31,14 +38,40 @@ import { ProfileAvatar } from "@/components/studybook-shell";
 const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const shortWeekdays = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 
+const NOTE_SWATCH: Record<NoteColor, string> = {
+  default: "#1f7a5c",
+  sage: "#4f8f6f",
+  sky: "#3b82c4",
+  rose: "#d46a7a",
+  amber: "#d99a2b",
+  violet: "#7c6fd6",
+};
+
 function createId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+function toISODate(date: Date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function isOverdue(task: StudyTask, todayStr: string) {
+  return !task.completed && !!task.dueDate && task.dueDate < todayStr;
+}
+
+function getGreeting(hour: number) {
+  if (hour < 5) return "Working late";
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
+
 function formatTime(value: string) {
   const [hours, minutes] = value.split(":").map(Number);
-  const date = new Date();
-  date.setHours(hours, minutes, 0, 0);
+  const date = new Date(2020, 0, 1, hours, minutes);
   return new Intl.DateTimeFormat(undefined, {
     hour: "numeric",
     minute: "2-digit",
@@ -53,6 +86,16 @@ function formatDate(value: string) {
     month: "short",
     day: "numeric",
   }).format(date);
+}
+
+function hasOverlap(list: ClassSession[]) {
+  const sorted = [...list].sort((a, b) =>
+    a.startTime.localeCompare(b.startTime),
+  );
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i].startTime < sorted[i - 1].endTime) return true;
+  }
+  return false;
 }
 
 function PageHeading({
@@ -90,7 +133,7 @@ function EmptyState({
   return (
     <div className="empty-state">
       <div>
-        {icon}
+        <span className="empty-state-icon">{icon}</span>
         <p className="empty-state-title">{title}</p>
         <p className="empty-state-copy">{copy}</p>
       </div>
@@ -119,11 +162,55 @@ function ClassRow({ session }: { session: ClassSession }) {
   );
 }
 
+function ConfirmDialog({
+  title,
+  copy,
+  confirmLabel = "Delete",
+  onCancel,
+  onConfirm,
+}: {
+  title: string;
+  copy: string;
+  confirmLabel?: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="modal-backdrop" onClick={onCancel} role="presentation">
+      <section
+        aria-modal="true"
+        className="modal confirm-dialog"
+        onClick={(event) => event.stopPropagation()}
+        role="alertdialog"
+      >
+        <span className="confirm-icon">
+          <LuTrash2 size={22} />
+        </span>
+        <h2 className="confirm-title">{title}</h2>
+        <p className="confirm-copy">{copy}</p>
+        <div className="confirm-actions">
+          <button className="secondary-button" onClick={onCancel} type="button">
+            Cancel
+          </button>
+          <button
+            className="primary-button danger-button"
+            onClick={onConfirm}
+            type="button"
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
 export default function DashboardView() {
   const { classes, notes, profile, tasks } = useStudybook();
   const [today, setToday] = useState<{ day: number; label: string } | null>(
     null,
   );
+  const [greeting, setGreeting] = useState("Welcome");
+  const [todayStr, setTodayStr] = useState("");
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -136,6 +223,8 @@ export default function DashboardView() {
           day: "numeric",
         }).format(now),
       });
+      setGreeting(getGreeting(now.getHours()));
+      setTodayStr(toISODate(now));
     });
     return () => window.cancelAnimationFrame(frame);
   }, []);
@@ -146,7 +235,15 @@ export default function DashboardView() {
           .filter((session) => session.day === today.day)
           .sort((a, b) => a.startTime.localeCompare(b.startTime))
       : [];
+
   const pendingTasks = tasks.filter((task) => !task.completed);
+  const completedCount = tasks.length - pendingTasks.length;
+  const progress =
+    tasks.length === 0 ? 0 : Math.round((completedCount / tasks.length) * 100);
+  const overdueCount = pendingTasks.filter((task) =>
+    isOverdue(task, todayStr),
+  ).length;
+
   const nextTasks = [...pendingTasks]
     .sort((a, b) => {
       if (!a.dueDate) return 1;
@@ -154,14 +251,18 @@ export default function DashboardView() {
       return a.dueDate.localeCompare(b.dueDate);
     })
     .slice(0, 3);
+
+  const firstName = profile.name.trim().split(/\s+/)[0] || "student";
+
   return (
     <>
       <section className="welcome-card">
+        <div className="welcome-decor" aria-hidden="true" />
         <div className="welcome-content">
-          <p className="welcome-kicker">{today?.label ?? "Your study week"}</p>
-          <h1 className="welcome-title">
-            Hey, {profile.name.trim().split(/\s+/)[0] || "student"}.
-          </h1>
+          <p className="welcome-kicker">
+            {greeting} · {today?.label ?? "Your study week"}
+          </p>
+          <h1 className="welcome-title">Hey, {firstName}.</h1>
           <p className="welcome-copy">
             A fresh page, a clear plan, and a little progress at a time. Your
             study week starts here.
@@ -177,21 +278,56 @@ export default function DashboardView() {
 
       <section aria-label="Studybook summary" className="stats-grid">
         <div className="stat-card">
-          <div className="stat-label">Classes this week</div>
-          <div className="stat-value">{classes.length}</div>
-          <div className="stat-note">Your weekly rhythm</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">To-dos to finish</div>
-          <div className="stat-value">{pendingTasks.length}</div>
-          <div className="stat-note">
-            {pendingTasks.length === 1 ? "One step at a time" : "Keep it up"}
+          <span className="stat-icon">
+            <LuCalendarDays aria-hidden="true" size={20} />
+          </span>
+          <div>
+            <div className="stat-label">Classes this week</div>
+            <div className="stat-value">{classes.length}</div>
+            <div className="stat-note">Your weekly rhythm</div>
           </div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">Study notes</div>
-          <div className="stat-value">{notes.length}</div>
-          <div className="stat-note">Ideas worth keeping</div>
+          <span className="stat-icon">
+            <LuCircleCheck aria-hidden="true" size={20} />
+          </span>
+          <div>
+            <div className="stat-label">To-dos to finish</div>
+            <div className="stat-value">{pendingTasks.length}</div>
+            <div className="stat-note">
+              {overdueCount > 0
+                ? `${overdueCount} overdue`
+                : pendingTasks.length === 1
+                  ? "One step at a time"
+                  : "Keep it up"}
+            </div>
+          </div>
+        </div>
+        <div className="stat-card">
+          <span className="stat-icon">
+            <LuNotebookPen aria-hidden="true" size={20} />
+          </span>
+          <div>
+            <div className="stat-label">Study notes</div>
+            <div className="stat-value">{notes.length}</div>
+            <div className="stat-note">Ideas worth keeping</div>
+          </div>
+        </div>
+      </section>
+      <section
+        className="panel"
+        style={{ marginBottom: 16, padding: "20px 22px" }}
+      >
+        <div className="panel-heading" style={{ padding: 0 }}>
+          <h2 className="panel-title">Your progress</h2>
+          <span className="panel-link">
+            {completedCount} of {tasks.length} tasks done
+          </span>
+        </div>
+        <div className="progress-wrap">
+          <div className="progress-track">
+            <div className="progress-fill" style={{ width: `${progress}%` }} />
+          </div>
         </div>
       </section>
 
@@ -245,22 +381,33 @@ export default function DashboardView() {
             {nextTasks.length ? (
               <div className="task-list">
                 {nextTasks.map((task) => (
-                  <div className="task-row" key={task.id}>
+                  <div
+                    className={`task-row${isOverdue(task, todayStr) ? " overdue" : ""}`}
+                    key={task.id}
+                  >
                     <span
-                      aria-hidden="true"
                       className="task-check"
+                      aria-hidden="true"
                       style={{
-                        display: "grid",
-                        placeItems: "center",
-                        border: "1px solid var(--border)",
+                        border: "1px solid var(--border-strong)",
                         borderRadius: "50%",
+                        background: "var(--surface)",
                       }}
                     />
                     <div className="task-main">
                       <div className="task-title">{task.title}</div>
                       <div className="task-meta">
                         {task.course || "Personal"}
-                        <span>{formatDate(task.dueDate)}</span>
+                        <span>
+                          {isOverdue(task, todayStr) ? (
+                            <span className="overdue-label">
+                              <LuClock size={12} /> Overdue ·{" "}
+                              {formatDate(task.dueDate)}
+                            </span>
+                          ) : (
+                            formatDate(task.dueDate)
+                          )}
+                        </span>
                       </div>
                     </div>
                     <span className={`priority-badge ${task.priority}`}>
@@ -282,7 +429,6 @@ export default function DashboardView() {
     </>
   );
 }
-
 const emptyClassForm = {
   subject: "",
   day: "0",
@@ -293,11 +439,20 @@ const emptyClassForm = {
 };
 
 export function ScheduleView() {
-  const { classes, setClasses } = useStudybook();
+  const { classes, notify, setClasses } = useStudybook();
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyClassForm);
   const [formError, setFormError] = useState("");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [todayDay, setTodayDay] = useState<number | null>(null);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      setTodayDay((new Date().getDay() + 6) % 7);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   function startEditing(session: ClassSession) {
     setEditingId(session.id);
@@ -342,6 +497,7 @@ export function ScheduleView() {
         ? current.map((item) => (item.id === editingId ? session : item))
         : [...current, session],
     );
+    notify(editingId ? "Class updated." : "Class added.");
     closeForm();
   }
 
@@ -370,7 +526,6 @@ export function ScheduleView() {
         subtitle="Your classes for the week, all in one place. Add or update them whenever your timetable changes."
         title="Weekly schedule"
       />
-
       {formOpen && (
         <form className="panel form-panel" onSubmit={handleSubmit}>
           <h2 className="panel-title" style={{ marginBottom: 16 }}>
@@ -483,15 +638,18 @@ export function ScheduleView() {
           </div>
         </form>
       )}
-
       <section aria-label="Classes by weekday" className="panel">
         <div className="week-grid">
           {weekdays.map((day, index) => {
             const dayClasses = sortedClasses.filter(
               (session) => session.day === index,
             );
+            const overlap = hasOverlap(dayClasses);
             return (
-              <div className="day-column" key={day}>
+              <div
+                className={`day-column${todayDay === index ? " today" : ""}`}
+                key={day}
+              >
                 <div className="day-heading">
                   {day}
                   <span className="day-count">{dayClasses.length}</span>
@@ -520,12 +678,8 @@ export function ScheduleView() {
                         </button>
                         <button
                           aria-label={`Delete ${session.subject}`}
-                          className="small-icon-button"
-                          onClick={() =>
-                            setClasses((current) =>
-                              current.filter((item) => item.id !== session.id),
-                            )
-                          }
+                          className="small-icon-button danger"
+                          onClick={() => setDeleteId(session.id)}
                           type="button"
                         >
                           <LuTrash2 size={13} />
@@ -535,6 +689,11 @@ export function ScheduleView() {
                   ))
                 ) : (
                   <div className="day-empty">Nothing planned</div>
+                )}
+                {overlap && (
+                  <span className="overlap-badge">
+                    <LuCircleAlert size={12} /> Overlapping times
+                  </span>
                 )}
               </div>
             );
@@ -546,10 +705,24 @@ export function ScheduleView() {
           ? `${classes.length} ${classes.length === 1 ? "class" : "classes"} planned this week.`
           : "Your schedule is saved on this device, so you can come back and update it anytime."}
       </p>
+
+      {deleteId && (
+        <ConfirmDialog
+          copy="This class will be removed from your weekly schedule."
+          onCancel={() => setDeleteId(null)}
+          onConfirm={() => {
+            setClasses((current) =>
+              current.filter((item) => item.id !== deleteId),
+            );
+            setDeleteId(null);
+            notify("Class removed.");
+          }}
+          title="Delete this class?"
+        />
+      )}
     </>
   );
 }
-
 const emptyTaskForm = {
   title: "",
   course: "",
@@ -557,31 +730,111 @@ const emptyTaskForm = {
   priority: "medium" as StudyTask["priority"],
 };
 
+type TaskFilter = "all" | "active" | "done";
+type TaskSort = "due" | "priority" | "newest";
+
 export function ToDoListView() {
-  const { setTasks, tasks } = useStudybook();
+  const { notify, setTasks, tasks } = useStudybook();
   const [formOpen, setFormOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyTaskForm);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<TaskFilter>("active");
+  const [sort, setSort] = useState<TaskSort>("due");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [todayStr, setTodayStr] = useState("");
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      setTodayStr(toISODate(new Date()));
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  function startEditing(task: StudyTask) {
+    setEditingId(task.id);
+    setForm({
+      title: task.title,
+      course: task.course,
+      dueDate: task.dueDate,
+      priority: task.priority,
+    });
+    setFormOpen(true);
+  }
+
+  function closeForm() {
+    setFormOpen(false);
+    setEditingId(null);
+    setForm(emptyTaskForm);
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const existing = editingId
+      ? tasks.find((task) => task.id === editingId)
+      : undefined;
     const task: StudyTask = {
-      ...form,
       title: form.title.trim(),
       course: form.course.trim(),
-      id: createId(),
-      completed: false,
+      dueDate: form.dueDate,
+      priority: form.priority,
+      id: editingId ?? createId(),
+      completed: existing?.completed ?? false,
     };
-    setTasks((current) => [task, ...current]);
-    setForm(emptyTaskForm);
-    setFormOpen(false);
+    setTasks((current) =>
+      editingId
+        ? current.map((item) => (item.id === editingId ? task : item))
+        : [task, ...current],
+    );
+    notify(editingId ? "Task updated." : "Task added.");
+    closeForm();
   }
 
-  const pending = tasks.filter((task) => !task.completed);
-  const completed = tasks.filter((task) => task.completed);
+  const completedCount = tasks.filter((task) => task.completed).length;
+  const progress =
+    tasks.length === 0 ? 0 : Math.round((completedCount / tasks.length) * 100);
 
+  const filtered = useMemo(() => {
+    let list = [...tasks];
+    const q = query.trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        (task) =>
+          task.title.toLowerCase().includes(q) ||
+          task.course.toLowerCase().includes(q),
+      );
+    }
+    if (filter === "active") list = list.filter((task) => !task.completed);
+    else if (filter === "done") list = list.filter((task) => task.completed);
+
+    const rank = { high: 0, medium: 1, low: 2 } as const;
+    list.sort((a, b) => {
+      if (sort === "due") {
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        return a.dueDate.localeCompare(b.dueDate);
+      }
+      if (sort === "priority") {
+        return (
+          rank[a.priority] - rank[b.priority] ||
+          (a.dueDate && b.dueDate ? a.dueDate.localeCompare(b.dueDate) : 0)
+        );
+      }
+      return 0;
+    });
+    return list;
+  }, [tasks, query, filter, sort]);
+
+  function clearCompleted() {
+    setTasks((current) => current.filter((task) => !task.completed));
+    notify(
+      `Cleared ${completedCount} completed ${completedCount === 1 ? "task" : "tasks"}.`,
+    );
+  }
   function renderTask(task: StudyTask) {
+    const overdue = isOverdue(task, todayStr);
     return (
-      <div className="task-row" key={task.id}>
+      <div className={`task-row${overdue ? " overdue" : ""}`} key={task.id}>
         <input
           aria-label={`${task.completed ? "Reopen" : "Complete"} ${task.title}`}
           checked={task.completed}
@@ -603,25 +856,46 @@ export function ToDoListView() {
           </div>
           <div className="task-meta">
             <span>{task.course || "Personal"}</span>
-            <span>{formatDate(task.dueDate)}</span>
+            {task.dueDate && (
+              <span>
+                {overdue ? (
+                  <span className="overdue-label">
+                    <LuClock size={12} /> Overdue · {formatDate(task.dueDate)}
+                  </span>
+                ) : (
+                  formatDate(task.dueDate)
+                )}
+              </span>
+            )}
           </div>
         </div>
         <span className={`priority-badge ${task.priority}`}>
           {task.priority}
         </span>
-        <button
-          aria-label={`Delete ${task.title}`}
-          className="small-icon-button"
-          onClick={() =>
-            setTasks((current) => current.filter((item) => item.id !== task.id))
-          }
-          type="button"
-        >
-          <LuTrash2 size={14} />
-        </button>
+        <div className="inline-actions">
+          <button
+            aria-label={`Edit ${task.title}`}
+            className="small-icon-button"
+            onClick={() => startEditing(task)}
+            type="button"
+          >
+            <LuPencil size={13} />
+          </button>
+          <button
+            aria-label={`Delete ${task.title}`}
+            className="small-icon-button danger"
+            onClick={() => setDeleteId(task.id)}
+            type="button"
+          >
+            <LuTrash2 size={13} />
+          </button>
+        </div>
       </div>
     );
   }
+
+  const heading =
+    filter === "all" ? "All tasks" : filter === "active" ? "To do" : "Done";
 
   return (
     <>
@@ -642,7 +916,7 @@ export function ToDoListView() {
       {formOpen && (
         <form className="panel form-panel" onSubmit={handleSubmit}>
           <h2 className="panel-title" style={{ marginBottom: 16 }}>
-            Add a task
+            {editingId ? "Edit task" : "Add a task"}
           </h2>
           <div className="form-grid">
             <div className="field full-width">
@@ -710,76 +984,150 @@ export function ToDoListView() {
           <div className="form-actions">
             <button
               className="secondary-button"
-              onClick={() => {
-                setFormOpen(false);
-                setForm(emptyTaskForm);
-              }}
+              onClick={closeForm}
               type="button"
             >
               Cancel
             </button>
             <button className="primary-button" type="submit">
-              Add task
+              {editingId ? "Save changes" : "Add task"}
             </button>
           </div>
         </form>
       )}
-      <div className="dashboard-grid">
-        <section className="panel">
-          <div className="panel-heading">
-            <h2 className="panel-title">To do · {pending.length}</h2>
+
+      <section
+        className="panel"
+        style={{ marginBottom: 16, padding: "20px 22px" }}
+      >
+        <div className="panel-heading" style={{ padding: 0 }}>
+          <h2 className="panel-title">Your progress</h2>
+          <span className="panel-link">
+            {completedCount} of {tasks.length} done · {progress}%
+          </span>
+        </div>
+        <div className="progress-wrap">
+          <div className="progress-track">
+            <div className="progress-fill" style={{ width: `${progress}%` }} />
           </div>
-          <div className="panel-body">
-            {pending.length ? (
-              <div className="task-list">{pending.map(renderTask)}</div>
-            ) : (
-              <EmptyState
-                copy="Add a homework assignment or a small study goal to get started."
-                icon={<LuCircleCheck aria-hidden="true" size={22} />}
-                title="Nothing on your list"
-              />
-            )}
-          </div>
-        </section>
-        <section className="panel">
-          <div className="panel-heading">
-            <h2 className="panel-title">Done · {completed.length}</h2>
-          </div>
-          <div className="panel-body">
-            {completed.length ? (
-              <div className="task-list">{completed.map(renderTask)}</div>
-            ) : (
-              <EmptyState
-                copy="Finished tasks will be collected here. Take a moment to feel proud."
-                icon={<LuCheck aria-hidden="true" size={22} />}
-                title="A space for your wins"
-              />
-            )}
-          </div>
-        </section>
+        </div>
+      </section>
+
+      <div className="toolbar">
+        <div className="search-box">
+          <LuSearch size={16} />
+          <input
+            aria-label="Search tasks"
+            className="search-input"
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search tasks..."
+            value={query}
+          />
+        </div>
+        <div className="chip-group">
+          {(["all", "active", "done"] as const).map((value) => (
+            <button
+              className={`chip${filter === value ? " active" : ""}`}
+              key={value}
+              onClick={() => setFilter(value)}
+              type="button"
+            >
+              {value === "all" ? "All" : value === "active" ? "To do" : "Done"}
+            </button>
+          ))}
+        </div>
+        <select
+          aria-label="Sort tasks"
+          className="sort-select"
+          onChange={(event) => setSort(event.target.value as TaskSort)}
+          value={sort}
+        >
+          <option value="due">Due date</option>
+          <option value="priority">Priority</option>
+          <option value="newest">Newest first</option>
+        </select>
       </div>
+      <section className="panel">
+        <div className="panel-heading">
+          <h2 className="panel-title">
+            {heading} · {filtered.length}
+          </h2>
+          {completedCount > 0 && (
+            <button
+              className="text-button"
+              onClick={clearCompleted}
+              type="button"
+            >
+              Clear completed ({completedCount})
+            </button>
+          )}
+        </div>
+        <div className="panel-body">
+          {filtered.length ? (
+            <div className="task-list">{filtered.map(renderTask)}</div>
+          ) : (
+            <EmptyState
+              copy={
+                filter === "done"
+                  ? "Finished tasks will be collected here. Take a moment to feel proud."
+                  : filter === "active"
+                    ? "Nothing to do right now — enjoy the calm."
+                    : "Add a homework assignment or a small study goal to get started."
+              }
+              icon={<LuCircleCheck aria-hidden="true" size={22} />}
+              title={
+                filter === "done"
+                  ? "A space for your wins"
+                  : filter === "active"
+                    ? "All clear"
+                    : "Nothing on your list"
+              }
+            />
+          )}
+        </div>
+      </section>
+
+      {deleteId && (
+        <ConfirmDialog
+          copy="This task will be permanently removed from your list."
+          onCancel={() => setDeleteId(null)}
+          onConfirm={() => {
+            setTasks((current) =>
+              current.filter((item) => item.id !== deleteId),
+            );
+            setDeleteId(null);
+            notify("Task removed.");
+          }}
+          title="Delete this task?"
+        />
+      )}
     </>
   );
 }
-
 export function NotesView() {
-  const { notes, setNotes } = useStudybook();
+  const { notes, notify, setNotes } = useStudybook();
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [color, setColor] = useState<NoteColor>("default");
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<"newest" | "oldest" | "az">("newest");
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   function closeForm() {
     setFormOpen(false);
     setEditingId(null);
     setTitle("");
     setContent("");
+    setColor("default");
   }
 
   function startEditing(note: StudyNote) {
     setEditingId(note.id);
     setTitle(note.title);
     setContent(note.content);
+    setColor(note.color ?? "default");
     setFormOpen(true);
   }
 
@@ -790,15 +1138,34 @@ export function NotesView() {
       title: title.trim(),
       content: content.trim(),
       updatedAt: new Date().toISOString(),
+      color,
     };
     setNotes((current) =>
       editingId
         ? current.map((item) => (item.id === editingId ? note : item))
         : [note, ...current],
     );
+    notify(editingId ? "Note saved." : "Note added.");
     closeForm();
   }
 
+  const filtered = useMemo(() => {
+    let list = [...notes];
+    const q = query.trim().toLowerCase();
+    if (q) {
+      list = list.filter(
+        (note) =>
+          note.title.toLowerCase().includes(q) ||
+          note.content.toLowerCase().includes(q),
+      );
+    }
+    list.sort((a, b) => {
+      if (sort === "az") return a.title.localeCompare(b.title);
+      if (sort === "oldest") return a.updatedAt.localeCompare(b.updatedAt);
+      return b.updatedAt.localeCompare(a.updatedAt);
+    });
+    return list;
+  }, [notes, query, sort]);
   return (
     <>
       <PageHeading
@@ -809,6 +1176,7 @@ export function NotesView() {
               setEditingId(null);
               setTitle("");
               setContent("");
+              setColor("default");
               setFormOpen((open) => !open);
             }}
             type="button"
@@ -846,6 +1214,23 @@ export function NotesView() {
               placeholder="Write something you want to remember..."
               value={content}
             />
+            <p className="char-count">{content.length} characters</p>
+          </div>
+          <div className="field" style={{ marginTop: 13 }}>
+            <label>Color</label>
+            <div className="color-swatches">
+              {NOTE_COLORS.map((option) => (
+                <button
+                  aria-label={`${option} note color`}
+                  aria-pressed={color === option}
+                  className={`color-swatch${color === option ? " active" : ""}`}
+                  key={option}
+                  onClick={() => setColor(option)}
+                  style={{ background: NOTE_SWATCH[option] }}
+                  type="button"
+                />
+              ))}
+            </div>
           </div>
           <div className="form-actions">
             <button
@@ -861,10 +1246,39 @@ export function NotesView() {
           </div>
         </form>
       )}
-      {notes.length ? (
+
+      <div className="toolbar">
+        <div className="search-box">
+          <LuSearch size={16} />
+          <input
+            aria-label="Search notes"
+            className="search-input"
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search notes..."
+            value={query}
+          />
+        </div>
+        <select
+          aria-label="Sort notes"
+          className="sort-select"
+          onChange={(event) =>
+            setSort(event.target.value as "newest" | "oldest" | "az")
+          }
+          value={sort}
+        >
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="az">Title A–Z</option>
+        </select>
+      </div>
+      {filtered.length ? (
         <div className="note-grid">
-          {notes.map((note) => (
-            <article className="note-card" key={note.id}>
+          {filtered.map((note) => (
+            <article
+              className="note-card"
+              data-color={note.color ?? "default"}
+              key={note.id}
+            >
               <h2 className="note-title">{note.title}</h2>
               <p className="note-content">
                 {note.content || "No note text yet."}
@@ -887,12 +1301,8 @@ export function NotesView() {
                   </button>
                   <button
                     aria-label={`Delete ${note.title}`}
-                    className="small-icon-button"
-                    onClick={() =>
-                      setNotes((current) =>
-                        current.filter((item) => item.id !== note.id),
-                      )
-                    }
+                    className="small-icon-button danger"
+                    onClick={() => setDeleteId(note.id)}
                     type="button"
                   >
                     <LuTrash2 size={13} />
@@ -905,20 +1315,39 @@ export function NotesView() {
       ) : (
         <section className="panel">
           <EmptyState
-            copy="Save a class summary, a study idea, or anything you want to remember."
+            copy={
+              notes.length
+                ? "No notes match your search."
+                : "Save a class summary, a study idea, or anything you want to remember."
+            }
             icon={<LuFileText aria-hidden="true" size={23} />}
-            title="Your notes will live here"
+            title={
+              notes.length ? "No matching notes" : "Your notes will live here"
+            }
           />
         </section>
+      )}
+
+      {deleteId && (
+        <ConfirmDialog
+          copy="This note will be permanently removed."
+          onCancel={() => setDeleteId(null)}
+          onConfirm={() => {
+            setNotes((current) =>
+              current.filter((item) => item.id !== deleteId),
+            );
+            setDeleteId(null);
+            notify("Note deleted.");
+          }}
+          title="Delete this note?"
+        />
       )}
     </>
   );
 }
-
 export function AccountView() {
-  const { profile, setProfile } = useStudybook();
+  const { notify, profile, setProfile } = useStudybook();
   const [draft, setDraft] = useState<typeof profile | null>(null);
-  const [saved, setSaved] = useState(false);
   const [photoError, setPhotoError] = useState("");
   const currentProfile = draft ?? profile;
 
@@ -930,8 +1359,7 @@ export function AccountView() {
       avatar: currentProfile.avatar,
     });
     setDraft(null);
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 2500);
+    notify("Your profile has been saved.");
   }
 
   function updateDraft(changes: Partial<typeof profile>) {
@@ -1047,11 +1475,6 @@ export function AccountView() {
             in this browser. Sign-in and secure account syncing need a Supabase
             project and credentials before they can be enabled.
           </div>
-          {saved && (
-            <p aria-live="polite" className="page-subtitle">
-              Your profile has been saved.
-            </p>
-          )}
           <div className="form-actions">
             <button className="primary-button" type="submit">
               Save profile

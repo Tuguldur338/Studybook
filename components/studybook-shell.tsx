@@ -2,26 +2,44 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import {
   LuBookOpen,
   LuCalendarDays,
   LuCheck,
+  LuCircleAlert,
+  LuCircleCheck,
   LuCircleHelp,
   LuEye,
   LuEyeOff,
   LuHouse,
+  LuInfo,
   LuLogIn,
   LuMenu,
   LuMoon,
   LuNotebookPen,
   LuSun,
+  LuUserPlus,
   LuX,
 } from "react-icons/lu";
+import type {
+  AuthChangeEvent,
+  Session,
+  User,
+} from "@supabase/supabase-js";
 import {
   StudybookProvider,
   useStudybook,
 } from "@/components/studybook-context";
+import {
+  getSupabaseBrowserClient,
+  isSupabaseConfigured,
+} from "@/lib/supabase/client";
 
 const navigation = [
   { label: "Overview", href: "/", icon: LuHouse },
@@ -70,22 +88,90 @@ function ProfileAvatar({
     </span>
   );
 }
+type AuthMode = "sign-in" | "register";
 
-function SignInModal({ onClose }: { onClose: () => void }) {
+function AuthModal({
+  initialMode,
+  onClose,
+}: {
+  initialMode: AuthMode;
+  onClose: () => void;
+}) {
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<"error" | "success">("error");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setMessage(
-      "Sign-in is not connected yet. Your account will be secured with Supabase once authentication is configured.",
-    );
+    setMessage("");
+    setIsSubmitting(true);
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const email = String(formData.get("email") ?? "").trim();
+    const password = String(formData.get("password") ?? "");
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+
+      if (mode === "register") {
+        const displayName = String(formData.get("displayName") ?? "").trim();
+        const confirmation = String(formData.get("confirmPassword") ?? "");
+        if (password !== confirmation) {
+          setMessageType("error");
+          setMessage("Your passwords do not match.");
+          return;
+        }
+
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { display_name: displayName },
+          },
+        });
+
+        if (error) throw error;
+
+        if (data.session) {
+          onClose();
+          return;
+        }
+
+        form.reset();
+        setMessageType("success");
+        setMessage(
+          "Your account was created. Check your email for a confirmation link before signing in.",
+        );
+        return;
+      }
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) throw error;
+      onClose();
+    } catch (error) {
+      setMessageType("error");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Authentication failed. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
+  const isRegistering = mode === "register";
   return (
     <div className="modal-backdrop" onClick={onClose} role="presentation">
       <section
-        aria-labelledby="sign-in-title"
+        aria-labelledby="auth-title"
         aria-modal="true"
         className="modal"
         onClick={(event) => event.stopPropagation()}
@@ -93,11 +179,13 @@ function SignInModal({ onClose }: { onClose: () => void }) {
       >
         <div className="modal-heading">
           <div>
-            <h2 className="modal-title" id="sign-in-title">
-              Welcome back
+            <h2 className="modal-title" id="auth-title">
+              {isRegistering ? "Create your account" : "Welcome back"}
             </h2>
             <p className="modal-copy">
-              Sign in to keep your study life in sync.
+              {isRegistering
+                ? "Start your personal study space."
+                : "Sign in to keep your study life in sync."}
             </p>
           </div>
           <button
@@ -109,13 +197,27 @@ function SignInModal({ onClose }: { onClose: () => void }) {
             <LuX size={17} />
           </button>
         </div>
-        <form onSubmit={handleSubmit}>
+        <form key={mode} onSubmit={handleSubmit}>
+          {isRegistering && (
+            <div className="field">
+              <label htmlFor="register-name">Your name</label>
+              <input
+                autoComplete="name"
+                className="input"
+                id="register-name"
+                maxLength={80}
+                name="displayName"
+                placeholder="e.g. Alex Student"
+                required
+              />
+            </div>
+          )}
           <div className="field">
-            <label htmlFor="signin-email">Email address</label>
+            <label htmlFor="auth-email">Email address</label>
             <input
               autoComplete="email"
               className="input"
-              id="signin-email"
+              id="auth-email"
               name="email"
               placeholder="you@example.com"
               required
@@ -123,13 +225,13 @@ function SignInModal({ onClose }: { onClose: () => void }) {
             />
           </div>
           <div className="field" style={{ marginTop: 13 }}>
-            <label htmlFor="signin-password">Password</label>
+            <label htmlFor="auth-password">Password</label>
             <div className="password-wrap">
               <input
-                autoComplete="current-password"
+                autoComplete={isRegistering ? "new-password" : "current-password"}
                 className="input"
-                id="signin-password"
-                minLength={8}
+                id="auth-password"
+                minLength={isRegistering ? 8 : undefined}
                 name="password"
                 placeholder="At least 8 characters"
                 required
@@ -146,159 +248,310 @@ function SignInModal({ onClose }: { onClose: () => void }) {
               </button>
             </div>
           </div>
+          {isRegistering && (
+            <div className="field" style={{ marginTop: 13 }}>
+              <label htmlFor="confirm-password">Confirm password</label>
+              <div className="password-wrap">
+                <input
+                  autoComplete="new-password"
+                  className="input"
+                  id="confirm-password"
+                  minLength={8}
+                  name="confirmPassword"
+                  placeholder="Enter your password again"
+                  required
+                  type={showConfirmation ? "text" : "password"}
+                />
+                <button
+                  aria-label={
+                    showConfirmation
+                      ? "Hide confirmation password"
+                      : "Show confirmation password"
+                  }
+                  aria-pressed={showConfirmation}
+                  className="password-toggle"
+                  onClick={() => setShowConfirmation((visible) => !visible)}
+                  type="button"
+                >
+                  {showConfirmation ? (
+                    <LuEyeOff size={16} />
+                  ) : (
+                    <LuEye size={16} />
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
           {message && (
-            <p aria-live="polite" className="notice" style={{ marginTop: 14 }}>
+            <p
+              aria-live="polite"
+              className={`notice${messageType === "success" ? " success-notice" : ""}`}
+              style={{ marginTop: 14 }}
+            >
               {message}
             </p>
           )}
-          <button className="primary-button" type="submit">
-            <LuLogIn size={15} />
-            Sign in
+          <button
+            className="primary-button"
+            disabled={isSubmitting}
+            type="submit"
+          >
+            {isRegistering ? <LuUserPlus size={15} /> : <LuLogIn size={15} />}
+            {isSubmitting
+              ? "Please wait..."
+              : isRegistering
+                ? "Create account"
+                : "Sign in"}
           </button>
         </form>
-        <p
-          className="modal-copy"
-          style={{ marginTop: 14, textAlign: "center" }}
-        >
-          Authentication is not active yet. This form does not transmit or save
-          your password.
+        <p className="auth-switch">
+          {isRegistering ? "Already have an account?" : "New to Studybook?"}{" "}
+          <button
+            className="text-button"
+            onClick={() => {
+              setMode(isRegistering ? "sign-in" : "register");
+              setMessage("");
+            }}
+            type="button"
+          >
+            {isRegistering ? "Sign in" : "Create an account"}
+          </button>
         </p>
       </section>
     </div>
   );
 }
-
 function StudybookFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { profile, setTheme, theme, storageError } = useStudybook();
-  const [showSignIn, setShowSignIn] = useState(false);
+  const {
+    profile,
+    setTheme,
+    theme,
+    storageError,
+    tasks,
+    toasts,
+    dismissToast,
+  } = useStudybook();
+  const [authMode, setAuthMode] = useState<AuthMode | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [authUser, setAuthUser] = useState<User | null>(null);
+  const [authError, setAuthError] = useState("");
+
+  const pendingCount = tasks.filter((task) => !task.completed).length;
+
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+
+    const supabase = getSupabaseBrowserClient();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(
+      (_event: AuthChangeEvent, session: Session | null) => {
+        setAuthUser(session?.user ?? null);
+        setAuthError("");
+      },
+    );
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function handleSignOut() {
+    try {
+      const { error } = await getSupabaseBrowserClient().auth.signOut();
+      if (error) throw error;
+    } catch (error) {
+      setAuthError(
+        error instanceof Error ? error.message : "Could not sign out.",
+      );
+    }
+  }
 
   return (
-    <div className="app-shell">
-      {mobileMenuOpen && (
-        <button
-          aria-label="Close navigation menu"
-          className="mobile-backdrop"
-          onClick={() => setMobileMenuOpen(false)}
-          type="button"
-        />
-      )}
-      <aside
-        aria-label="Main navigation"
-        className={`sidebar${mobileMenuOpen ? " mobile-open" : ""}`}
-      >
-        <Link
-          aria-label="Studybook home"
-          className="brand"
-          href="/"
-          onClick={() => setMobileMenuOpen(false)}
-        >
-          <span className="brand-mark">
-            <LuBookOpen size={19} />
-          </span>
-          <span>
-            <span className="brand-name">studybook</span>
-            <span className="brand-caption">your student space</span>
-          </span>
-        </Link>
-        <p className="nav-label">Your workspace</p>
-        <nav>
-          {navigation.map(({ href, icon: Icon, label }) => (
-            <Link
-              aria-current={pathname === href ? "page" : undefined}
-              className={`nav-link${pathname === href ? " active" : ""}`}
-              href={href}
-              key={href}
-              onClick={() => setMobileMenuOpen(false)}
-              title={label}
-            >
-              <Icon size={18} />
-              <span>{label}</span>
-            </Link>
-          ))}
-        </nav>
-        <div className="sidebar-bottom">
-          <div className="sidebar-tip">
-            <strong>
-              <LuCircleHelp
-                aria-hidden="true"
-                size={14}
-                style={{
-                  display: "inline",
-                  marginRight: 6,
-                  verticalAlign: "-2px",
-                }}
-              />
-              A little reminder
-            </strong>
-            Small steps add up. You&apos;re doing great.
-          </div>
-          <Link
-            aria-label={`${profile.name || "Student"}'s profile, my account`}
-            className={`sidebar-profile${pathname === "/account" ? " active" : ""}`}
-            href="/account"
+    <>
+      <div className="app-shell">
+        {mobileMenuOpen && (
+          <button
+            aria-label="Close navigation menu"
+            className="mobile-backdrop"
             onClick={() => setMobileMenuOpen(false)}
-            title="My account"
+            type="button"
+          />
+        )}
+        <aside
+          aria-label="Main navigation"
+          className={`sidebar${mobileMenuOpen ? " mobile-open" : ""}`}
+        >
+          <Link
+            aria-label="Studybook home"
+            className="brand"
+            href="/"
+            onClick={() => setMobileMenuOpen(false)}
           >
-            <ProfileAvatar image={profile.avatar} name={profile.name} />
-            <span className="sidebar-profile-copy">
-              <span className="sidebar-profile-name">{profile.name}</span>
-              <span className="sidebar-profile-caption">My account</span>
+            <span className="brand-mark">
+              <LuBookOpen size={19} />
+            </span>
+            <span className="brand-text">
+              <span className="brand-name">studybook</span>
+              <span className="brand-caption">your student space</span>
             </span>
           </Link>
+          <p className="nav-label">Your workspace</p>
+          <nav>
+            {navigation.map(({ href, icon: Icon, label }) => (
+              <Link
+                aria-current={pathname === href ? "page" : undefined}
+                aria-label={label}
+                className={`nav-link${pathname === href ? " active" : ""}`}
+                href={href}
+                key={href}
+                onClick={() => setMobileMenuOpen(false)}
+                title={label}
+              >
+                <Icon size={18} />
+                <span className="nav-text">{label}</span>
+                {href === "/to-do-list" && pendingCount > 0 && (
+                  <span className="nav-badge">{pendingCount}</span>
+                )}
+              </Link>
+            ))}
+          </nav>
+          <div className="sidebar-bottom">
+            <div className="sidebar-tip">
+              <strong>
+                <LuCircleHelp
+                  aria-hidden="true"
+                  size={14}
+                  style={{
+                    display: "inline",
+                    marginRight: 6,
+                    verticalAlign: "-2px",
+                  }}
+                />
+                A little reminder
+              </strong>
+              Small steps add up. You&apos;re doing great.
+            </div>
+            <Link
+              aria-label={`${profile.name || "Student"}'s profile, my account`}
+              className={`sidebar-profile${pathname === "/account" ? " active" : ""}`}
+              href="/account"
+              onClick={() => setMobileMenuOpen(false)}
+              title="My account"
+            >
+              <ProfileAvatar image={profile.avatar} name={profile.name} />
+              <span className="sidebar-profile-copy">
+                <span className="sidebar-profile-name">{profile.name}</span>
+                <span className="sidebar-profile-caption">My account</span>
+              </span>
+            </Link>
+          </div>
+        </aside>
+        <div className="workspace">
+          <header className="topbar">
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <button
+                aria-label="Open navigation menu"
+                className="icon-button mobile-menu-button"
+                onClick={() => setMobileMenuOpen(true)}
+                type="button"
+              >
+                <LuMenu size={19} />
+              </button>
+              <span className="topbar-location">
+                Workspace <span aria-hidden="true">/</span>{" "}
+                {pageNames[pathname] ?? "Studybook"}
+              </span>
+            </div>
+            <div className="topbar-actions">
+              <button
+                aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+                className="icon-button"
+                onClick={() =>
+                  setTheme((current) => (current === "light" ? "dark" : "light"))
+                }
+                title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+                type="button"
+              >
+                {theme === "light" ? <LuMoon size={17} /> : <LuSun size={17} />}
+              </button>
+              {authUser ? (
+                <button
+                  className="sign-in-button"
+                  onClick={handleSignOut}
+                  type="button"
+                >
+                  <LuLogIn size={15} />
+                  Sign out
+                </button>
+              ) : (
+                <>
+                  <button
+                    className="register-button"
+                    onClick={() => setAuthMode("register")}
+                    type="button"
+                  >
+                    <LuUserPlus size={15} />
+                    Register
+                  </button>
+                  <button
+                    className="sign-in-button"
+                    onClick={() => setAuthMode("sign-in")}
+                    type="button"
+                  >
+                    <LuLogIn size={15} />
+                    Sign in
+                  </button>
+                </>
+              )}
+            </div>
+          </header>
+          <main className="page-content">
+            {storageError && (
+              <p aria-live="polite" className="notice">
+                {storageError}
+              </p>
+            )}
+            {authError && (
+              <p aria-live="polite" className="notice">
+                {authError}
+              </p>
+            )}
+            {children}
+          </main>
         </div>
-      </aside>
-
-      <div className="workspace">
-        <header className="topbar">
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <button
-              aria-label="Open navigation menu"
-              className="icon-button mobile-menu-button"
-              onClick={() => setMobileMenuOpen(true)}
-              type="button"
-            >
-              <LuMenu size={19} />
-            </button>
-            <span className="topbar-location">
-              Workspace <span aria-hidden="true">/</span>{" "}
-              {pageNames[pathname] ?? "Studybook"}
-            </span>
-          </div>
-          <div className="topbar-actions">
-            <button
-              aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
-              className="icon-button"
-              onClick={() =>
-                setTheme((current) => (current === "light" ? "dark" : "light"))
-              }
-              title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
-              type="button"
-            >
-              {theme === "light" ? <LuMoon size={17} /> : <LuSun size={17} />}
-            </button>
-            <button
-              className="sign-in-button"
-              onClick={() => setShowSignIn(true)}
-              type="button"
-            >
-              <LuLogIn size={15} />
-              Sign in
-            </button>
-          </div>
-        </header>
-        <main className="page-content">
-          {storageError && (
-            <p aria-live="polite" className="notice">
-              {storageError}
-            </p>
-          )}
-          {children}
-        </main>
+        {authMode && (
+          <AuthModal
+            initialMode={authMode}
+            onClose={() => setAuthMode(null)}
+          />
+        )}
       </div>
-      {showSignIn && <SignInModal onClose={() => setShowSignIn(false)} />}
-    </div>
+
+      <div className="toast-stack" aria-live="polite" aria-atomic="false">
+        {toasts.map((toast) => (
+          <div className={`toast toast-${toast.type}`} key={toast.id} role="status">
+            <span className="toast-icon">
+              {toast.type === "success" ? (
+                <LuCircleCheck size={16} />
+              ) : toast.type === "error" ? (
+                <LuCircleAlert size={16} />
+              ) : (
+                <LuInfo size={16} />
+              )}
+            </span>
+            <span className="toast-copy">{toast.message}</span>
+            <button
+              aria-label="Dismiss notification"
+              className="toast-close"
+              onClick={() => dismissToast(toast.id)}
+              type="button"
+            >
+              <LuX size={14} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -311,3 +564,7 @@ export default function StudybookShell({ children }: { children: ReactNode }) {
 }
 
 export { ProfileAvatar };
+
+
+
+

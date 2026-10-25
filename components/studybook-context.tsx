@@ -2,8 +2,10 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type Dispatch,
   type ReactNode,
@@ -29,17 +31,37 @@ export type StudyTask = {
   completed: boolean;
 };
 
+export const NOTE_COLORS = [
+  "default",
+  "sage",
+  "sky",
+  "rose",
+  "amber",
+  "violet",
+] as const;
+
+export type NoteColor = (typeof NOTE_COLORS)[number];
+
 export type StudyNote = {
   id: string;
   title: string;
   content: string;
   updatedAt: string;
+  color?: NoteColor;
 };
 
 export type StudentProfile = {
   name: string;
   email: string;
   avatar: string;
+};
+
+export type ToastType = "success" | "error" | "info";
+
+export type Toast = {
+  id: string;
+  message: string;
+  type: ToastType;
 };
 
 type StudybookContextValue = {
@@ -54,9 +76,13 @@ type StudybookContextValue = {
   theme: "light" | "dark";
   setTheme: Dispatch<SetStateAction<"light" | "dark">>;
   storageError: string;
+  toasts: Toast[];
+  notify: (message: string, type?: ToastType) => void;
+  dismissToast: (id: string) => void;
 };
 
 const STORAGE_KEY = "studybook-data-v1";
+
 const defaultProfile: StudentProfile = {
   name: "Student",
   email: "",
@@ -105,7 +131,8 @@ function isStudyNote(value: unknown): value is StudyNote {
     typeof value.id === "string" &&
     typeof value.title === "string" &&
     typeof value.content === "string" &&
-    typeof value.updatedAt === "string"
+    typeof value.updatedAt === "string" &&
+    (value.color === undefined || typeof value.color === "string")
   );
 }
 
@@ -135,7 +162,6 @@ function readStudybookData() {
     theme,
   };
 }
-
 export function StudybookProvider({ children }: { children: ReactNode }) {
   const [classes, setClasses] = useState<ClassSession[]>([]);
   const [tasks, setTasks] = useState<StudyTask[]>([]);
@@ -144,6 +170,38 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [isLoaded, setIsLoaded] = useState(false);
   const [storageError, setStorageError] = useState("");
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const timers = useRef<Map<string, number>>(new Map());
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((current) => current.filter((toast) => toast.id !== id));
+    const timer = timers.current.get(id);
+    if (timer) {
+      window.clearTimeout(timer);
+      timers.current.delete(id);
+    }
+  }, []);
+
+  const notify = useCallback(
+    (message: string, type: ToastType = "success") => {
+      const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      setToasts((current) => [...current.slice(-3), { id, message, type }]);
+      const timer = window.setTimeout(() => {
+        setToasts((current) => current.filter((toast) => toast.id !== id));
+        timers.current.delete(id);
+      }, 4500);
+      timers.current.set(id, timer);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const map = timers.current;
+    return () => {
+      map.forEach((timer) => window.clearTimeout(timer));
+      map.clear();
+    };
+  }, []);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -155,6 +213,11 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
           setNotes(saved.notes);
           setProfile(saved.profile);
           setTheme(saved.theme);
+        } else {
+          const prefersDark = window.matchMedia?.(
+            "(prefers-color-scheme: dark)",
+          ).matches;
+          setTheme(prefersDark ? "dark" : "light");
         }
       } catch (error) {
         const message =
@@ -201,6 +264,9 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
         theme,
         setTheme,
         storageError,
+        toasts,
+        notify,
+        dismissToast,
       }}
     >
       {children}
@@ -215,3 +281,4 @@ export function useStudybook() {
   }
   return context;
 }
+

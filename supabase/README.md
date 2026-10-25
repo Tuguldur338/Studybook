@@ -28,11 +28,11 @@ Alternatively, copy
 [`migrations/20261025093000_create_studybook_schema.sql`](./migrations/20261025093000_create_studybook_schema.sql)
 into the Supabase Dashboard SQL Editor and run it against your project.
 
-This creates the database schema only. The Studybook app still needs Supabase
-project credentials, a Supabase client, and authentication/data-access code
-before the sign-in form or browser-stored data will use these tables. Avatar
-storage also needs a Storage bucket and its own access policies; `avatar_url`
-stores the resulting image URL.
+The Studybook app's registration and sign-in forms use Supabase Auth when the
+project credentials below are configured. Class schedules, tasks, and notes
+are still stored in the browser and are not yet synchronized with these
+database tables. Avatar storage also needs a Storage bucket and its own access
+policies; `avatar_url` stores the resulting image URL.
 
 ## Configure local app credentials
 
@@ -47,6 +47,5 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
 Next.js loads `.env.local` for local development. It is ignored by Git so your
 project credentials are not committed. The example file is safe to commit, but
 do not put real keys in it. Never expose a Supabase secret key or legacy
-`service_role` key in a `NEXT_PUBLIC_` variable or browser code. The app does
-not read these variables until Supabase client and authentication integration
-is implemented.
+`service_role` key in a `NEXT_PUBLIC_` variable or browser code. The app uses
+these variables for browser-based Auth.
