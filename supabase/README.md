@@ -50,6 +50,24 @@ do not put real keys in it. Never expose a Supabase secret key or legacy
 `service_role` key in a `NEXT_PUBLIC_` variable or browser code. The app uses
 these variables for browser-based Auth.
 
+## Usernames
+
+New accounts choose a username on the register form. Usernames are lowercase,
+3–30 characters (`a-z`, `0-9`, `_`, `-`), and unique case-insensitively through
+the existing `profiles_username_lower_unique` index.
+
+Apply [`migrations/usernames.sql`](./migrations/usernames.sql) to:
+
+- teach the sign-up trigger to copy `username` from the auth metadata,
+- add `is_username_available()` so the register form can check before creating
+  the account, and
+- add `find_user_by_login()` so friend requests accept either a sign-up email
+  or an `@username`.
+
+Accounts created before this migration can set a username from **My account →
+Sign-in details**. That section also changes the password (the current password
+is verified first) alongside the profile picture that was already editable.
+
 ## Messaging and friend requests
 
 Messaging uses Supabase Realtime on top of these tables:
@@ -76,6 +94,8 @@ Apply the migrations in order after the base schema:
 2. [`migrations/messaging-v2.sql`](./migrations/messaging-v2.sql) — converts
    direct messages into conversations, adds group chats and attachments, and
    creates the `chat-images` Storage bucket.
+3. [`migrations/usernames.sql`](./migrations/usernames.sql) — usernames at
+   sign-up, uniqueness checks, and lookup by email or `@username`.
 
 The migrations add the tables to the `supabase_realtime` publication; if you
 prefer the dashboard, make sure everything is toggled on under
@@ -84,9 +104,9 @@ public-readable with 5 MB image uploads; tighten its policies if you need
 private media.
 
 To start a chat, open **Messages** in the sidebar, sign in, and send a friend
-request to the email address the other person used to register. Once they
-accept, click their name under **Friends** to open a direct chat, or use
-**+ New group** to create a group with two or more friends. Messages, group
-invites, and friend requests arrive live; pictures are uploaded when you press
-Send, and pasted links (TikTok, Instagram, YouTube, and any other URL) render as
-tappable link cards.
+request using the other person's email or `@username`. Once they accept, click
+their name under **Friends** to open a direct chat, or use **+ New group** to
+create a group with two or more friends. Messages, group invites, and friend
+requests arrive live; pictures are uploaded when you press Send, and pasted
+links (TikTok, Instagram, YouTube, and any other URL) render as tappable link
+cards.

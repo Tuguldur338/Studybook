@@ -26,6 +26,7 @@ import {
   LuMessageCircle,
   LuMoon,
   LuNotebookPen,
+  LuSettings,
   LuSun,
   LuUserPlus,
   LuX,
@@ -51,6 +52,7 @@ const navigation = [
   { label: "Weekly schedule", href: "/schedule", icon: LuCalendarDays },
   { label: "To-do list", href: "/to-do-list", icon: LuCheck },
   { label: "My notes", href: "/notes", icon: LuNotebookPen },
+  { label: "Settings", href: "/settings", icon: LuSettings },
 ];
 
 const pageNames: Record<string, string> = {
@@ -58,9 +60,14 @@ const pageNames: Record<string, string> = {
   "/schedule": "Weekly schedule",
   "/to-do-list": "To-do list",
   "/notes": "My notes",
+  "/settings": "Settings",
   "/account": "My account",
   "/profile": "Profile",
 };
+
+type MessagesWidget = "closed" | "open" | "minimized";
+
+const MESSAGES_WIDGET_KEY = "studybook-messages-widget-v1";
 
 function initials(name: string) {
   return (
@@ -125,10 +132,31 @@ function AuthModal({
 
       if (mode === "register") {
         const displayName = String(formData.get("displayName") ?? "").trim();
+        const username = String(formData.get("username") ?? "")
+          .trim()
+          .toLowerCase();
         const confirmation = String(formData.get("confirmPassword") ?? "");
         if (password !== confirmation) {
           setMessageType("error");
           setMessage("Your passwords do not match.");
+          return;
+        }
+        if (!/^[a-z0-9][a-z0-9_-]{2,29}$/.test(username)) {
+          setMessageType("error");
+          setMessage(
+            "Usernames are 3–30 characters: lowercase letters, numbers, _ or -.",
+          );
+          return;
+        }
+
+        const { data: available, error: availabilityError } = await supabase.rpc(
+          "is_username_available",
+          { candidate: username },
+        );
+        if (availabilityError) throw availabilityError;
+        if (!available) {
+          setMessageType("error");
+          setMessage("That username is already taken. Try another one.");
           return;
         }
 
@@ -136,11 +164,16 @@ function AuthModal({
           email,
           password,
           options: {
-            data: { display_name: displayName },
+            data: { display_name: displayName, username },
           },
         });
 
-        if (error) throw error;
+        if (error) {
+          if (/username|duplicate|already|database/i.test(error.message)) {
+            throw new Error("That username is already taken. Try another one.");
+          }
+          throw error;
+        }
 
         if (data.session) {
           onClose();
@@ -216,6 +249,28 @@ function AuthModal({
                 placeholder="e.g. Alex Student"
                 required
               />
+            </div>
+          )}
+          {isRegistering && (
+            <div className="field" style={{ marginTop: 13 }}>
+              <label htmlFor="register-username">Username</label>
+              <input
+                autoCapitalize="none"
+                autoComplete="username"
+                className="input"
+                id="register-username"
+                maxLength={30}
+                minLength={3}
+                name="username"
+                pattern="[a-z0-9][a-z0-9_-]{2,29}"
+                placeholder="e.g. alex_student"
+                required
+                spellCheck={false}
+              />
+              <p className="field-hint">
+                Your friends can add you with this. 3–30 characters: lowercase
+                letters, numbers, _ or -.
+              </p>
             </div>
           )}
           <div className="field">
@@ -342,9 +397,11 @@ function StudybookFrame({ children }: { children: ReactNode }) {
   } = useStudybook();
   const [authMode, setAuthMode] = useState<AuthMode | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [messagesOpen, setMessagesOpen] = useState(false);
+  const [messagesWidget, setMessagesWidget] =
+    useState<MessagesWidget>("closed");
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [authError, setAuthError] = useState("");
+  const [username, setUsername] = useState("");
 
   const messaging = useMessaging(authUser);
   const messagesBadge = authUser
@@ -399,6 +456,25 @@ function StudybookFrame({ children }: { children: ReactNode }) {
   }, [authUser, isLoaded, setProfile]);
 
   useEffect(() => {
+    if (!authUser) return;
+
+    let active = true;
+    const supabase = getSupabaseBrowserClient();
+    supabase
+      .from("profiles")
+      .select("username")
+      .eq("id", authUser.id)
+      .single()
+      .then(({ data }: { data: { username: string | null } | null }) => {
+        if (active) setUsername(data?.username ?? "");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [authUser, pathname]);
+
+  useEffect(() => {
     if (!mobileMenuOpen) return;
 
     const previousOverflow = document.body.style.overflow;
@@ -425,8 +501,26 @@ function StudybookFrame({ children }: { children: ReactNode }) {
     return () => desktop.removeEventListener("change", closeOnDesktop);
   }, []);
 
-  function toggleTheme() {
-    const nextTheme = theme === "light" ? "dark" : "light";
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const saved = window.localStorage.getItem(MESSAGES_WIDGET_KEY);
+      if (saved === "open" || saved === "minimized" || saved === "closed") {
+        setMessagesWidget(saved);
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  function updateMessagesWidget(next: MessagesWidget) {
+    setMessagesWidget(next);
+    try {
+      window.localStorage.setItem(MESSAGES_WIDGET_KEY, next);
+    } catch {
+      // If storage is unavailable the widget still works for this visit.
+    }
+  }
+
+  function toggleTheme() {    const nextTheme = theme === "light" ? "dark" : "light";
     document.documentElement.dataset.theme = nextTheme;
     setTheme(nextTheme);
   }
@@ -494,7 +588,7 @@ function StudybookFrame({ children }: { children: ReactNode }) {
             <button
               className="nav-link nav-button"
               onClick={() => {
-                setMessagesOpen(true);
+                updateMessagesWidget("open");
                 setMobileMenuOpen(false);
                 void messaging.refresh();
               }}
@@ -550,7 +644,9 @@ function StudybookFrame({ children }: { children: ReactNode }) {
               <ProfileAvatar image={profile.avatar} name={profile.name} />
               <span className="sidebar-profile-copy">
                 <span className="sidebar-profile-name">{profile.name}</span>
-                <span className="sidebar-profile-caption">View profile</span>
+                <span className="sidebar-profile-caption">
+                  {authUser && username ? `@${username}` : "View profile"}
+                </span>
               </span>
             </Link>
           </div>
@@ -634,12 +730,41 @@ function StudybookFrame({ children }: { children: ReactNode }) {
             onClose={() => setAuthMode(null)}
           />
         )}
-        {messagesOpen && (
+        {messagesWidget !== "closed" && (
           <MessagingPanel
             api={messaging}
-            onClose={() => setMessagesOpen(false)}
+            minimized={messagesWidget === "minimized"}
+            onClose={() => updateMessagesWidget("closed")}
+            onMinimize={() => updateMessagesWidget("minimized")}
             user={authUser}
           />
+        )}
+        {messagesWidget === "minimized" && (
+          <div className="messenger-bubble-wrap">
+            <button
+              aria-label={
+                messagesBadge > 0
+                  ? `Open messages, ${messagesBadge} unread`
+                  : "Open messages"
+              }
+              className="messenger-bubble"
+              onClick={() => updateMessagesWidget("open")}
+              type="button"
+            >
+              <LuMessageCircle size={22} />
+              {messagesBadge > 0 && (
+                <span className="messenger-bubble-badge">{messagesBadge}</span>
+              )}
+            </button>
+            <button
+              aria-label="Close messages"
+              className="messenger-bubble-close"
+              onClick={() => updateMessagesWidget("closed")}
+              type="button"
+            >
+              <LuX size={12} />
+            </button>
+          </div>
         )}
       </div>
 

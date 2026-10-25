@@ -16,6 +16,7 @@ import {
   LuExternalLink,
   LuImagePlus,
   LuMessageCircle,
+  LuMinus,
   LuSend,
   LuUserPlus,
   LuUsers,
@@ -120,11 +121,15 @@ function conversationPreview(conversation: ConversationSummary) {
 
 export default function MessagingPanel({
   api,
+  minimized,
   onClose,
+  onMinimize,
   user,
 }: {
   api: MessagingApi;
+  minimized: boolean;
   onClose: () => void;
+  onMinimize: () => void;
   user: User | null;
 }) {
   const [activeConversationId, setActiveConversationId] = useState<
@@ -133,7 +138,7 @@ export default function MessagingPanel({
   const [creatingGroup, setCreatingGroup] = useState(false);
   const [groupTitle, setGroupTitle] = useState("");
   const [groupMemberIds, setGroupMemberIds] = useState<string[]>([]);
-  const [email, setEmail] = useState("");
+  const [login, setLogin] = useState("");
   const [draft, setDraft] = useState("");
   const [image, setImage] = useState<File | null>(null);
   const [notice, setNotice] = useState("");
@@ -150,20 +155,21 @@ export default function MessagingPanel({
   const { markConversationRead } = api;
 
   useEffect(() => {
+    if (minimized) return;
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") onMinimize();
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, [minimized, onMinimize]);
 
   useEffect(() => {
-    if (!activeConversationId) return;
+    if (minimized || !activeConversationId) return;
     void markConversationRead(activeConversationId);
-  }, [activeConversationId, markConversationRead]);
+  }, [activeConversationId, markConversationRead, minimized]);
 
   useEffect(() => {
-    if (!activeConversationId) return;
+    if (minimized || !activeConversationId) return;
     const hasUnread = thread.some(
       (message) =>
         user &&
@@ -175,6 +181,7 @@ export default function MessagingPanel({
     activeConversation?.unread,
     activeConversationId,
     markConversationRead,
+    minimized,
     thread,
     user,
   ]);
@@ -190,9 +197,9 @@ export default function MessagingPanel({
     setError("");
     setBusy(true);
     try {
-      const message = await api.sendFriendRequest(email);
+      const message = await api.sendFriendRequest(login);
       setNotice(message);
-      setEmail("");
+      setLogin("");
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "Could not send the request.",
@@ -309,15 +316,11 @@ export default function MessagingPanel({
       : "Messages";
 
   return (
-    <div className="modal-backdrop" onClick={onClose} role="presentation">
-      <section
-        aria-label="Messages"
-        aria-modal="true"
-        className="messenger"
-        onClick={(event) => event.stopPropagation()}
-        role="dialog"
-      >
-        <header className="messenger-head">
+    <aside
+      aria-label="Messages"
+      className={`messenger messenger-docked${minimized ? " is-minimized" : ""}`}
+    >
+      <header className="messenger-head">
           {creatingGroup || activeConversation ? (
             <button
               aria-label="Back"
@@ -354,9 +357,19 @@ export default function MessagingPanel({
             </p>
           </div>
           <button
+            aria-label="Minimize messages"
+            className="icon-button"
+            onClick={onMinimize}
+            title="Minimize"
+            type="button"
+          >
+            <LuMinus size={17} />
+          </button>
+          <button
             aria-label="Close messages"
             className="icon-button"
             onClick={onClose}
+            title="Close"
             type="button"
           >
             <LuX size={17} />
@@ -656,16 +669,16 @@ export default function MessagingPanel({
             </section>
 
             <form className="messenger-add" onSubmit={handleAddFriend}>
-              <label htmlFor="friend-email">Add a friend by email</label>
+              <label htmlFor="friend-login">Add a friend by email or username</label>
               <div className="messenger-add-row">
                 <input
                   className="input"
-                  id="friend-email"
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="friend@example.com"
+                  id="friend-login"
+                  onChange={(event) => setLogin(event.target.value)}
+                  placeholder="friend@example.com or alex_student"
                   required
-                  type="email"
-                  value={email}
+                  type="text"
+                  value={login}
                 />
                 <button
                   className="primary-button"
@@ -696,7 +709,6 @@ export default function MessagingPanel({
             )}
           </div>
         )}
-      </section>
-    </div>
+      </aside>
   );
 }

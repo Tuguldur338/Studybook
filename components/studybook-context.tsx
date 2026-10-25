@@ -66,6 +66,10 @@ export type ClassChecks = Record<string, ClassCheck>;
  */
 export type SavedClass = ClassSession & { savedAt: string };
 
+export const FONT_OPTIONS = ["geist", "system", "serif", "mono"] as const;
+
+export type FontFamily = (typeof FONT_OPTIONS)[number];
+
 export type StudentProfile = {
   name: string;
   email: string;
@@ -95,6 +99,8 @@ type StudybookContextValue = {
   setProfile: Dispatch<SetStateAction<StudentProfile>>;
   theme: "light" | "dark";
   setTheme: Dispatch<SetStateAction<"light" | "dark">>;
+  font: FontFamily;
+  setFont: Dispatch<SetStateAction<FontFamily>>;
   isLoaded: boolean;
   storageError: string;
   toasts: Toast[];
@@ -189,6 +195,9 @@ function readStudybookData() {
 
   const profile = isRecord(parsed.profile) ? parsed.profile : {};
   const theme: "light" | "dark" = parsed.theme === "dark" ? "dark" : "light";
+  const font: FontFamily = FONT_OPTIONS.includes(parsed.font as FontFamily)
+    ? (parsed.font as FontFamily)
+    : "geist";
 
   return {
     classes: Array.isArray(parsed.classes)
@@ -206,6 +215,7 @@ function readStudybookData() {
       avatar: typeof profile.avatar === "string" ? profile.avatar : "",
     },
     theme,
+    font,
   };
 }
 export function StudybookProvider({ children }: { children: ReactNode }) {
@@ -216,6 +226,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
   const [notes, setNotes] = useState<StudyNote[]>([]);
   const [profile, setProfile] = useState(defaultProfile);
   const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [font, setFont] = useState<FontFamily>("geist");
   const [isLoaded, setIsLoaded] = useState(false);
   const [storageError, setStorageError] = useState("");
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -260,6 +271,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
           setNotes(saved.notes);
           setProfile(saved.profile);
           setTheme(saved.theme);
+          setFont(saved.font);
         } else {
           const prefersDark = window.matchMedia?.(
             "(prefers-color-scheme: dark)",
@@ -280,6 +292,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isLoaded) return;
     document.documentElement.dataset.theme = theme;
+    document.documentElement.dataset.font = font;
 
     try {
       window.localStorage.setItem(
@@ -292,6 +305,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
           notes,
           profile,
           theme,
+          font,
         }),
       );
     } catch (error) {
@@ -306,6 +320,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
   }, [
     classChecks,
     classes,
+    font,
     isLoaded,
     notes,
     profile,
@@ -331,6 +346,8 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
         setProfile,
         theme,
         setTheme,
+        font,
+        setFont,
         isLoaded,
         storageError,
         toasts,

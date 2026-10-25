@@ -29,9 +29,13 @@ const themeScript = `
     var theme = saved
       ? (saved.theme === "dark" ? "dark" : "light")
       : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    var fonts = { geist: true, system: true, serif: true, mono: true };
+    var font = saved && fonts[saved.font] ? saved.font : "geist";
     document.documentElement.dataset.theme = theme;
+    document.documentElement.dataset.font = font;
   } catch (error) {
     document.documentElement.dataset.theme = "light";
+    document.documentElement.dataset.font = "geist";
   }
 })();
 `;

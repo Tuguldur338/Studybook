@@ -26,19 +26,25 @@ import {
   LuPencil,
   LuPlus,
   LuSearch,
+  LuSun,
+  LuMoon,
   LuTrash2,
   LuUpload,
 } from "react-icons/lu";
 import {
+  FONT_OPTIONS,
   NOTE_COLORS,
   useStudybook,
   type ClassSession,
+  type FontFamily,
   type NoteColor,
   type SavedClass,
   type StudyNote,
   type StudyTask,
 } from "@/components/studybook-context";
 import { ProfileAvatar } from "@/components/studybook-shell";
+import { useSupabaseUser } from "@/components/use-supabase-user";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const shortWeekdays = ["Mon", "Tue", "Wed", "Thu", "Fri"];
@@ -1823,9 +1829,45 @@ export function NotesView() {
 }
 export function AccountView() {
   const { notify, profile, setProfile } = useStudybook();
+  const { user, ready: accountReady } = useSupabaseUser();
   const [draft, setDraft] = useState<typeof profile | null>(null);
   const [photoError, setPhotoError] = useState("");
   const currentProfile = draft ?? profile;
+
+  const [currentUsername, setCurrentUsername] = useState("");
+  const [username, setUsername] = useState("");
+  const [usernameError, setUsernameError] = useState("");
+  const [usernameStatus, setUsernameStatus] = useState("");
+  const [savingUsername, setSavingUsername] = useState(false);
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordStatus, setPasswordStatus] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+
+    let active = true;
+    const supabase = getSupabaseBrowserClient();
+    supabase
+      .from("profiles")
+      .select("username")
+      .eq("id", user.id)
+      .single()
+      .then(({ data }: { data: { username: string | null } | null }) => {
+        if (!active) return;
+        const saved = typeof data?.username === "string" ? data.username : "";
+        setCurrentUsername(saved);
+        setUsername(saved);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1872,11 +1914,122 @@ export function AccountView() {
     reader.readAsDataURL(file);
   }
 
+  async function handleUsernameSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!user) return;
+
+    setUsernameError("");
+    setUsernameStatus("");
+    const value = username.trim().toLowerCase();
+
+    if (!/^[a-z0-9][a-z0-9_-]{2,29}$/.test(value)) {
+      setUsernameError(
+        "Usernames are 3–30 characters: lowercase letters, numbers, _ or -.",
+      );
+      return;
+    }
+    if (value === currentUsername) {
+      setUsernameStatus("That is already your username.");
+      return;
+    }
+
+    setSavingUsername(true);
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { data: available, error: checkError } = await supabase.rpc(
+        "is_username_available",
+        { candidate: value },
+      );
+      if (checkError) throw checkError;
+      if (!available) throw new Error("That username is already taken.");
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({ username: value })
+        .eq("id", user.id);
+      if (error) {
+        if (error.code === "23505") {
+          throw new Error("That username is already taken.");
+        }
+        throw error;
+      }
+
+      setCurrentUsername(value);
+      setUsername(value);
+      setUsernameStatus("Username updated.");
+      notify("Username updated.");
+    } catch (cause) {
+      setUsernameError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not update your username.",
+      );
+    } finally {
+      setSavingUsername(false);
+    }
+  }
+
+  async function handlePasswordSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!user) return;
+
+    setPasswordError("");
+    setPasswordStatus("");
+
+    if (!currentPassword) {
+      setPasswordError("Enter your current password.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPasswordError("Your new password needs at least 8 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError("The new passwords do not match.");
+      return;
+    }
+    if (!user.email) {
+      setPasswordError("This account does not use an email and password.");
+      return;
+    }
+
+    setSavingPassword(true);
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      });
+      if (verifyError) {
+        throw new Error("Your current password is incorrect.");
+      }
+
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+      if (error) throw error;
+
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordStatus("Password updated.");
+      notify("Password updated.");
+    } catch (cause) {
+      setPasswordError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not update your password.",
+      );
+    } finally {
+      setSavingPassword(false);
+    }
+  }
+
   return (
     <>
       <PageHeading
         eyebrow="Make it yours"
-        subtitle="Update your name and profile picture. Your preferences stay on this device."
+        subtitle="Your name, picture, username and password."
         title="My account"
       />
       <div className="profile-layout">
@@ -1947,9 +2100,9 @@ export function AccountView() {
             />
           </div>
           <div className="notice" style={{ marginTop: 17 }}>
-            Your schedule, tasks, notes, and profile are currently stored only
-            in this browser. Sign-in and secure account syncing need a Supabase
-            project and credentials before they can be enabled.
+            Your schedule, tasks, notes, and profile picture are stored in this
+            browser. Username and password are managed by your Studybook
+            account.
           </div>
           <div className="form-actions">
             <button className="primary-button" type="submit">
@@ -1958,6 +2111,132 @@ export function AccountView() {
           </div>
         </form>
       </div>
+
+      <section className="panel form-panel account-security">
+        <h2 className="panel-title">Sign-in details</h2>
+
+        {!accountReady ? (
+          <p className="notice" style={{ marginTop: 14 }}>
+            Checking your account…
+          </p>
+        ) : !user ? (
+          <p className="notice" style={{ marginTop: 14 }}>
+            Sign in to change your username or password. Profile pictures and
+            the rest of your studybook stay on this device.
+          </p>
+        ) : (
+          <>
+            <form className="account-form" onSubmit={handleUsernameSubmit}>
+              <div className="field">
+                <label htmlFor="account-username">Username</label>
+                <input
+                  autoCapitalize="none"
+                  autoComplete="username"
+                  className="input"
+                  id="account-username"
+                  maxLength={30}
+                  onChange={(event) => setUsername(event.target.value)}
+                  placeholder="e.g. alex_student"
+                  spellCheck={false}
+                  value={username}
+                />
+                <p className="field-hint">
+                  Friends can send requests to @{username.trim() || "username"}.
+                </p>
+              </div>
+              {usernameError && (
+                <p aria-live="polite" className="notice">
+                  {usernameError}
+                </p>
+              )}
+              {usernameStatus && (
+                <p aria-live="polite" className="notice success-notice">
+                  {usernameStatus}
+                </p>
+              )}
+              <div className="form-actions">
+                <button
+                  className="primary-button"
+                  disabled={savingUsername}
+                  type="submit"
+                >
+                  Save username
+                </button>
+              </div>
+            </form>
+
+            <hr className="form-divider" />
+
+            <form className="account-form" onSubmit={handlePasswordSubmit}>
+              <h3 className="account-subtitle">Change password</h3>
+              <div className="field">
+                <label htmlFor="current-password">Current password</label>
+                <input
+                  autoComplete="current-password"
+                  className="input"
+                  id="current-password"
+                  onChange={(event) => setCurrentPassword(event.target.value)}
+                  placeholder="Your current password"
+                  required
+                  type="password"
+                  value={currentPassword}
+                />
+              </div>
+              <div className="form-grid" style={{ marginTop: 14 }}>
+                <div className="field">
+                  <label htmlFor="new-password">New password</label>
+                  <input
+                    autoComplete="new-password"
+                    className="input"
+                    id="new-password"
+                    minLength={8}
+                    onChange={(event) => setNewPassword(event.target.value)}
+                    placeholder="At least 8 characters"
+                    required
+                    type="password"
+                    value={newPassword}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="confirm-new-password">
+                    Confirm new password
+                  </label>
+                  <input
+                    autoComplete="new-password"
+                    className="input"
+                    id="confirm-new-password"
+                    minLength={8}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    placeholder="Enter it again"
+                    required
+                    type="password"
+                    value={confirmPassword}
+                  />
+                </div>
+              </div>
+              {passwordError && (
+                <p aria-live="polite" className="notice">
+                  {passwordError}
+                </p>
+              )}
+              {passwordStatus && (
+                <p aria-live="polite" className="notice success-notice">
+                  {passwordStatus}
+                </p>
+              )}
+              <div className="form-actions">
+                <button
+                  className="primary-button"
+                  disabled={savingPassword}
+                  type="submit"
+                >
+                  Update password
+                </button>
+              </div>
+            </form>
+          </>
+        )}
+      </section>
     </>
   );
 }
@@ -2035,6 +2314,118 @@ export function ProfileView() {
                 title="No finished tasks yet"
               />
             )}
+          </div>
+        </section>
+      </div>
+    </>
+  );
+}
+
+const FONT_META: Record<
+  FontFamily,
+  { label: string; description: string; stack: string }
+> = {
+  geist: {
+    label: "Geist",
+    description: "The default Studybook typeface",
+    stack: "var(--font-geist-sans), Arial, sans-serif",
+  },
+  system: {
+    label: "System",
+    description: "Matches your device",
+    stack: 'system-ui, -apple-system, "Segoe UI", sans-serif',
+  },
+  serif: {
+    label: "Serif",
+    description: "Classic and bookish",
+    stack: 'Georgia, "Times New Roman", serif',
+  },
+  mono: {
+    label: "Mono",
+    description: "Fixed-width and code-friendly",
+    stack: "ui-monospace, Consolas, monospace",
+  },
+};
+
+export function SettingsView() {
+  const { font, setFont, setTheme, theme } = useStudybook();
+
+  return (
+    <>
+      <PageHeading
+        eyebrow="Make yourself comfortable"
+        subtitle="Choose a theme and a font family. Changes apply across Studybook and are saved on this device."
+        title="Settings"
+      />
+
+      <div className="settings-grid">
+        <section className="panel">
+          <div className="panel-heading">
+            <h2 className="panel-title">Theme</h2>
+          </div>
+          <div className="panel-body">
+            <div className="theme-choices">
+              <button
+                aria-pressed={theme === "light"}
+                className={`theme-choice${theme === "light" ? " selected" : ""}`}
+                onClick={() => setTheme("light")}
+                type="button"
+              >
+                <span aria-hidden="true" className="theme-swatch light" />
+                <span className="theme-choice-copy">
+                  <strong>
+                    <LuSun aria-hidden="true" size={14} /> Light
+                  </strong>
+                  <span>Bright background, dark text</span>
+                </span>
+              </button>
+              <button
+                aria-pressed={theme === "dark"}
+                className={`theme-choice${theme === "dark" ? " selected" : ""}`}
+                onClick={() => setTheme("dark")}
+                type="button"
+              >
+                <span aria-hidden="true" className="theme-swatch dark" />
+                <span className="theme-choice-copy">
+                  <strong>
+                    <LuMoon aria-hidden="true" size={14} /> Dark
+                  </strong>
+                  <span>Dim background, light text</span>
+                </span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="panel-heading">
+            <h2 className="panel-title">Font family</h2>
+          </div>
+          <div className="panel-body">
+            <div className="font-choices">
+              {FONT_OPTIONS.map((option) => {
+                const meta = FONT_META[option];
+                return (
+                  <button
+                    aria-pressed={font === option}
+                    className={`font-choice${font === option ? " selected" : ""}`}
+                    key={option}
+                    onClick={() => setFont(option)}
+                    style={{ fontFamily: meta.stack }}
+                    type="button"
+                  >
+                    <span className="font-sample">Aa</span>
+                    <span className="font-choice-copy">
+                      <strong>{meta.label}</strong>
+                      <span>{meta.description}</span>
+                    </span>
+                    <span className="font-preview">
+                      The quick brown fox jumps over the lazy dog.
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </section>
       </div>

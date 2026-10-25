@@ -78,7 +78,7 @@ export type MessagingApi = {
   person: (id: string) => PersonInfo;
   messagesFor: (conversationId: string | null) => ChatMessage[];
   refresh: () => Promise<void>;
-  sendFriendRequest: (email: string) => Promise<string>;
+  sendFriendRequest: (login: string) => Promise<string>;
   respondToRequest: (request: Friendship, accept: boolean) => Promise<void>;
   startDirectChat: (friendId: string) => Promise<string>;
   createGroup: (title: string, memberIds: string[]) => Promise<string>;
@@ -367,23 +367,25 @@ export function useMessaging(user: User | null): MessagingApi {
   );
 
   const sendFriendRequest = useCallback(
-    async (email: string) => {
+    async (login: string) => {
       if (!configured || !userId) throw new Error("Sign in to add friends.");
-      const target = email.trim();
-      if (!target) throw new Error("Enter the email they used to sign up.");
+      const target = login.trim().replace(/^@/, "");
+      if (!target) throw new Error("Enter their email or username.");
 
       const supabase = getSupabaseBrowserClient();
       const { data, error: lookupError } = await supabase.rpc(
-        "find_user_by_email",
-        { target_email: target },
+        "find_user_by_login",
+        { login: target },
       );
       if (lookupError) throw lookupError;
 
       const rows = Array.isArray(data) ? data : data ? [data] : [];
       const found = rows[0] as
-        | { id: string; display_name: string | null }
+        | { id: string; display_name: string | null; username: string | null }
         | undefined;
-      if (!found?.id) throw new Error("No Studybook account uses that email.");
+      if (!found?.id) {
+        throw new Error("No Studybook account uses that email or username.");
+      }
       if (found.id === userId) throw new Error("That is your own account.");
 
       const { error: insertError } = await supabase.from("friendships").insert({
@@ -399,7 +401,9 @@ export function useMessaging(user: User | null): MessagingApi {
       }
 
       await refresh();
-      return `Request sent to ${found.display_name?.trim() || target}.`;
+      return `Request sent to ${
+        found.display_name?.trim() || found.username || target
+      }.`;
     },
     [configured, refresh, userId],
   );

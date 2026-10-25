@@ -2,6 +2,7 @@
 
 :root {
   color-scheme: light;
+  --app-font: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   --background: #f3f6f4;
   --surface: #ffffff;
   --surface-muted: #ecf1ee;
@@ -101,8 +102,21 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--app-font);
   transition: background-color 220ms ease, color 220ms ease;
+}
+
+:root[data-font="system"] {
+  --app-font: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+:root[data-font="serif"] {
+  --app-font: Georgia, "Iowan Old Style", "Times New Roman", serif;
+}
+
+:root[data-font="mono"] {
+  --app-font: ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas,
+    "Liberation Mono", monospace;
 }
 
 button,
@@ -1380,6 +1394,39 @@ a {
   font-weight: 600;
 }
 
+.field-hint {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.account-security {
+  margin-top: 16px;
+}
+
+.account-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.account-form .form-actions {
+  margin-top: 2px;
+}
+
+.account-subtitle {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.form-divider {
+  margin: 20px 0 4px;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
 .field.full-width {
   grid-column: 1 / -1;
 }
@@ -1772,6 +1819,99 @@ a {
   background: var(--surface);
   box-shadow: var(--shadow-lg);
   animation: pop-in 200ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.messenger-docked {
+  position: fixed;
+  z-index: 55;
+  right: 20px;
+  bottom: 20px;
+  width: min(380px, calc(100vw - 32px));
+  height: min(620px, calc(100dvh - 110px));
+  animation: messenger-in 220ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.messenger-docked.is-minimized {
+  display: none;
+}
+
+@keyframes messenger-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.messenger-bubble-wrap {
+  position: fixed;
+  z-index: 55;
+  right: 20px;
+  bottom: 20px;
+}
+
+.messenger-bubble {
+  position: relative;
+  display: grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent-grad);
+  color: var(--accent-contrast);
+  box-shadow: var(--shadow);
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.messenger-bubble:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: var(--shadow-lg);
+}
+
+.messenger-bubble-close {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--muted);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease;
+}
+
+.messenger-bubble-wrap:hover .messenger-bubble-close,
+.messenger-bubble-close:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.messenger-bubble-badge {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  display: grid;
+  min-width: 21px;
+  height: 21px;
+  place-items: center;
+  border: 2px solid var(--surface);
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 0 5px;
 }
 
 .messenger-head {
@@ -2602,6 +2742,112 @@ button.messenger-row:hover {
   color: var(--muted);
 }
 
+/* Settings */
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.theme-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.theme-choice {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  padding: 12px;
+  text-align: left;
+}
+
+.theme-choice.selected,
+.font-choice.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+.theme-swatch {
+  display: block;
+  height: 52px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.theme-swatch.light {
+  background: linear-gradient(135deg, #f3f6f4, #ffffff);
+}
+
+.theme-swatch.dark {
+  background: linear-gradient(135deg, #0f1513, #2b3a33);
+}
+
+.theme-choice-copy {
+  display: grid;
+  gap: 3px;
+}
+
+.theme-choice-copy strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.theme-choice-copy span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.font-choices {
+  display: grid;
+  gap: 10px;
+}
+
+.font-choice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  padding: 12px 14px;
+  text-align: left;
+}
+
+.font-sample {
+  grid-row: span 2;
+  align-self: center;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.font-choice-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.font-choice-copy strong {
+  font-size: 12px;
+}
+
+.font-choice-copy span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.font-preview {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 @media (min-width: 1024px) {
   .timetable {
     display: block;
@@ -2619,6 +2865,11 @@ button.messenger-row:hover {
 @media (pointer: coarse) {
   .time-block-actions {
     opacity: 1;
+  }
+
+  .messenger-bubble-close {
+    opacity: 1;
+    pointer-events: auto;
   }
 }
 
@@ -2669,6 +2920,10 @@ button.messenger-row:hover {
     grid-template-columns: 1fr;
   }
 
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+
   .stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2713,6 +2968,23 @@ button.messenger-row:hover {
 
   .page-content {
     padding: 25px 16px 40px;
+  }
+
+  .messenger-docked {
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 88dvh;
+    border-radius: 18px 18px 0 0;
+  }
+
+  .messenger-bubble-wrap {
+    right: 16px;
+    bottom: 16px;
+  }
+
+  .theme-choices {
+    grid-template-columns: 1fr;
   }
 
   .page-heading {
