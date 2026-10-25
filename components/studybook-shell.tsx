@@ -11,12 +11,14 @@ import {
 import {
   LuBookOpen,
   LuCalendarDays,
+  LuChevronRight,
   LuCheck,
   LuCircleAlert,
   LuCircleCheck,
   LuCircleHelp,
   LuEye,
   LuEyeOff,
+  LuFolderOpen,
   LuHouse,
   LuInfo,
   LuLogIn,
@@ -54,6 +56,7 @@ const pageNames: Record<string, string> = {
   "/to-do-list": "To-do list",
   "/notes": "My notes",
   "/account": "My account",
+  "/profile": "Profile",
 };
 
 function initials(name: string) {
@@ -325,8 +328,10 @@ function StudybookFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const {
     profile,
+    setProfile,
     setTheme,
     theme,
+    isLoaded,
     storageError,
     tasks,
     toasts,
@@ -354,6 +359,35 @@ function StudybookFrame({ children }: { children: ReactNode }) {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!authUser || !isLoaded) return;
+
+    const metadata = authUser.user_metadata ?? {};
+    const rawName =
+      typeof metadata.display_name === "string"
+        ? metadata.display_name
+        : typeof metadata.full_name === "string"
+          ? metadata.full_name
+          : typeof metadata.name === "string"
+            ? metadata.name
+            : "";
+    const displayName = rawName.trim();
+    const fallbackName = authUser.email ? authUser.email.split("@")[0] : "";
+    const avatar =
+      typeof metadata.avatar_url === "string"
+        ? metadata.avatar_url
+        : typeof metadata.picture === "string"
+          ? metadata.picture
+          : "";
+
+    setProfile((current) => ({
+      ...current,
+      name: displayName || fallbackName || current.name,
+      email: authUser.email ?? current.email,
+      avatar: current.avatar || avatar,
+    }));
+  }, [authUser, isLoaded, setProfile]);
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
@@ -466,16 +500,32 @@ function StudybookFrame({ children }: { children: ReactNode }) {
               Small steps add up. You&apos;re doing great.
             </div>
             <Link
-              aria-label={`${profile.name || "Student"}'s profile, my account`}
-              className={`sidebar-profile${pathname === "/account" ? " active" : ""}`}
-              href="/account"
+              aria-current={pathname === "/profile" ? "page" : undefined}
+              aria-label="Account"
+              className={`nav-link sidebar-account${pathname === "/profile" ? " active" : ""}`}
+              href="/profile"
               onClick={() => setMobileMenuOpen(false)}
-              title="My account"
+              title="Account"
+            >
+              <LuFolderOpen size={18} />
+              <span className="nav-text">Account</span>
+              <LuChevronRight
+                aria-hidden="true"
+                className="nav-arrow"
+                size={14}
+              />
+            </Link>
+            <Link
+              aria-label={`${profile.name || "Student"}'s profile`}
+              className="sidebar-profile"
+              href="/profile"
+              onClick={() => setMobileMenuOpen(false)}
+              title="View profile"
             >
               <ProfileAvatar image={profile.avatar} name={profile.name} />
               <span className="sidebar-profile-copy">
                 <span className="sidebar-profile-name">{profile.name}</span>
-                <span className="sidebar-profile-caption">My account</span>
+                <span className="sidebar-profile-caption">View profile</span>
               </span>
             </Link>
           </div>

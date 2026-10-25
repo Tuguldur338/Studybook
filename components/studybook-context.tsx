@@ -50,6 +50,16 @@ export type StudyNote = {
   color?: NoteColor;
 };
 
+export type ClassCheckKind = "classwork" | "homework";
+
+export type ClassCheck = Record<ClassCheckKind, boolean>;
+
+/**
+ * Keyed by `${mondayOfWeek}|${classId}`, so a new week starts with empty
+ * checks while previous weeks keep their history.
+ */
+export type ClassChecks = Record<string, ClassCheck>;
+
 export type StudentProfile = {
   name: string;
   email: string;
@@ -67,6 +77,8 @@ export type Toast = {
 type StudybookContextValue = {
   classes: ClassSession[];
   setClasses: Dispatch<SetStateAction<ClassSession[]>>;
+  classChecks: ClassChecks;
+  setClassChecks: Dispatch<SetStateAction<ClassChecks>>;
   tasks: StudyTask[];
   setTasks: Dispatch<SetStateAction<StudyTask[]>>;
   notes: StudyNote[];
@@ -75,6 +87,7 @@ type StudybookContextValue = {
   setProfile: Dispatch<SetStateAction<StudentProfile>>;
   theme: "light" | "dark";
   setTheme: Dispatch<SetStateAction<"light" | "dark">>;
+  isLoaded: boolean;
   storageError: string;
   toasts: Toast[];
   notify: (message: string, type?: ToastType) => void;
@@ -136,6 +149,19 @@ function isStudyNote(value: unknown): value is StudyNote {
   );
 }
 
+function isClassChecks(value: unknown): value is ClassChecks {
+  return (
+    isRecord(value) &&
+    !Array.isArray(value) &&
+    Object.values(value).every(
+      (entry) =>
+        isRecord(entry) &&
+        typeof entry.classwork === "boolean" &&
+        typeof entry.homework === "boolean",
+    )
+  );
+}
+
 function readStudybookData() {
   const raw = window.localStorage.getItem(STORAGE_KEY);
   if (!raw) return null;
@@ -152,6 +178,7 @@ function readStudybookData() {
     classes: Array.isArray(parsed.classes)
       ? parsed.classes.filter(isClassSession)
       : [],
+    classChecks: isClassChecks(parsed.classChecks) ? parsed.classChecks : {},
     tasks: Array.isArray(parsed.tasks) ? parsed.tasks.filter(isStudyTask) : [],
     notes: Array.isArray(parsed.notes) ? parsed.notes.filter(isStudyNote) : [],
     profile: {
@@ -164,6 +191,7 @@ function readStudybookData() {
 }
 export function StudybookProvider({ children }: { children: ReactNode }) {
   const [classes, setClasses] = useState<ClassSession[]>([]);
+  const [classChecks, setClassChecks] = useState<ClassChecks>({});
   const [tasks, setTasks] = useState<StudyTask[]>([]);
   const [notes, setNotes] = useState<StudyNote[]>([]);
   const [profile, setProfile] = useState(defaultProfile);
@@ -206,6 +234,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
         const saved = readStudybookData();
         if (saved) {
           setClasses(saved.classes);
+          setClassChecks(saved.classChecks);
           setTasks(saved.tasks);
           setNotes(saved.notes);
           setProfile(saved.profile);
@@ -234,7 +263,14 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     try {
       window.localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ classes, tasks, notes, profile, theme }),
+        JSON.stringify({
+          classes,
+          classChecks,
+          tasks,
+          notes,
+          profile,
+          theme,
+        }),
       );
     } catch (error) {
       const message =
@@ -245,13 +281,15 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
         );
       }, 0);
     }
-  }, [classes, isLoaded, notes, profile, tasks, theme]);
+  }, [classChecks, classes, isLoaded, notes, profile, tasks, theme]);
 
   return (
     <StudybookContext.Provider
       value={{
         classes,
         setClasses,
+        classChecks,
+        setClassChecks,
         tasks,
         setTasks,
         notes,
@@ -260,6 +298,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
         setProfile,
         theme,
         setTheme,
+        isLoaded,
         storageError,
         toasts,
         notify,

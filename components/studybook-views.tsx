@@ -4,8 +4,10 @@ import Link from "next/link";
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ChangeEvent,
+  type CSSProperties,
   type FormEvent,
   type ReactNode,
 } from "react";
@@ -14,6 +16,8 @@ import {
   LuCalendarDays,
   LuCalendarPlus,
   LuChevronDown,
+  LuChevronLeft,
+  LuChevronRight,
   LuCircleAlert,
   LuCircleCheck,
   LuClock,
@@ -96,6 +100,41 @@ function hasOverlap(list: ClassSession[]) {
     if (sorted[i].startTime < sorted[i - 1].endTime) return true;
   }
   return false;
+}
+
+const HOUR_HEIGHT = 64;
+
+function startOfWeek(date: Date) {
+  const monday = new Date(date);
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  monday.setHours(0, 0, 0, 0);
+  return monday;
+}
+
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function minutesSinceMidnight(value: string) {
+  const [hours, minutes] = value.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+function formatWeekRange(start: Date) {
+  const format = (date: Date) =>
+    new Intl.DateTimeFormat(undefined, {
+      month: "short",
+      day: "numeric",
+    }).format(date);
+  return `${format(start)} – ${format(addDays(start, 4))}`;
+}
+
+function formatHour(hour: number) {
+  const suffix = hour < 12 ? "AM" : "PM";
+  const display = hour % 12 === 0 ? 12 : hour % 12;
+  return `${display} ${suffix}`;
 }
 
 function PageHeading({
@@ -439,19 +478,43 @@ const emptyClassForm = {
 };
 
 export function ScheduleView() {
-  const { classes, notify, setClasses } = useStudybook();
+  const { classChecks, classes, notify, setClassChecks, setClasses } =
+    useStudybook();
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyClassForm);
   const [formError, setFormError] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [todayDay, setTodayDay] = useState<number | null>(null);
+  const [weekAnchor, setWeekAnchor] = useState("");
+  const [weekOffset, setWeekOffset] = useState(0);
+  const weekOffsetRef = useRef(0);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
-      setTodayDay((new Date().getDay() + 6) % 7);
+      const now = new Date();
+      setTodayDay((now.getDay() + 6) % 7);
+      setWeekAnchor(toISODate(startOfWeek(now)));
     });
     return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    weekOffsetRef.current = weekOffset;
+  }, [weekOffset]);
+
+  // Roll onto the new week at midnight while the page stays open.
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      const now = new Date();
+      setTodayDay((now.getDay() + 6) % 7);
+      if (weekOffsetRef.current !== 0) return;
+      setWeekAnchor((current) => {
+        const monday = toISODate(startOfWeek(now));
+        return current === monday ? current : monday;
+      });
+    }, 30_000);
+    return () => window.clearInterval(interval);
   }, []);
 
   function startEditing(session: ClassSession) {
@@ -504,6 +567,109 @@ export function ScheduleView() {
   const sortedClasses = [...classes].sort(
     (a, b) => a.day - b.day || a.startTime.localeCompare(b.startTime),
   );
+  const classesByDay = weekdays.map((_, index) =>
+    sortedClasses.filter((session) => session.day === index),
+  );
+
+  const currentWeekStart = weekAnchor
+    ? new Date(`${weekAnchor}T00:00:00`)
+    : null;
+  const viewedWeekStart = currentWeekStart
+    ? addDays(currentWeekStart, weekOffset * 7)
+    : null;
+  const weekKey = viewedWeekStart ? toISODate(viewedWeekStart) : "";
+  const dayDates = viewedWeekStart
+    ? weekdays.map((_, index) => addDays(viewedWeekStart, index))
+    : [];
+
+  function checkState(id: string) {
+    return (
+      classChecks[`${weekKey}:${id}`] ?? { classwork: false, homework: false }
+    );
+  }
+
+  function toggleCheck(id: string, kind: "classwork" | "homework") {
+    if (!weekKey) return;
+    const key = `${weekKey}:${id}`;
+    setClassChecks((current) => {
+      const entry = current[key] ?? { classwork: false, homework: false };
+      return { ...current, [key]: { ...entry, [kind]: !entry[kind] } };
+    });
+  }
+
+  function renderChecks(session: ClassSession) {
+    const state = checkState(session.id);
+    return (
+      <div className="class-checks">
+        <label className="check-chip">
+          <input
+            aria-label={`Classwork done for ${session.subject}`}
+            checked={state.classwork}
+            disabled={!weekKey}
+            onChange={() => toggleCheck(session.id, "classwork")}
+            type="checkbox"
+          />
+          <span>Classwork</span>
+        </label>
+        <label className="check-chip">
+          <input
+            aria-label={`Homework done for ${session.subject}`}
+            checked={state.homework}
+            disabled={!weekKey}
+            onChange={() => toggleCheck(session.id, "homework")}
+            type="checkbox"
+          />
+          <span>Homework</span>
+        </label>
+      </div>
+    );
+  }
+
+  const startHour = classes.length
+    ? Math.max(
+        0,
+        Math.min(
+          8,
+          Math.floor(
+            Math.min(
+              ...classes.map((session) =>
+                minutesSinceMidnight(session.startTime),
+              ),
+            ) / 60,
+          ),
+        ),
+      )
+    : 8;
+  const endHour = classes.length
+    ? Math.min(
+        24,
+        Math.max(
+          18,
+          Math.ceil(
+            Math.max(
+              ...classes.map((session) =>
+                minutesSinceMidnight(session.endTime),
+              ),
+            ) / 60,
+          ),
+        ),
+      )
+    : 18;
+  const hours = Array.from(
+    { length: endHour - startHour },
+    (_, index) => startHour + index,
+  );
+
+  const weekOffsetLabel =
+    weekOffset === 0
+      ? "This week"
+      : weekOffset === -1
+        ? "Last week"
+        : weekOffset === 1
+          ? "Next week"
+          : weekOffset < 0
+            ? `${Math.abs(weekOffset)} weeks ago`
+            : `In ${weekOffset} weeks`;
 
   return (
     <>
@@ -523,7 +689,7 @@ export function ScheduleView() {
           </button>
         }
         eyebrow="Make room for learning"
-        subtitle="Your classes for the week, all in one place. Add or update them whenever your timetable changes."
+        subtitle="Add each class with its day and times, then tick off classwork and homework as you finish them. Checks start fresh every Monday."
         title="Weekly schedule"
       />
       {formOpen && (
@@ -638,16 +804,184 @@ export function ScheduleView() {
           </div>
         </form>
       )}
-      <section aria-label="Classes by weekday" className="panel">
+
+      <section aria-label="Weekly schedule" className="panel schedule-panel">
+        <div className="week-toolbar">
+          <button
+            aria-label="Previous week"
+            className="week-arrow"
+            onClick={() => setWeekOffset((offset) => offset - 1)}
+            type="button"
+          >
+            <LuChevronLeft size={18} />
+          </button>
+          <div className="week-caption">
+            <strong>
+              {viewedWeekStart ? formatWeekRange(viewedWeekStart) : "This week"}
+            </strong>
+            <span>{weekOffsetLabel}</span>
+          </div>
+          <button
+            aria-label="Next week"
+            className="week-arrow"
+            onClick={() => setWeekOffset((offset) => offset + 1)}
+            type="button"
+          >
+            <LuChevronRight size={18} />
+          </button>
+          {weekOffset !== 0 && (
+            <button
+              aria-label="Back to this week"
+              className="text-button"
+              onClick={() => {
+                setWeekAnchor(toISODate(startOfWeek(new Date())));
+                setWeekOffset(0);
+              }}
+              type="button"
+            >
+              This week
+            </button>
+          )}
+        </div>
+
+        {classes.length > 0 && (
+          <div className="week-checklist">
+            <div className="week-checklist-inner">
+              <div className="checklist-head">
+                <h2>Classwork &amp; homework</h2>
+                <span>Ticks reset every Monday</span>
+              </div>
+              <div className="checklist-grid">
+                {weekdays.map((day, index) => (
+                  <div className="checklist-day" key={day}>
+                    <h3>{day}</h3>
+                    {classesByDay[index].length ? (
+                      classesByDay[index].map((session) => (
+                        <div className="checklist-row" key={session.id}>
+                          <div className="checklist-class">
+                            <span>{session.subject}</span>
+                            <small>{formatTime(session.startTime)}</small>
+                          </div>
+                          {renderChecks(session)}
+                        </div>
+                      ))
+                    ) : (
+                      <p className="checklist-empty">No classes</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div
+          className="timetable"
+          style={
+            {
+              "--hour-height": `${HOUR_HEIGHT}px`,
+              "--hour-count": endHour - startHour,
+            } as CSSProperties
+          }
+        >
+          <div className="timetable-head">
+            <div aria-hidden="true" className="timetable-corner" />
+            {weekdays.map((day, index) => (
+              <div
+                className={`timetable-day${weekOffset === 0 && todayDay === index ? " today" : ""}`}
+                key={day}
+              >
+                <span>{shortWeekdays[index]}</span>
+                <small>
+                  {dayDates[index]
+                    ? new Intl.DateTimeFormat(undefined, {
+                        month: "short",
+                        day: "numeric",
+                      }).format(dayDates[index])
+                    : ""}
+                </small>
+              </div>
+            ))}
+          </div>
+          <div className="timetable-body">
+            <div aria-hidden="true" className="time-scale">
+              {hours.map((hour) => (
+                <div className="time-slot" key={hour}>
+                  {formatHour(hour)}
+                </div>
+              ))}
+            </div>
+            {weekdays.map((day, index) => (
+              <div
+                aria-label={day}
+                className={`day-lane${weekOffset === 0 && todayDay === index ? " today" : ""}`}
+                key={day}
+                role="group"
+              >
+                {classesByDay[index].map((session) => {
+                  const state = checkState(session.id);
+                  const complete = state.classwork && state.homework;
+                  const start = minutesSinceMidnight(session.startTime);
+                  const end = minutesSinceMidnight(session.endTime);
+                  const top = ((start - startHour * 60) / 60) * HOUR_HEIGHT;
+                  const height = Math.max(
+                    ((end - start) / 60) * HOUR_HEIGHT - 4,
+                    62,
+                  );
+                  return (
+                    <article
+                      className={`time-block${complete ? " complete" : ""}`}
+                      key={session.id}
+                      style={{ height: `${height}px`, top: `${top}px` }}
+                    >
+                      <div className="time-block-head">
+                        <span className="time-block-title">
+                          {session.subject}
+                        </span>
+                        <span className="time-block-actions">
+                          <button
+                            aria-label={`Edit ${session.subject}`}
+                            className="block-action"
+                            onClick={() => startEditing(session)}
+                            type="button"
+                          >
+                            <LuPencil size={12} />
+                          </button>
+                          <button
+                            aria-label={`Delete ${session.subject}`}
+                            className="block-action danger"
+                            onClick={() => setDeleteId(session.id)}
+                            type="button"
+                          >
+                            <LuTrash2 size={12} />
+                          </button>
+                        </span>
+                      </div>
+                      <span className="time-block-time">
+                        {formatTime(session.startTime)} –{" "}
+                        {formatTime(session.endTime)}
+                        {session.location ? ` · ${session.location}` : ""}
+                      </span>
+                    </article>
+                  );
+                })}
+                {hasOverlap(classesByDay[index]) && (
+                  <span className="overlap-badge lane-overlap">
+                    <LuCircleAlert size={12} /> Overlap
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="week-grid">
           {weekdays.map((day, index) => {
-            const dayClasses = sortedClasses.filter(
-              (session) => session.day === index,
-            );
+            const dayClasses = classesByDay[index];
             const overlap = hasOverlap(dayClasses);
             return (
               <div
-                className={`day-column${todayDay === index ? " today" : ""}`}
+                className={`day-column${todayDay === index && weekOffset === 0 ? " today" : ""}`}
                 key={day}
               >
                 <div className="day-heading">
@@ -667,6 +1001,7 @@ export function ScheduleView() {
                           {session.location}
                         </div>
                       )}
+                      {renderChecks(session)}
                       <div className="inline-actions" style={{ marginTop: 8 }}>
                         <button
                           aria-label={`Edit ${session.subject}`}
@@ -700,9 +1035,10 @@ export function ScheduleView() {
           })}
         </div>
       </section>
+
       <p className="page-subtitle" style={{ marginTop: 14 }}>
         {classes.length
-          ? `${classes.length} ${classes.length === 1 ? "class" : "classes"} planned this week.`
+          ? `${classes.length} ${classes.length === 1 ? "class" : "classes"} planned each week. Classwork and homework checks reset every Monday.`
           : "Your schedule is saved on this device, so you can come back and update it anytime."}
       </p>
 
@@ -1481,6 +1817,86 @@ export function AccountView() {
             </button>
           </div>
         </form>
+      </div>
+    </>
+  );
+}
+
+export function ProfileView() {
+  const { classes, profile, tasks } = useStudybook();
+  const completed = tasks
+    .filter((task) => task.completed)
+    .sort((a, b) => {
+      if (!a.dueDate) return 1;
+      if (!b.dueDate) return -1;
+      return b.dueDate.localeCompare(a.dueDate);
+    });
+
+  return (
+    <>
+      <PageHeading
+        action={
+          <Link className="secondary-button" href="/account">
+            <LuPencil size={15} /> Edit profile
+          </Link>
+        }
+        eyebrow="Your space"
+        subtitle="Your details, plus everything you have already finished."
+        title="Profile"
+      />
+      <div className="profile-layout">
+        <section className="panel profile-card">
+          <ProfileAvatar image={profile.avatar} large name={profile.name} />
+          <h2 className="profile-name">{profile.name}</h2>
+          <p className="profile-email">
+            {profile.email || "Your student space"}
+          </p>
+          <div className="profile-stats">
+            <div>
+              <strong>{completed.length}</strong>
+              <span>tasks done</span>
+            </div>
+            <div>
+              <strong>{classes.length}</strong>
+              <span>weekly classes</span>
+            </div>
+          </div>
+        </section>
+        <section className="panel">
+          <div className="panel-heading">
+            <h2 className="panel-title">Completed tasks</h2>
+            <span className="panel-link">{completed.length} finished</span>
+          </div>
+          <div className="panel-body">
+            {completed.length ? (
+              <div className="task-list">
+                {completed.map((task) => (
+                  <div className="task-row" key={task.id}>
+                    <span className="task-done-icon">
+                      <LuCircleCheck aria-hidden="true" size={16} />
+                    </span>
+                    <div className="task-main">
+                      <div className="task-title completed">{task.title}</div>
+                      <div className="task-meta">
+                        <span>{task.course || "Personal"}</span>
+                        <span>{formatDate(task.dueDate)}</span>
+                      </div>
+                    </div>
+                    <span className={`priority-badge ${task.priority}`}>
+                      {task.priority}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                copy="Tick something off your to-do list and it will be collected here."
+                icon={<LuCircleCheck aria-hidden="true" size={22} />}
+                title="No finished tasks yet"
+              />
+            )}
+          </div>
+        </section>
       </div>
     </>
   );
