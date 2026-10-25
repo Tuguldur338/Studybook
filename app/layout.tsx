@@ -19,14 +19,32 @@ export const metadata: Metadata = {
     "Your personal student planner for class schedules, assignments, notes, and study goals.",
 };
 
+// Runs before the app hydrates so the right palette is on <html> for the first
+// paint. Keep the storage key/shape in sync with StudybookProvider.
+const themeScript = `
+(function () {
+  try {
+    var raw = window.localStorage.getItem("studybook-data-v1");
+    var saved = raw ? JSON.parse(raw) : null;
+    var theme = saved
+      ? (saved.theme === "dark" ? "dark" : "light")
+      : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.dataset.theme = theme;
+  } catch (error) {
+    document.documentElement.dataset.theme = "light";
+  }
+})();
+`;
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-      data-theme="light"
+      suppressHydrationWarning
     >
       <body className="min-h-full">
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         <StudybookShell>{children}</StudybookShell>
       </body>
     </html>

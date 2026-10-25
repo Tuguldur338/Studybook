@@ -355,6 +355,39 @@ function StudybookFrame({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setMobileMenuOpen(false);
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 901px)");
+    function closeOnDesktop() {
+      if (desktop.matches) setMobileMenuOpen(false);
+    }
+    closeOnDesktop();
+    desktop.addEventListener("change", closeOnDesktop);
+    return () => desktop.removeEventListener("change", closeOnDesktop);
+  }, []);
+
+  function toggleTheme() {
+    const nextTheme = theme === "light" ? "dark" : "light";
+    document.documentElement.dataset.theme = nextTheme;
+    setTheme(nextTheme);
+  }
+
   async function handleSignOut() {
     try {
       const { error } = await getSupabaseBrowserClient().auth.signOut();
@@ -380,6 +413,7 @@ function StudybookFrame({ children }: { children: ReactNode }) {
         <aside
           aria-label="Main navigation"
           className={`sidebar${mobileMenuOpen ? " mobile-open" : ""}`}
+          id="primary-sidebar"
         >
           <Link
             aria-label="Studybook home"
@@ -450,6 +484,8 @@ function StudybookFrame({ children }: { children: ReactNode }) {
           <header className="topbar">
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <button
+                aria-controls="primary-sidebar"
+                aria-expanded={mobileMenuOpen}
                 aria-label="Open navigation menu"
                 className="icon-button mobile-menu-button"
                 onClick={() => setMobileMenuOpen(true)}
@@ -466,9 +502,7 @@ function StudybookFrame({ children }: { children: ReactNode }) {
               <button
                 aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
                 className="icon-button"
-                onClick={() =>
-                  setTheme((current) => (current === "light" ? "dark" : "light"))
-                }
+                onClick={toggleTheme}
                 title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
                 type="button"
               >

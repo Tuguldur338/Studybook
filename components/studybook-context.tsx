@@ -182,18 +182,15 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const notify = useCallback(
-    (message: string, type: ToastType = "success") => {
-      const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      setToasts((current) => [...current.slice(-3), { id, message, type }]);
-      const timer = window.setTimeout(() => {
-        setToasts((current) => current.filter((toast) => toast.id !== id));
-        timers.current.delete(id);
-      }, 4500);
-      timers.current.set(id, timer);
-    },
-    [],
-  );
+  const notify = useCallback((message: string, type: ToastType = "success") => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setToasts((current) => [...current.slice(-3), { id, message, type }]);
+    const timer = window.setTimeout(() => {
+      setToasts((current) => current.filter((toast) => toast.id !== id));
+      timers.current.delete(id);
+    }, 4500);
+    timers.current.set(id, timer);
+  }, []);
 
   useEffect(() => {
     const map = timers.current;
@@ -231,8 +228,8 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    document.documentElement.dataset.theme = theme;
     if (!isLoaded) return;
+    document.documentElement.dataset.theme = theme;
 
     try {
       window.localStorage.setItem(
@@ -281,4 +278,3 @@ export function useStudybook() {
   }
   return context;
 }
-
