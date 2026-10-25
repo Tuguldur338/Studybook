@@ -1839,6 +1839,8 @@ export function AccountView() {
   const [usernameError, setUsernameError] = useState("");
   const [usernameStatus, setUsernameStatus] = useState("");
   const [savingUsername, setSavingUsername] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileError, setProfileError] = useState("");
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -1869,15 +1871,43 @@ export function AccountView() {
     };
   }, [user]);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const nextName = currentProfile.name.trim() || "Student";
+
     setProfile({
-      name: currentProfile.name.trim() || "Student",
+      name: nextName,
       email: currentProfile.email.trim(),
       avatar: currentProfile.avatar,
     });
     setDraft(null);
+    setProfileError("");
     notify("Your profile has been saved.");
+
+    if (!user) return;
+
+    setSavingProfile(true);
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { error } = await supabase
+        .from("profiles")
+        .update({ display_name: nextName })
+        .eq("id", user.id);
+      if (error) throw error;
+
+      const { error: metaError } = await supabase.auth.updateUser({
+        data: { display_name: nextName },
+      });
+      if (metaError) throw metaError;
+    } catch (cause) {
+      setProfileError(
+        cause instanceof Error
+          ? `Saved on this device, but could not sync your name: ${cause.message}`
+          : "Saved on this device, but could not sync your name.",
+      );
+    } finally {
+      setSavingProfile(false);
+    }
   }
 
   function updateDraft(changes: Partial<typeof profile>) {
@@ -1929,7 +1959,35 @@ export function AccountView() {
       return;
     }
     if (value === currentUsername) {
-      setUsernameStatus("That is already your username.");
+      if (profile.name === value) {
+        setUsernameStatus("That is already your username.");
+        return;
+      }
+
+      // Keep older accounts in sync: saving the same username adopts it as the
+      // display name too.
+      setSavingUsername(true);
+      try {
+        const supabase = getSupabaseBrowserClient();
+        const { error } = await supabase
+          .from("profiles")
+          .update({ display_name: value })
+          .eq("id", user.id);
+        if (error) throw error;
+        await supabase.auth.updateUser({ data: { display_name: value } });
+        setProfile((current) => ({ ...current, name: value }));
+        setDraft(null);
+        setUsernameStatus("Your display name now matches your username.");
+        notify("Display name updated.");
+      } catch (cause) {
+        setUsernameError(
+          cause instanceof Error
+            ? cause.message
+            : "Could not sync your display name.",
+        );
+      } finally {
+        setSavingUsername(false);
+      }
       return;
     }
 
@@ -1945,7 +2003,7 @@ export function AccountView() {
 
       const { error } = await supabase
         .from("profiles")
-        .update({ username: value })
+        .update({ username: value, display_name: value })
         .eq("id", user.id);
       if (error) {
         if (error.code === "23505") {
@@ -1954,9 +2012,19 @@ export function AccountView() {
         throw error;
       }
 
+      const { error: metaError } = await supabase.auth.updateUser({
+        data: { username: value, display_name: value },
+      });
+
       setCurrentUsername(value);
       setUsername(value);
-      setUsernameStatus("Username updated.");
+      setProfile((current) => ({ ...current, name: value }));
+      setDraft(null);
+      setUsernameStatus(
+        metaError
+          ? "Username updated. Reload if your name does not change."
+          : "Username and display name updated.",
+      );
       notify("Username updated.");
     } catch (cause) {
       setUsernameError(
@@ -2104,8 +2172,17 @@ export function AccountView() {
             browser. Username and password are managed by your Studybook
             account.
           </div>
+          {profileError && (
+            <p aria-live="polite" className="notice">
+              {profileError}
+            </p>
+          )}
           <div className="form-actions">
-            <button className="primary-button" type="submit">
+            <button
+              className="primary-button"
+              disabled={savingProfile}
+              type="submit"
+            >
               Save profile
             </button>
           </div>
@@ -2142,6 +2219,8 @@ export function AccountView() {
                 />
                 <p className="field-hint">
                   Friends can send requests to @{username.trim() || "username"}.
+                  Saving a username also updates the name shown on your
+                  profile.
                 </p>
               </div>
               {usernameError && (
