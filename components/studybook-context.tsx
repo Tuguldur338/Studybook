@@ -60,6 +60,12 @@ export type ClassCheck = Record<ClassCheckKind, boolean>;
  */
 export type ClassChecks = Record<string, ClassCheck>;
 
+/**
+ * A class the student has entered before, kept so it can be filled back into
+ * the schedule form with one click (even after it was deleted).
+ */
+export type SavedClass = ClassSession & { savedAt: string };
+
 export type StudentProfile = {
   name: string;
   email: string;
@@ -79,6 +85,8 @@ type StudybookContextValue = {
   setClasses: Dispatch<SetStateAction<ClassSession[]>>;
   classChecks: ClassChecks;
   setClassChecks: Dispatch<SetStateAction<ClassChecks>>;
+  savedClasses: SavedClass[];
+  setSavedClasses: Dispatch<SetStateAction<SavedClass[]>>;
   tasks: StudyTask[];
   setTasks: Dispatch<SetStateAction<StudyTask[]>>;
   notes: StudyNote[];
@@ -162,6 +170,14 @@ function isClassChecks(value: unknown): value is ClassChecks {
   );
 }
 
+function isSavedClass(value: unknown): value is SavedClass {
+  return (
+    isRecord(value) &&
+    typeof value.savedAt === "string" &&
+    isClassSession(value)
+  );
+}
+
 function readStudybookData() {
   const raw = window.localStorage.getItem(STORAGE_KEY);
   if (!raw) return null;
@@ -179,6 +195,9 @@ function readStudybookData() {
       ? parsed.classes.filter(isClassSession)
       : [],
     classChecks: isClassChecks(parsed.classChecks) ? parsed.classChecks : {},
+    savedClasses: Array.isArray(parsed.savedClasses)
+      ? parsed.savedClasses.filter(isSavedClass)
+      : [],
     tasks: Array.isArray(parsed.tasks) ? parsed.tasks.filter(isStudyTask) : [],
     notes: Array.isArray(parsed.notes) ? parsed.notes.filter(isStudyNote) : [],
     profile: {
@@ -192,6 +211,7 @@ function readStudybookData() {
 export function StudybookProvider({ children }: { children: ReactNode }) {
   const [classes, setClasses] = useState<ClassSession[]>([]);
   const [classChecks, setClassChecks] = useState<ClassChecks>({});
+  const [savedClasses, setSavedClasses] = useState<SavedClass[]>([]);
   const [tasks, setTasks] = useState<StudyTask[]>([]);
   const [notes, setNotes] = useState<StudyNote[]>([]);
   const [profile, setProfile] = useState(defaultProfile);
@@ -235,6 +255,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
         if (saved) {
           setClasses(saved.classes);
           setClassChecks(saved.classChecks);
+          setSavedClasses(saved.savedClasses);
           setTasks(saved.tasks);
           setNotes(saved.notes);
           setProfile(saved.profile);
@@ -266,6 +287,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
         JSON.stringify({
           classes,
           classChecks,
+          savedClasses,
           tasks,
           notes,
           profile,
@@ -281,7 +303,16 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
         );
       }, 0);
     }
-  }, [classChecks, classes, isLoaded, notes, profile, tasks, theme]);
+  }, [
+    classChecks,
+    classes,
+    isLoaded,
+    notes,
+    profile,
+    savedClasses,
+    tasks,
+    theme,
+  ]);
 
   return (
     <StudybookContext.Provider
@@ -290,6 +321,8 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
         setClasses,
         classChecks,
         setClassChecks,
+        savedClasses,
+        setSavedClasses,
         tasks,
         setTasks,
         notes,

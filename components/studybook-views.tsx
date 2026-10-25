@@ -34,6 +34,7 @@ import {
   useStudybook,
   type ClassSession,
   type NoteColor,
+  type SavedClass,
   type StudyNote,
   type StudyTask,
 } from "@/components/studybook-context";
@@ -120,6 +121,22 @@ function addDays(date: Date, days: number) {
 function minutesSinceMidnight(value: string) {
   const [hours, minutes] = value.split(":").map(Number);
   return hours * 60 + minutes;
+}
+
+function classSignature(
+  value: Pick<
+    ClassSession,
+    "subject" | "day" | "startTime" | "endTime" | "location" | "instructor"
+  >,
+) {
+  return [
+    value.subject.trim().toLowerCase(),
+    value.day,
+    value.startTime,
+    value.endTime,
+    value.location.trim().toLowerCase(),
+    value.instructor.trim().toLowerCase(),
+  ].join("|");
 }
 
 function formatWeekRange(start: Date) {
@@ -478,8 +495,16 @@ const emptyClassForm = {
 };
 
 export function ScheduleView() {
-  const { classChecks, classes, notify, setClassChecks, setClasses } =
-    useStudybook();
+  const {
+    classChecks,
+    classes,
+    isLoaded,
+    notify,
+    savedClasses,
+    setClassChecks,
+    setClasses,
+    setSavedClasses,
+  } = useStudybook();
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyClassForm);
@@ -517,6 +542,19 @@ export function ScheduleView() {
     return () => window.clearInterval(interval);
   }, []);
 
+  // Seed the saved list from classes that already exist, so a schedule created
+  // before this feature still offers reusable entries.
+  useEffect(() => {
+    if (!isLoaded || savedClasses.length > 0 || classes.length === 0) return;
+    setSavedClasses(
+      classes.slice(0, 12).map((item) => ({
+        ...item,
+        id: createId(),
+        savedAt: new Date().toISOString(),
+      })),
+    );
+  }, [classes, isLoaded, savedClasses.length, setSavedClasses]);
+
   function startEditing(session: ClassSession) {
     setEditingId(session.id);
     setForm({
@@ -535,6 +573,18 @@ export function ScheduleView() {
     setFormOpen(false);
     setEditingId(null);
     setForm(emptyClassForm);
+    setFormError("");
+  }
+
+  function applySavedClass(saved: SavedClass) {
+    setForm({
+      subject: saved.subject,
+      day: String(saved.day),
+      startTime: saved.startTime,
+      endTime: saved.endTime,
+      location: saved.location,
+      instructor: saved.instructor,
+    });
     setFormError("");
   }
 
@@ -560,6 +610,14 @@ export function ScheduleView() {
         ? current.map((item) => (item.id === editingId ? session : item))
         : [...current, session],
     );
+
+    const signature = classSignature(session);
+    setSavedClasses((current) =>
+      [
+        { ...session, id: createId(), savedAt: new Date().toISOString() },
+        ...current.filter((item) => classSignature(item) !== signature),
+      ].slice(0, 12),
+    );
     notify(editingId ? "Class updated." : "Class added.");
     closeForm();
   }
@@ -581,6 +639,38 @@ export function ScheduleView() {
   const dayDates = viewedWeekStart
     ? weekdays.map((_, index) => addDays(viewedWeekStart, index))
     : [];
+
+  const subjectOptions = useMemo(() => {
+    const values = new Set<string>();
+    [...savedClasses, ...classes].forEach((item) => {
+      const subject = item.subject.trim();
+      if (subject) values.add(subject);
+    });
+    return [...values].sort((a, b) => a.localeCompare(b));
+  }, [classes, savedClasses]);
+
+  const locationOptions = useMemo(() => {
+    const values = new Set<string>();
+    [...savedClasses, ...classes].forEach((item) => {
+      const location = item.location.trim();
+      if (location) values.add(location);
+    });
+    return [...values].sort((a, b) => a.localeCompare(b));
+  }, [classes, savedClasses]);
+
+  const instructorOptions = useMemo(() => {
+    const values = new Set<string>();
+    [...savedClasses, ...classes].forEach((item) => {
+      const instructor = item.instructor.trim();
+      if (instructor) values.add(instructor);
+    });
+    return [...values].sort((a, b) => a.localeCompare(b));
+  }, [classes, savedClasses]);
+
+  const existingSignatures = useMemo(
+    () => new Set(classes.map((item) => classSignature(item))),
+    [classes],
+  );
 
   function checkState(id: string) {
     return (
@@ -697,6 +787,38 @@ export function ScheduleView() {
           <h2 className="panel-title" style={{ marginBottom: 16 }}>
             {editingId ? "Update class" : "Add a class"}
           </h2>
+          {!editingId && savedClasses.length > 0 && (
+            <div className="saved-classes">
+              <p className="saved-classes-label">
+                Saved classes — tap one to fill the form
+              </p>
+              <div className="saved-classes-list">
+                {savedClasses.map((saved) => {
+                  const added = existingSignatures.has(classSignature(saved));
+                  return (
+                    <button
+                      className={`saved-class-chip${added ? " added" : ""}`}
+                      key={saved.id}
+                      onClick={() => applySavedClass(saved)}
+                      title={
+                        added
+                          ? "Already in your schedule — tap to reuse or move it"
+                          : "Fill the form with this class"
+                      }
+                      type="button"
+                    >
+                      <strong>{saved.subject}</strong>
+                      <span>
+                        {added
+                          ? "In schedule"
+                          : `${shortWeekdays[saved.day]} · ${formatTime(saved.startTime)}`}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           <div className="form-grid">
             <div className="field">
               <label htmlFor="class-subject">Class name</label>
@@ -704,6 +826,7 @@ export function ScheduleView() {
                 autoFocus
                 className="input"
                 id="class-subject"
+                list="class-subject-options"
                 onChange={(event) =>
                   setForm({ ...form, subject: event.target.value })
                 }
@@ -765,6 +888,7 @@ export function ScheduleView() {
               <input
                 className="input"
                 id="class-location"
+                list="class-location-options"
                 onChange={(event) =>
                   setForm({ ...form, location: event.target.value })
                 }
@@ -777,6 +901,7 @@ export function ScheduleView() {
               <input
                 className="input"
                 id="class-instructor"
+                list="class-instructor-options"
                 onChange={(event) =>
                   setForm({ ...form, instructor: event.target.value })
                 }
@@ -785,6 +910,21 @@ export function ScheduleView() {
               />
             </div>
           </div>
+          <datalist id="class-subject-options">
+            {subjectOptions.map((option) => (
+              <option key={option} value={option} />
+            ))}
+          </datalist>
+          <datalist id="class-location-options">
+            {locationOptions.map((option) => (
+              <option key={option} value={option} />
+            ))}
+          </datalist>
+          <datalist id="class-instructor-options">
+            {instructorOptions.map((option) => (
+              <option key={option} value={option} />
+            ))}
+          </datalist>
           {formError && (
             <p aria-live="polite" className="notice" style={{ marginTop: 13 }}>
               {formError}

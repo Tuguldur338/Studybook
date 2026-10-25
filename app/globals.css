@@ -1307,6 +1307,65 @@ a {
   padding: 22px;
 }
 
+/* Previously entered classes, kept so the form can be filled in one tap */
+.saved-classes {
+  margin-bottom: 18px;
+  border-bottom: 1px dashed var(--border);
+  padding-bottom: 16px;
+}
+
+.saved-classes-label {
+  margin: 0 0 9px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+}
+
+.saved-classes-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.saved-class-chip {
+  display: grid;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 7px 11px;
+  text-align: left;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.saved-class-chip strong {
+  color: var(--foreground);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.saved-class-chip span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.saved-class-chip:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.saved-class-chip.added {
+  border-style: dashed;
+}
+
+.saved-class-chip.added span {
+  color: var(--accent-strong);
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
