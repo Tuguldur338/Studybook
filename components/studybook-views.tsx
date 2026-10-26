@@ -39,6 +39,7 @@ import {
   LuTrophy,
   LuUpload,
   LuVolume2,
+  LuX,
 } from "react-icons/lu";
 import {
   FONT_OPTIONS,
@@ -517,6 +518,8 @@ const emptyClassForm = {
   instructor: "",
 };
 
+const SAVED_CLASSES_SEEDED_KEY = "studybook-saved-classes-seeded-v1";
+
 export function ScheduleView() {
   const {
     classChecks,
@@ -565,10 +568,29 @@ export function ScheduleView() {
     return () => window.clearInterval(interval);
   }, []);
 
-  // Seed the saved list from classes that already exist, so a schedule created
-  // before this feature still offers reusable entries.
+  // Seed the saved list once from classes that already exist, so a schedule
+  // created before this feature still offers reusable entries. A stored marker
+  // keeps the list from coming back after the user removes every saved class.
   useEffect(() => {
-    if (!isLoaded || savedClasses.length > 0 || classes.length === 0) return;
+    if (!isLoaded) return;
+
+    let alreadySeeded = false;
+    try {
+      alreadySeeded =
+        window.localStorage.getItem(SAVED_CLASSES_SEEDED_KEY) === "1";
+    } catch {
+      // Private mode/storage errors should not block the schedule.
+    }
+    if (alreadySeeded) return;
+
+    try {
+      window.localStorage.setItem(SAVED_CLASSES_SEEDED_KEY, "1");
+    } catch {
+      // The seed is a convenience; ignore storage failures.
+    }
+
+    if (savedClasses.length > 0 || classes.length === 0) return;
+
     setSavedClasses(
       classes.slice(0, 12).map((item) => ({
         ...item,
@@ -609,6 +631,11 @@ export function ScheduleView() {
       instructor: saved.instructor,
     });
     setFormError("");
+  }
+
+  function removeSavedClass(id: string) {
+    setSavedClasses((current) => current.filter((item) => item.id !== id));
+    notify("Removed from saved classes.");
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -813,30 +840,41 @@ export function ScheduleView() {
           {!editingId && savedClasses.length > 0 && (
             <div className="saved-classes">
               <p className="saved-classes-label">
-                Saved classes — tap one to fill the form
+                Saved classes — tap one to fill the form, or × to remove the
+                shortcut
               </p>
               <div className="saved-classes-list">
                 {savedClasses.map((saved) => {
                   const added = existingSignatures.has(classSignature(saved));
                   return (
-                    <button
-                      className={`saved-class-chip${added ? " added" : ""}`}
-                      key={saved.id}
-                      onClick={() => applySavedClass(saved)}
-                      title={
-                        added
-                          ? "Already in your schedule — tap to reuse or move it"
-                          : "Fill the form with this class"
-                      }
-                      type="button"
-                    >
-                      <strong>{saved.subject}</strong>
-                      <span>
-                        {added
-                          ? "In schedule"
-                          : `${shortWeekdays[saved.day]} · ${formatTime(saved.startTime)}`}
-                      </span>
-                    </button>
+                    <div className="saved-class-item" key={saved.id}>
+                      <button
+                        className={`saved-class-chip${added ? " added" : ""}`}
+                        onClick={() => applySavedClass(saved)}
+                        title={
+                          added
+                            ? "Already in your schedule — tap to reuse or move it"
+                            : "Fill the form with this class"
+                        }
+                        type="button"
+                      >
+                        <strong>{saved.subject}</strong>
+                        <span>
+                          {added
+                            ? "In schedule"
+                            : `${shortWeekdays[saved.day]} · ${formatTime(saved.startTime)}`}
+                        </span>
+                      </button>
+                      <button
+                        aria-label={`Remove ${saved.subject} from saved classes`}
+                        className="saved-class-remove"
+                        onClick={() => removeSavedClass(saved.id)}
+                        title="Remove from saved classes — this does not delete it from your schedule"
+                        type="button"
+                      >
+                        <LuX size={12} />
+                      </button>
+                    </div>
                   );
                 })}
               </div>

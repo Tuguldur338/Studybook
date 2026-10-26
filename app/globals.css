@@ -1500,6 +1500,32 @@ a {
   gap: 8px;
 }
 
+.saved-class-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.saved-class-remove {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--muted);
+  transition:
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.saved-class-remove:hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
 .saved-class-chip {
   display: grid;
   gap: 2px;
