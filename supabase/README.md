@@ -29,10 +29,32 @@ Alternatively, copy
 into the Supabase Dashboard SQL Editor and run it against your project.
 
 The Studybook app's registration and sign-in forms use Supabase Auth when the
-project credentials below are configured. Class schedules, tasks, and notes
-are still stored in the browser and are not yet synchronized with these
-database tables. Avatar storage also needs a Storage bucket and its own access
-policies; `avatar_url` stores the resulting image URL.
+project credentials below are configured. With the `sync.sql` migration
+applied, classes, checks, saved classes, tasks, notes, exams, routine steps,
+routine checks, and the profile picture are synchronized through the private
+`studybook_snapshots` table. Theme, font, music, and widget preferences stay in
+the browser. Avatar uploads still use a browser data URL inside that snapshot;
+a dedicated Storage bucket is optional.
+
+## Cross-device sync
+
+Apply [`migrations/sync.sql`](./migrations/sync.sql) to create the private
+`studybook_snapshots` table (one JSON snapshot per account, protected by RLS).
+
+How it behaves:
+
+- When you sign in, the app loads your account snapshot.
+- If the account has no snapshot yet, the current browser's local data is
+  uploaded, so the first signed-in device seeds the account.
+- After that, changes are saved after a short debounce.
+- The account snapshot wins when both a cloud copy and local data exist;
+  changes made on two devices are last-write-wins.
+- If a different account signs in on a browser that already has data, the app
+  does not copy the previous account's local data into the new account.
+
+Theme, font, holiday effects, the music library/audio files, and the messages
+widget position remain device-local. Messages, friendships, and leaderboard
+points already live on the server.
 
 ## Configure local app credentials
 
@@ -99,6 +121,9 @@ Apply the migrations in order after the base schema:
 4. [`migrations/leaderboard.sql`](./migrations/leaderboard.sql) — adds
    `profiles.points`, the `award_points()` function that checks off tasks call,
    and `get_leaderboard()` for the public top list.
+5. [`migrations/sync.sql`](./migrations/sync.sql) — cross-device
+   `studybook_snapshots` for the schedule, tasks, notes, exams, routine, and
+   profile picture.
 
 ## Leaderboard
 
@@ -107,9 +132,10 @@ Completing a to-do task awards leaderboard points by priority:
 (never below zero). The points are stored on the user's profile, and the
 Leaderboard page shows the top three on a podium plus the rest of the top 20.
 
-Points are only awarded while signed in. The browser's task list remains local,
-so the server cannot independently verify a completion; the database functions
-only validate the amount, not the task itself.
+Points are only awarded while signed in. The task list itself synchronizes
+through the `studybook_snapshots` table, but the server cannot independently
+verify a completion; the database functions only validate the amount, not the
+task itself.
 
 The migrations add the tables to the `supabase_realtime` publication; if you
 prefer the dashboard, make sure everything is toggled on under

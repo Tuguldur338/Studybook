@@ -2090,6 +2090,11 @@ export function AccountView() {
         subtitle="Your name, picture, username and password."
         title="My account"
       />
+      <p className="field-hint" style={{ marginBottom: 14, marginTop: -8 }}>
+        <strong>Cloud sync:</strong> your schedule, to-dos, notes, exams,
+        routine, and profile picture follow your account. Theme and music stay
+        on this device.
+      </p>
       <div className="profile-layout">
         <section className="panel profile-card">
           <ProfileAvatar

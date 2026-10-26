@@ -11,6 +11,8 @@ import {
   type ReactNode,
   type SetStateAction,
 } from "react";
+import { useSupabaseUser } from "@/components/use-supabase-user";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export type ClassSession = {
   id: string;
@@ -50,6 +52,22 @@ export type RoutineItem = {
 
 /** Keyed by `${YYYY-MM-DD}|${routineItemId}` so checks reset each day. */
 export type RoutineChecks = Record<string, boolean>;
+
+/**
+ * The part of the studybook that follows the account across devices. Theme,
+ * fonts, music, and other device preferences deliberately stay local.
+ */
+type StudybookSnapshot = {
+  classes: ClassSession[];
+  classChecks: ClassChecks;
+  savedClasses: SavedClass[];
+  tasks: StudyTask[];
+  notes: StudyNote[];
+  exams: Exam[];
+  routine: RoutineItem[];
+  routineChecks: RoutineChecks;
+  profileAvatar: string;
+};
 
 export const NOTE_COLORS = [
   "default",
@@ -137,6 +155,7 @@ type StudybookContextValue = {
 };
 
 const STORAGE_KEY = "studybook-data-v1";
+const SYNC_USER_KEY = "studybook-sync-user";
 
 const defaultProfile: StudentProfile = {
   name: "Student",
@@ -208,6 +227,37 @@ function isRoutineChecks(value: unknown): value is RoutineChecks {
     !Array.isArray(value) &&
     Object.values(value).every((entry) => typeof entry === "boolean")
   );
+}
+
+function snapshotHasContent(data: unknown): boolean {
+  if (!isRecord(data)) return false;
+
+  for (const key of [
+    "classes",
+    "savedClasses",
+    "tasks",
+    "notes",
+    "exams",
+    "routine",
+  ]) {
+    const value = data[key];
+    if (Array.isArray(value) && value.length > 0) return true;
+  }
+
+  if (
+    isClassChecks(data.classChecks) &&
+    Object.keys(data.classChecks).length > 0
+  ) {
+    return true;
+  }
+  if (
+    isRoutineChecks(data.routineChecks) &&
+    Object.keys(data.routineChecks).length > 0
+  ) {
+    return true;
+  }
+
+  return typeof data.profileAvatar === "string" && data.profileAvatar.length > 0;
 }
 
 function isStudyNote(value: unknown): value is StudyNote {
@@ -302,6 +352,19 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
   const [storageError, setStorageError] = useState("");
   const [toasts, setToasts] = useState<Toast[]>([]);
   const timers = useRef<Map<string, number>>(new Map());
+  const { user: authUser, ready: authReady } = useSupabaseUser();
+  const [syncedUserId, setSyncedUserId] = useState<string | null>(null);
+  const snapshotRef = useRef<StudybookSnapshot>({
+    classes: [],
+    classChecks: {},
+    savedClasses: [],
+    tasks: [],
+    notes: [],
+    exams: [],
+    routine: [],
+    routineChecks: {},
+    profileAvatar: "",
+  });
 
   const dismissToast = useCallback((id: string) => {
     setToasts((current) => current.filter((toast) => toast.id !== id));
@@ -320,6 +383,46 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
       timers.current.delete(id);
     }, 4500);
     timers.current.set(id, timer);
+  }, []);
+
+  const applyCloudSnapshot = useCallback((raw: unknown) => {
+    if (!isRecord(raw)) return;
+
+    setClasses(
+      Array.isArray(raw.classes) ? raw.classes.filter(isClassSession) : [],
+    );
+    setClassChecks(isClassChecks(raw.classChecks) ? raw.classChecks : {});
+    setSavedClasses(
+      Array.isArray(raw.savedClasses)
+        ? raw.savedClasses.filter(isSavedClass)
+        : [],
+    );
+    setTasks(Array.isArray(raw.tasks) ? raw.tasks.filter(isStudyTask) : []);
+    setNotes(Array.isArray(raw.notes) ? raw.notes.filter(isStudyNote) : []);
+    setExams(Array.isArray(raw.exams) ? raw.exams.filter(isExam) : []);
+    setRoutine(
+      Array.isArray(raw.routine) ? raw.routine.filter(isRoutineItem) : [],
+    );
+    setRoutineChecks(
+      isRoutineChecks(raw.routineChecks) ? raw.routineChecks : {},
+    );
+
+    const avatar = raw.profileAvatar;
+    if (typeof avatar === "string" && avatar) {
+      setProfile((current) => ({ ...current, avatar }));
+    }
+  }, []);
+
+  const applyEmptySnapshot = useCallback(() => {
+    setClasses([]);
+    setClassChecks({});
+    setSavedClasses([]);
+    setTasks([]);
+    setNotes([]);
+    setExams([]);
+    setRoutine([]);
+    setRoutineChecks({});
+    setProfile((current) => ({ ...current, avatar: "" }));
   }, []);
 
   useEffect(() => {
@@ -369,6 +472,18 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     document.documentElement.dataset.theme = theme;
     document.documentElement.dataset.font = font;
 
+    snapshotRef.current = {
+      classes,
+      classChecks,
+      savedClasses,
+      tasks,
+      notes,
+      exams,
+      routine,
+      routineChecks,
+      profileAvatar: profile.avatar,
+    };
+
     try {
       window.localStorage.setItem(
         STORAGE_KEY,
@@ -410,6 +525,129 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     savedClasses,
     tasks,
     theme,
+  ]);
+
+  useEffect(() => {
+    if (authUser) return;
+    const timer = window.setTimeout(() => setSyncedUserId(null), 0);
+    return () => window.clearTimeout(timer);
+  }, [authUser]);
+
+  useEffect(() => {
+    if (!isLoaded || !authReady || !authUser) return;
+    if (syncedUserId === authUser.id) return;
+
+    let active = true;
+    const timer = window.setTimeout(async () => {
+      try {
+        const supabase = getSupabaseBrowserClient();
+        const { data, error } = await supabase
+          .from("studybook_snapshots")
+          .select("data")
+          .eq("user_id", authUser.id)
+          .maybeSingle();
+
+        if (!active) return;
+
+        if (error) {
+          console.warn("Studybook cloud sync is unavailable:", error.message);
+          setSyncedUserId(authUser.id);
+          return;
+        }
+
+        const cloudData = data?.data as unknown;
+        const localData = snapshotRef.current;
+        const previousUserId = window.localStorage.getItem(SYNC_USER_KEY);
+        const differentUser = Boolean(
+          previousUserId && previousUserId !== authUser.id,
+        );
+
+        if (snapshotHasContent(cloudData)) {
+          applyCloudSnapshot(cloudData);
+        } else if (snapshotHasContent(localData) && !differentUser) {
+          const { error: uploadError } = await supabase
+            .from("studybook_snapshots")
+            .upsert(
+              { user_id: authUser.id, data: localData },
+              { onConflict: "user_id" },
+            );
+          if (uploadError) {
+            console.warn(
+              "Studybook cloud upload failed:",
+              uploadError.message,
+            );
+          }
+        } else if (differentUser) {
+          applyEmptySnapshot();
+        }
+
+        window.localStorage.setItem(SYNC_USER_KEY, authUser.id);
+        if (active) setSyncedUserId(authUser.id);
+      } catch (cause) {
+        console.warn("Studybook cloud sync failed:", cause);
+        if (active) setSyncedUserId(authUser.id);
+      }
+    }, 0);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [
+    applyCloudSnapshot,
+    applyEmptySnapshot,
+    authReady,
+    authUser,
+    isLoaded,
+    syncedUserId,
+  ]);
+
+  useEffect(() => {
+    if (!isLoaded || !authUser || syncedUserId !== authUser.id) return;
+
+    const snapshot: StudybookSnapshot = {
+      classes,
+      classChecks,
+      savedClasses,
+      tasks,
+      notes,
+      exams,
+      routine,
+      routineChecks,
+      profileAvatar: profile.avatar,
+    };
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const supabase = getSupabaseBrowserClient();
+        const { error } = await supabase
+          .from("studybook_snapshots")
+          .upsert(
+            { user_id: authUser.id, data: snapshot },
+            { onConflict: "user_id" },
+          );
+        if (error) {
+          console.warn("Studybook cloud save failed:", error.message);
+        }
+      } catch (cause) {
+        console.warn("Studybook cloud save failed:", cause);
+      }
+    }, 700);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    authUser,
+    classChecks,
+    classes,
+    exams,
+    isLoaded,
+    notes,
+    profile.avatar,
+    routine,
+    routineChecks,
+    savedClasses,
+    syncedUserId,
+    tasks,
   ]);
 
   return (
