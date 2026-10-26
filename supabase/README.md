@@ -49,8 +49,10 @@ How it behaves:
 - After that, changes are saved after a short debounce.
 - The account snapshot wins when both a cloud copy and local data exist;
   changes made on two devices are last-write-wins.
-- If a different account signs in on a browser that already has data, the app
-  does not copy the previous account's local data into the new account.
+- Local data is now stored per account (`studybook-data-v1:<user id>`), so two
+  accounts on the same browser keep separate schedules and to-dos. The older
+  shared key is claimed only by an account whose email matches the saved
+  profile; other accounts use their own local data or the cloud snapshot.
 
 Theme, font, holiday effects, the music library/audio files, and the messages
 widget position remain device-local. Messages, friendships, and leaderboard

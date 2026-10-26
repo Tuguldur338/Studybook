@@ -23,14 +23,14 @@ export function useSupabaseUser() {
     let active = true;
 
     supabase.auth
-      .getUser()
-      .then(({ data }: { data: { user: User | null } }) => {
+      .getSession()
+      .then(({ data }: { data: { session: Session | null } }) => {
         if (!active) return;
-        setUser(data.user ?? null);
+        setUser(data.session?.user ?? null);
         setReady(true);
       })
       .catch(() => {
-        // Offline or the auth endpoint is unreachable; let local data load.
+        // Offline or the session cannot be read; let local data load.
         if (active) setReady(true);
       });
 

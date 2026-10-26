@@ -156,7 +156,10 @@ type StudybookContextValue = {
 };
 
 const STORAGE_KEY = "studybook-data-v1";
-const SYNC_USER_KEY = "studybook-sync-user";
+
+function userStorageKey(userId: string) {
+  return `${STORAGE_KEY}:${userId}`;
+}
 
 const defaultProfile: StudentProfile = {
   name: "Student",
@@ -293,8 +296,8 @@ function isSavedClass(value: unknown): value is SavedClass {
   );
 }
 
-function readStudybookData() {
-  const raw = window.localStorage.getItem(STORAGE_KEY);
+function readStudybookData(key = STORAGE_KEY) {
+  const raw = window.localStorage.getItem(key);
   if (!raw) return null;
 
   const parsed: unknown = JSON.parse(raw);
@@ -357,6 +360,10 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const timers = useRef<Map<string, number>>(new Map());
   const { user: authUser, ready: authReady } = useSupabaseUser();
+  const authUserId = authUser?.id ?? null;
+  const authUserEmail = authUser?.email ?? "";
+  const storageKey = authUserId ? userStorageKey(authUserId) : STORAGE_KEY;
+  const [loadedKey, setLoadedKey] = useState("");
   const [syncedUserId, setSyncedUserId] = useState<string | null>(null);
   const snapshotRef = useRef<StudybookSnapshot>({
     classes: [],
@@ -417,7 +424,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const applyEmptySnapshot = useCallback(() => {
+  const resetLocalSnapshot = useCallback(() => {
     setClasses([]);
     setClassChecks({});
     setSavedClasses([]);
@@ -426,7 +433,14 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     setExams([]);
     setRoutine([]);
     setRoutineChecks({});
-    setProfile((current) => ({ ...current, avatar: "" }));
+    setProfile(defaultProfile);
+    setTheme(
+      window.matchMedia?.("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light",
+    );
+    setFont("geist");
+    setHolidayEffects(true);
   }, []);
 
   useEffect(() => {
@@ -438,9 +452,36 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (!authReady) return;
+
+    const key = authUserId ? userStorageKey(authUserId) : STORAGE_KEY;
     const frame = window.requestAnimationFrame(() => {
       try {
-        const saved = readStudybookData();
+        let saved = readStudybookData(key);
+
+        // The pre-sync app used one shared key. Claim that data for the account
+        // it belongs to, so two accounts on one browser never mix.
+        if (!saved && authUserId) {
+          const guest = readStudybookData(STORAGE_KEY);
+          if (guest) {
+            const guestEmail = guest.profile.email.trim().toLowerCase();
+            const currentEmail = authUserEmail.trim().toLowerCase();
+            const belongsToAccount =
+              !guestEmail || !currentEmail || guestEmail === currentEmail;
+
+            if (belongsToAccount) {
+              saved = guest;
+              try {
+                const raw = window.localStorage.getItem(STORAGE_KEY);
+                if (raw) window.localStorage.setItem(key, raw);
+                window.localStorage.removeItem(STORAGE_KEY);
+              } catch {
+                // Use the data for this visit even if the copy fails.
+              }
+            }
+          }
+        }
+
         if (saved) {
           setClasses(saved.classes);
           setClassChecks(saved.classChecks);
@@ -455,24 +496,23 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
           setFont(saved.font);
           setHolidayEffects(saved.holidayEffects);
         } else {
-          const prefersDark = window.matchMedia?.(
-            "(prefers-color-scheme: dark)",
-          ).matches;
-          setTheme(prefersDark ? "dark" : "light");
+          resetLocalSnapshot();
         }
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Unknown storage error.";
         setStorageError(`Your saved studybook could not be loaded: ${message}`);
       } finally {
+        setLoadedKey(key);
         setIsLoaded(true);
       }
     });
+
     return () => window.cancelAnimationFrame(frame);
-  }, []);
+  }, [authReady, authUserEmail, authUserId, resetLocalSnapshot]);
 
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!isLoaded || loadedKey !== storageKey) return;
     document.documentElement.dataset.theme = theme;
     document.documentElement.dataset.font = font;
 
@@ -490,7 +530,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
 
     try {
       window.localStorage.setItem(
-        STORAGE_KEY,
+        storageKey,
         JSON.stringify({
           classes,
           classChecks,
@@ -524,25 +564,34 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     font,
     holidayEffects,
     isLoaded,
+    loadedKey,
     notes,
     profile,
     savedClasses,
+    storageKey,
     tasks,
     theme,
   ]);
 
   useEffect(() => {
-    if (authUser) return;
+    if (authUserId) return;
     const timer = window.setTimeout(() => {
       setSyncedUserId(null);
       setSyncStatus("local");
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [authUser]);
+  }, [authUserId]);
 
   useEffect(() => {
-    if (!isLoaded || !authReady || !authUser) return;
-    if (syncedUserId === authUser.id) return;
+    if (
+      !isLoaded ||
+      !authReady ||
+      !authUserId ||
+      loadedKey !== storageKey
+    ) {
+      return;
+    }
+    if (syncedUserId === authUserId) return;
 
     let active = true;
     const timer = window.setTimeout(async () => {
@@ -552,7 +601,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
         const { data, error } = await supabase
           .from("studybook_snapshots")
           .select("data")
-          .eq("user_id", authUser.id)
+          .eq("user_id", authUserId)
           .maybeSingle();
 
         if (!active) return;
@@ -560,24 +609,20 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
         if (error) {
           console.warn("Studybook cloud sync is unavailable:", error.message);
           setSyncStatus("error");
-          setSyncedUserId(authUser.id);
+          setSyncedUserId(authUserId);
           return;
         }
 
         const cloudData = data?.data as unknown;
         const localData = snapshotRef.current;
-        const previousUserId = window.localStorage.getItem(SYNC_USER_KEY);
-        const differentUser = Boolean(
-          previousUserId && previousUserId !== authUser.id,
-        );
 
         if (snapshotHasContent(cloudData)) {
           applyCloudSnapshot(cloudData);
-        } else if (snapshotHasContent(localData) && !differentUser) {
+        } else if (snapshotHasContent(localData)) {
           const { error: uploadError } = await supabase
             .from("studybook_snapshots")
             .upsert(
-              { user_id: authUser.id, data: localData },
+              { user_id: authUserId, data: localData },
               { onConflict: "user_id" },
             );
           if (uploadError) {
@@ -585,21 +630,23 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
               "Studybook cloud upload failed:",
               uploadError.message,
             );
+            if (active) {
+              setSyncStatus("error");
+              setSyncedUserId(authUserId);
+            }
+            return;
           }
-        } else if (differentUser) {
-          applyEmptySnapshot();
         }
 
-        window.localStorage.setItem(SYNC_USER_KEY, authUser.id);
         if (active) {
           setSyncStatus("synced");
-          setSyncedUserId(authUser.id);
+          setSyncedUserId(authUserId);
         }
       } catch (cause) {
         console.warn("Studybook cloud sync failed:", cause);
         if (active) {
           setSyncStatus("error");
-          setSyncedUserId(authUser.id);
+          setSyncedUserId(authUserId);
         }
       }
     }, 0);
@@ -610,15 +657,23 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     };
   }, [
     applyCloudSnapshot,
-    applyEmptySnapshot,
     authReady,
-    authUser,
+    authUserId,
     isLoaded,
+    loadedKey,
+    storageKey,
     syncedUserId,
   ]);
 
   useEffect(() => {
-    if (!isLoaded || !authUser || syncedUserId !== authUser.id) return;
+    if (
+      !isLoaded ||
+      !authUserId ||
+      loadedKey !== storageKey ||
+      syncedUserId !== authUserId
+    ) {
+      return;
+    }
 
     const snapshot: StudybookSnapshot = {
       classes,
@@ -639,7 +694,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
         const { error } = await supabase
           .from("studybook_snapshots")
           .upsert(
-            { user_id: authUser.id, data: snapshot },
+            { user_id: authUserId, data: snapshot },
             { onConflict: "user_id" },
           );
         if (error) {
@@ -656,16 +711,18 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
 
     return () => window.clearTimeout(timer);
   }, [
-    authUser,
+    authUserId,
     classChecks,
     classes,
     exams,
     isLoaded,
+    loadedKey,
     notes,
     profile.avatar,
     routine,
     routineChecks,
     savedClasses,
+    storageKey,
     syncedUserId,
     tasks,
   ]);
