@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -26,13 +27,16 @@ import {
   LuNotebookPen,
   LuPencil,
   LuPlus,
+  LuRefreshCw,
   LuSearch,
   LuSun,
+  LuSunrise,
   LuMoon,
   LuMusic,
   LuPause,
   LuPlay,
   LuTrash2,
+  LuTrophy,
   LuUpload,
   LuVolume2,
 } from "react-icons/lu";
@@ -43,6 +47,7 @@ import {
   type ClassSession,
   type FontFamily,
   type NoteColor,
+  type RoutineItem,
   type SavedClass,
   type StudyNote,
   type StudyTask,
@@ -53,6 +58,7 @@ import { useMusic } from "@/components/music-context";
 import { useSupabaseUser } from "@/components/use-supabase-user";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { HOLIDAYS } from "@/lib/holidays";
+import { awardTaskPoints } from "@/lib/leaderboard";
 import { isPlayableSource } from "@/lib/music-store";
 
 const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
@@ -1324,6 +1330,17 @@ export function ToDoListView() {
       `Cleared ${completedCount} completed ${completedCount === 1 ? "task" : "tasks"}.`,
     );
   }
+
+  function handleToggleTask(task: StudyTask) {
+    const nextCompleted = !task.completed;
+    setTasks((current) =>
+      current.map((item) =>
+        item.id === task.id ? { ...item, completed: nextCompleted } : item,
+      ),
+    );
+    void awardTaskPoints(task.priority, nextCompleted ? 1 : -1);
+  }
+
   function renderTask(task: StudyTask) {
     const overdue = isOverdue(task, todayStr);
     return (
@@ -1332,15 +1349,7 @@ export function ToDoListView() {
           aria-label={`${task.completed ? "Reopen" : "Complete"} ${task.title}`}
           checked={task.completed}
           className="task-check"
-          onChange={() =>
-            setTasks((current) =>
-              current.map((item) =>
-                item.id === task.id
-                  ? { ...item, completed: !item.completed }
-                  : item,
-              ),
-            )
-          }
+          onChange={() => handleToggleTask(task)}
           type="checkbox"
         />
         <div className="task-main">
@@ -1970,43 +1979,7 @@ export function AccountView() {
       return;
     }
     if (value === currentUsername) {
-      if (profile.name === value) {
-        setUsernameStatus("That is already your username.");
-        return;
-      }
-
-      // Keep older accounts in sync: saving the same username adopts it as the
-      // display name too.
-      setSavingUsername(true);
-      try {
-        const supabase = getSupabaseBrowserClient();
-        const { error } = await supabase
-          .from("profiles")
-          .update({ display_name: value })
-          .eq("id", user.id);
-        if (error) throw error;
-
-        const { error: metaError } = await supabase.auth.updateUser({
-          data: { display_name: value },
-        });
-
-        setProfile((current) => ({ ...current, name: value }));
-        setDraft(null);
-        setUsernameStatus(
-          metaError
-            ? "Display name updated. Reload if it does not show right away."
-            : "Your display name now matches your username.",
-        );
-        notify("Display name updated.");
-      } catch (cause) {
-        setUsernameError(
-          cause instanceof Error
-            ? cause.message
-            : "Could not sync your display name.",
-        );
-      } finally {
-        setSavingUsername(false);
-      }
+      setUsernameStatus("That is already your username.");
       return;
     }
 
@@ -2022,7 +1995,7 @@ export function AccountView() {
 
       const { error } = await supabase
         .from("profiles")
-        .update({ username: value, display_name: value })
+        .update({ username: value })
         .eq("id", user.id);
       if (error) {
         if (error.code === "23505") {
@@ -2032,17 +2005,15 @@ export function AccountView() {
       }
 
       const { error: metaError } = await supabase.auth.updateUser({
-        data: { username: value, display_name: value },
+        data: { username: value },
       });
 
       setCurrentUsername(value);
       setUsername(value);
-      setProfile((current) => ({ ...current, name: value }));
-      setDraft(null);
       setUsernameStatus(
         metaError
-          ? "Username updated. Reload if your name does not change."
-          : "Username and display name updated.",
+          ? "Username updated. Reload if it does not show right away."
+          : "Username updated.",
       );
       notify("Username updated.");
     } catch (cause) {
@@ -2238,8 +2209,9 @@ export function AccountView() {
                 />
                 <p className="field-hint">
                   Friends can send requests to @{username.trim() || "username"}.
-                  Saving a username also updates the name shown on your
-                  profile.
+                  Your username is your @handle — changing it does not change
+                  the name shown under Profile details. Edit that name
+                  separately.
                 </p>
               </div>
               {usernameError && (
@@ -2880,6 +2852,542 @@ export function MusicView() {
           )}
         </div>
       </section>
+    </>
+  );
+}
+
+function formatRoutineDay(isoDate: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  }).format(new Date(`${isoDate}T12:00:00`));
+}
+
+export function RoutineView() {
+  const {
+    notify,
+    routine,
+    routineChecks,
+    setRoutine,
+    setRoutineChecks,
+  } = useStudybook();
+  const [today, setToday] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
+  const [time, setTime] = useState("");
+  const [note, setNote] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const update = () => setToday(toISODate(new Date()));
+    const start = window.setTimeout(update, 0);
+    const interval = window.setInterval(update, 60_000);
+    return () => {
+      window.clearTimeout(start);
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  const ordered = useMemo(
+    () =>
+      [...routine].sort((a, b) => {
+        if (!a.time && !b.time) return a.createdAt.localeCompare(b.createdAt);
+        if (!a.time) return 1;
+        if (!b.time) return -1;
+        return (
+          a.time.localeCompare(b.time) ||
+          a.createdAt.localeCompare(b.createdAt)
+        );
+      }),
+    [routine],
+  );
+
+  const doneCount = today
+    ? ordered.filter((item) => Boolean(routineChecks[`${today}|${item.id}`]))
+        .length
+    : 0;
+  const progress = ordered.length
+    ? Math.round((doneCount / ordered.length) * 100)
+    : 0;
+
+  const groups = [
+    {
+      key: "morning",
+      label: "Morning",
+      icon: <LuSunrise aria-hidden="true" size={14} />,
+      items: ordered.filter((item) => item.time && item.time < "12:00"),
+    },
+    {
+      key: "afternoon",
+      label: "Afternoon",
+      icon: <LuSun aria-hidden="true" size={14} />,
+      items: ordered.filter(
+        (item) => item.time >= "12:00" && item.time < "17:00",
+      ),
+    },
+    {
+      key: "evening",
+      label: "Evening",
+      icon: <LuMoon aria-hidden="true" size={14} />,
+      items: ordered.filter((item) => item.time >= "17:00"),
+    },
+    {
+      key: "anytime",
+      label: "Anytime",
+      icon: <LuClock aria-hidden="true" size={14} />,
+      items: ordered.filter((item) => !item.time),
+    },
+  ].filter((group) => group.items.length > 0);
+
+  function toggleItem(id: string) {
+    if (!today) return;
+    const key = `${today}|${id}`;
+    setRoutineChecks((current) => {
+      const next = { ...current };
+      if (next[key]) delete next[key];
+      else next[key] = true;
+      return next;
+    });
+  }
+
+  function handleAdd(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    if (!title.trim()) {
+      setError("Give the routine step a name.");
+      return;
+    }
+
+    const item: RoutineItem = {
+      id: createId(),
+      title: title.trim(),
+      time,
+      note: note.trim(),
+      createdAt: new Date().toISOString(),
+    };
+    setRoutine((current) => [...current, item]);
+    setTitle("");
+    setTime("");
+    setNote("");
+    notify("Added to your daily routine.");
+  }
+
+  function handleDelete(id: string) {
+    setRoutine((current) => current.filter((item) => item.id !== id));
+    setRoutineChecks((current) => {
+      const next = { ...current };
+      for (const key of Object.keys(next)) {
+        if (key.endsWith(`|${id}`)) delete next[key];
+      }
+      return next;
+    });
+    notify("Routine step removed.");
+  }
+
+  return (
+    <>
+      <PageHeading
+        eyebrow="Own your day"
+        subtitle="A repeatable plan for the day. Checks reset every morning; the steps stay saved."
+        title="Daily routine"
+      />
+
+      <section className="panel routine-hero">
+        <div className="routine-hero-main">
+          <span aria-hidden="true" className="routine-hero-icon">
+            <LuSunrise size={24} />
+          </span>
+          <div>
+            <p className="eyebrow">Today</p>
+            <h2 className="routine-hero-title">
+              {today ? formatRoutineDay(today) : "Your daily routine"}
+            </h2>
+            <p className="page-subtitle">
+              {doneCount} of {ordered.length} step
+              {ordered.length === 1 ? "" : "s"} done
+              {today ? " today" : ""}.
+            </p>
+          </div>
+        </div>
+        <div className="routine-progress">
+          <span className="routine-progress-value">{progress}%</span>
+          <div className="progress-track">
+            <div className="progress-fill" style={{ width: `${progress}%` }} />
+          </div>
+        </div>
+      </section>
+
+      <div className="routine-layout">
+        <section className="panel">
+          <div className="panel-heading">
+            <h2 className="panel-title">Today&apos;s steps</h2>
+            <span className="panel-link">
+              {ordered.length} step{ordered.length === 1 ? "" : "s"}
+            </span>
+          </div>
+          <div className="panel-body">
+            {ordered.length ? (
+              groups.map((group) => (
+                <div className="routine-group" key={group.key}>
+                  <div className="routine-group-label">
+                    {group.icon}
+                    <span>{group.label}</span>
+                  </div>
+                  <div className="routine-list">
+                    {group.items.map((item) => {
+                      const done = today
+                        ? Boolean(routineChecks[`${today}|${item.id}`])
+                        : false;
+                      return (
+                        <div
+                          className={`routine-row${done ? " done" : ""}`}
+                          key={item.id}
+                        >
+                          <button
+                            aria-label={`${done ? "Uncheck" : "Check"} ${item.title}`}
+                            aria-pressed={done}
+                            className="routine-check"
+                            disabled={!today}
+                            onClick={() => toggleItem(item.id)}
+                            type="button"
+                          >
+                            {done ? (
+                              <LuCircleCheck aria-hidden="true" size={20} />
+                            ) : (
+                              <span className="routine-check-dot" />
+                            )}
+                          </button>
+                          <div className="routine-row-main">
+                            <div className="routine-row-title">{item.title}</div>
+                            {item.note && (
+                              <p className="routine-row-note">{item.note}</p>
+                            )}
+                          </div>
+                          {item.time && (
+                            <span className="routine-time">{item.time}</span>
+                          )}
+                          <button
+                            aria-label={`Delete ${item.title}`}
+                            className="small-icon-button danger"
+                            onClick={() => handleDelete(item.id)}
+                            type="button"
+                          >
+                            <LuTrash2 size={13} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <EmptyState
+                copy="Add reading, workouts, revision, or anything else you want to repeat."
+                icon={<LuSunrise aria-hidden="true" size={22} />}
+                title="No routine yet"
+              />
+            )}
+          </div>
+        </section>
+
+        <section className="panel">
+          <div className="panel-heading">
+            <h2 className="panel-title">Add a step</h2>
+          </div>
+          <div className="panel-body">
+            <form className="routine-form" onSubmit={handleAdd}>
+              <div className="field">
+                <label htmlFor="routine-title">What do you want to do?</label>
+                <input
+                  className="input"
+                  id="routine-title"
+                  maxLength={100}
+                  onChange={(event) => setTitle(event.target.value)}
+                  placeholder="e.g. Read 20 pages"
+                  value={title}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="routine-time">Time (optional)</label>
+                <input
+                  className="input"
+                  id="routine-time"
+                  onChange={(event) => setTime(event.target.value)}
+                  type="time"
+                  value={time}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="routine-note">Note (optional)</label>
+                <textarea
+                  className="input textarea"
+                  id="routine-note"
+                  maxLength={240}
+                  onChange={(event) => setNote(event.target.value)}
+                  placeholder="A small detail or reminder"
+                  rows={3}
+                  value={note}
+                />
+              </div>
+              {error && <p className="notice">{error}</p>}
+              <button className="primary-button" type="submit">
+                <LuPlus size={15} /> Add to routine
+              </button>
+            </form>
+            <p className="field-hint">
+              Leave the time empty for an anytime step. Everything is saved in
+              this browser.
+            </p>
+          </div>
+        </section>
+      </div>
+    </>
+  );
+}
+
+type LeaderboardRow = {
+  id: string;
+  username: string | null;
+  display_name: string;
+  avatar_url: string | null;
+  points: number;
+};
+
+export function LeaderboardView() {
+  const { user, ready } = useSupabaseUser();
+  const [rows, setRows] = useState<LeaderboardRow[]>([]);
+  const [ownPoints, setOwnPoints] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    setError("");
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { data, error: boardError } = await supabase.rpc(
+        "get_leaderboard",
+        { max_rows: 25 },
+      );
+      if (boardError) throw boardError;
+
+      setRows((data as LeaderboardRow[] | null) ?? []);
+
+      const { data: own } = await supabase
+        .from("profiles")
+        .select("points")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (own) setOwnPoints((own as { points: number }).points);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not load the leaderboard.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!ready || !user) return;
+    const timer = window.setTimeout(() => {
+      void load();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [load, ready, user]);
+
+  const missingSetup =
+    /get_leaderboard|award_points|schema cache|profiles\.points/i.test(error);
+  const top = rows.slice(0, 3);
+  const places = [
+    { row: top[1], rank: 2 },
+    { row: top[0], rank: 1 },
+    { row: top[2], rank: 3 },
+  ];
+  const isRanked = Boolean(user && rows.some((row) => row.id === user.id));
+
+  const heading = (
+    <PageHeading
+      action={
+        user ? (
+          <button
+            className="secondary-button"
+            disabled={loading}
+            onClick={() => void load()}
+            type="button"
+          >
+            <LuRefreshCw size={14} /> {loading ? "Refreshing…" : "Refresh"}
+          </button>
+        ) : null
+      }
+      eyebrow="Earn your place"
+      subtitle="Points for finishing to-dos: high +30, medium +20, low +10."
+      title="Leaderboard"
+    />
+  );
+
+  if (!ready) {
+    return (
+      <>
+        {heading}
+        <p className="page-subtitle">Checking your account…</p>
+      </>
+    );
+  }
+
+  if (!user) {
+    return (
+      <>
+        {heading}
+        <section className="panel leaderboard-empty">
+          <span aria-hidden="true" className="leaderboard-empty-icon">
+            <LuTrophy size={26} />
+          </span>
+          <h2 className="leaderboard-empty-title">Sign in to join the board</h2>
+          <p className="page-subtitle">
+            Points are saved to your Studybook account. Use Sign in at the top
+            right, then complete a to-do to claim your spot.
+          </p>
+        </section>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {heading}
+
+      {error && (
+        <p className="notice">
+          {missingSetup
+            ? "The leaderboard is not set up yet. Run supabase/migrations/leaderboard.sql in the Supabase SQL editor, then refresh."
+            : error}
+        </p>
+      )}
+
+      {loading && !rows.length ? (
+        <p className="page-subtitle">Loading the leaderboard…</p>
+      ) : error && !rows.length ? null : (
+        <>
+          <section className="panel leaderboard-board">
+            <div className="panel-heading">
+              <h2 className="panel-title">
+                <LuTrophy aria-hidden="true" size={16} /> Top students
+              </h2>
+              <span className="panel-link">{rows.length} ranked</span>
+            </div>
+            <div className="panel-body">
+              {rows.length ? (
+                <>
+                  <div className="leaderboard-podium">
+                    {places.map(({ rank, row }) => (
+                      <div
+                        className={`podium-place place-${rank}${row?.id === user.id ? " me" : ""}`}
+                        key={rank}
+                      >
+                        <div className="podium-person">
+                          {row ? (
+                            <>
+                              <ProfileAvatar
+                                image={row.avatar_url ?? ""}
+                                name={
+                                  row.display_name ||
+                                  row.username ||
+                                  "Student"
+                                }
+                              />
+                              <strong>
+                                {row.username
+                                  ? `@${row.username}`
+                                  : row.display_name}
+                              </strong>
+                              <span className="podium-points">
+                                {row.points} pts
+                              </span>
+                            </>
+                          ) : (
+                            <span className="podium-waiting">
+                              Waiting for a champion
+                            </span>
+                          )}
+                        </div>
+                        <div className="podium-block">
+                          <span aria-hidden="true">
+                            {rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉"}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {rows.length > 3 && (
+                    <div className="leaderboard-list">
+                      {rows.slice(3).map((row, index) => (
+                        <div
+                          className={`leaderboard-row${row.id === user.id ? " me" : ""}`}
+                          key={row.id}
+                        >
+                          <span className="leaderboard-rank">
+                            {index + 4}
+                          </span>
+                          <ProfileAvatar
+                            image={row.avatar_url ?? ""}
+                            name={
+                              row.display_name || row.username || "Student"
+                            }
+                          />
+                          <div className="leaderboard-person">
+                            <strong>
+                              {row.username
+                                ? `@${row.username}`
+                                : row.display_name}
+                            </strong>
+                            <span>{row.display_name}</span>
+                          </div>
+                          <span className="leaderboard-points">
+                            {row.points} pts
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="leaderboard-own">
+                    <span>
+                      {ownPoints !== null
+                        ? `You have ${ownPoints} point${ownPoints === 1 ? "" : "s"}.`
+                        : "Complete a to-do to earn points."}
+                    </span>
+                    {!isRanked && ownPoints !== null && ownPoints > 0 && (
+                      <span> Keep going to reach the top 25.</span>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="leaderboard-empty">
+                  <span aria-hidden="true" className="leaderboard-empty-icon">
+                    <LuTrophy size={26} />
+                  </span>
+                  <h2 className="leaderboard-empty-title">No points yet</h2>
+                  <p className="page-subtitle">
+                    Be the first on the podium — complete a to-do and come back.
+                  </p>
+                </div>
+              )}
+
+              <div className="leaderboard-legend">
+                <span><strong>High</strong> +30</span>
+                <span><strong>Medium</strong> +20</span>
+                <span><strong>Low</strong> +10</span>
+              </div>
+            </div>
+          </section>
+        </>
+      )}
     </>
   );
 }

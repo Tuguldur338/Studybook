@@ -96,6 +96,20 @@ Apply the migrations in order after the base schema:
    creates the `chat-images` Storage bucket.
 3. [`migrations/usernames.sql`](./migrations/usernames.sql) — usernames at
    sign-up, uniqueness checks, and lookup by email or `@username`.
+4. [`migrations/leaderboard.sql`](./migrations/leaderboard.sql) — adds
+   `profiles.points`, the `award_points()` function that checks off tasks call,
+   and `get_leaderboard()` for the public top list.
+
+## Leaderboard
+
+Completing a to-do task awards leaderboard points by priority:
+**high +30, medium +20, low +10**. Un-checking a task subtracts the same amount
+(never below zero). The points are stored on the user's profile, and the
+Leaderboard page shows the top three on a podium plus the rest of the top 20.
+
+Points are only awarded while signed in. The browser's task list remains local,
+so the server cannot independently verify a completion; the database functions
+only validate the amount, not the task itself.
 
 The migrations add the tables to the `supabase_realtime` publication; if you
 prefer the dashboard, make sure everything is toggled on under

@@ -29,6 +29,8 @@ import {
   LuNotebookPen,
   LuSettings,
   LuSun,
+  LuSunrise,
+  LuTrophy,
   LuUserPlus,
   LuX,
 } from "react-icons/lu";
@@ -55,8 +57,10 @@ const navigation = [
   { label: "Overview", href: "/", icon: LuHouse },
   { label: "Weekly schedule", href: "/schedule", icon: LuCalendarDays },
   { label: "To-do list", href: "/to-do-list", icon: LuCheck },
+  { label: "Daily routine", href: "/routine", icon: LuSunrise },
   { label: "My notes", href: "/notes", icon: LuNotebookPen },
   { label: "Music", href: "/music", icon: LuMusic },
+  { label: "Leaderboard", href: "/leaderboard", icon: LuTrophy },
   { label: "Settings", href: "/settings", icon: LuSettings },
 ];
 
@@ -64,8 +68,10 @@ const pageNames: Record<string, string> = {
   "/": "Overview",
   "/schedule": "Weekly schedule",
   "/to-do-list": "To-do list",
+  "/routine": "Daily routine",
   "/notes": "My notes",
   "/music": "Music",
+  "/leaderboard": "Leaderboard",
   "/settings": "Settings",
   "/account": "My account",
   "/profile": "Profile",
@@ -673,8 +679,13 @@ function StudybookFrame({ children }: { children: ReactNode }) {
               <ProfileAvatar image={profile.avatar} name={profile.name} />
               <span className="sidebar-profile-copy">
                 <span className="sidebar-profile-name">{profile.name}</span>
-                <span className="sidebar-profile-caption">
-                  {authUser && username ? `@${username}` : "View profile"}
+                <span
+                  className="sidebar-profile-caption"
+                  title={username ? `@${username}` : undefined}
+                >
+                  {authUser
+                    ? profile.email || (username ? `@${username}` : "View profile")
+                    : "View profile"}
                 </span>
               </span>
             </Link>

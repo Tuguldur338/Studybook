@@ -39,6 +39,18 @@ export type Exam = {
   createdAt: string;
 };
 
+export type RoutineItem = {
+  id: string;
+  title: string;
+  /** "HH:MM" local time, or an empty string for "anytime". */
+  time: string;
+  note: string;
+  createdAt: string;
+};
+
+/** Keyed by `${YYYY-MM-DD}|${routineItemId}` so checks reset each day. */
+export type RoutineChecks = Record<string, boolean>;
+
 export const NOTE_COLORS = [
   "default",
   "sage",
@@ -103,6 +115,10 @@ type StudybookContextValue = {
   setTasks: Dispatch<SetStateAction<StudyTask[]>>;
   exams: Exam[];
   setExams: Dispatch<SetStateAction<Exam[]>>;
+  routine: RoutineItem[];
+  setRoutine: Dispatch<SetStateAction<RoutineItem[]>>;
+  routineChecks: RoutineChecks;
+  setRoutineChecks: Dispatch<SetStateAction<RoutineChecks>>;
   notes: StudyNote[];
   setNotes: Dispatch<SetStateAction<StudyNote[]>>;
   profile: StudentProfile;
@@ -175,6 +191,25 @@ function isExam(value: unknown): value is Exam {
   );
 }
 
+function isRoutineItem(value: unknown): value is RoutineItem {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.title === "string" &&
+    typeof value.time === "string" &&
+    typeof value.note === "string" &&
+    typeof value.createdAt === "string"
+  );
+}
+
+function isRoutineChecks(value: unknown): value is RoutineChecks {
+  return (
+    isRecord(value) &&
+    !Array.isArray(value) &&
+    Object.values(value).every((entry) => typeof entry === "boolean")
+  );
+}
+
 function isStudyNote(value: unknown): value is StudyNote {
   return (
     isRecord(value) &&
@@ -233,6 +268,12 @@ function readStudybookData() {
       : [],
     tasks: Array.isArray(parsed.tasks) ? parsed.tasks.filter(isStudyTask) : [],
     exams: Array.isArray(parsed.exams) ? parsed.exams.filter(isExam) : [],
+    routine: Array.isArray(parsed.routine)
+      ? parsed.routine.filter(isRoutineItem)
+      : [],
+    routineChecks: isRoutineChecks(parsed.routineChecks)
+      ? parsed.routineChecks
+      : {},
     notes: Array.isArray(parsed.notes) ? parsed.notes.filter(isStudyNote) : [],
     profile: {
       name: typeof profile.name === "string" ? profile.name : "Student",
@@ -250,6 +291,8 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
   const [savedClasses, setSavedClasses] = useState<SavedClass[]>([]);
   const [tasks, setTasks] = useState<StudyTask[]>([]);
   const [exams, setExams] = useState<Exam[]>([]);
+  const [routine, setRoutine] = useState<RoutineItem[]>([]);
+  const [routineChecks, setRoutineChecks] = useState<RoutineChecks>({});
   const [notes, setNotes] = useState<StudyNote[]>([]);
   const [profile, setProfile] = useState(defaultProfile);
   const [theme, setTheme] = useState<"light" | "dark">("light");
@@ -297,6 +340,8 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
           setSavedClasses(saved.savedClasses);
           setTasks(saved.tasks);
           setExams(saved.exams);
+          setRoutine(saved.routine);
+          setRoutineChecks(saved.routineChecks);
           setNotes(saved.notes);
           setProfile(saved.profile);
           setTheme(saved.theme);
@@ -333,6 +378,8 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
           savedClasses,
           tasks,
           exams,
+          routine,
+          routineChecks,
           notes,
           profile,
           theme,
@@ -353,6 +400,8 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     classChecks,
     classes,
     exams,
+    routine,
+    routineChecks,
     font,
     holidayEffects,
     isLoaded,
@@ -376,6 +425,10 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
         setTasks,
         exams,
         setExams,
+        routine,
+        setRoutine,
+        routineChecks,
+        setRoutineChecks,
         notes,
         setNotes,
         profile,
