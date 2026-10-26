@@ -52,8 +52,10 @@ How it behaves:
 - If the account has no snapshot yet, the current browser's local data is
   uploaded, so the first signed-in device seeds the account.
 - After that, changes are saved after a short debounce.
-- The account snapshot wins when both a cloud copy and local data exist;
-  changes made on two devices are last-write-wins.
+- If both the cloud and local data have content, the app merges the lists by id
+  (local wins for the same id) and saves the union, so a to-do added before the
+  first sync is kept alongside the account's schedule. Deletions made only on
+  one stale device can reappear until that device syncs.
 - Local data is now stored per account (`studybook-data-v1:<user id>`), so two
   accounts on the same browser keep separate schedules and to-dos. The older
   shared key is claimed only by an account whose email matches the saved

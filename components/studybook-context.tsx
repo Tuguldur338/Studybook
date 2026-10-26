@@ -264,6 +264,77 @@ function snapshotHasContent(data: unknown): boolean {
   return typeof data.profileAvatar === "string" && data.profileAvatar.length > 0;
 }
 
+function savedClassKey(item: SavedClass) {
+  return `${item.subject}|${item.day}|${item.startTime}|${item.endTime}|${item.location}|${item.instructor}`;
+}
+
+function mergeById<T extends { id: string }>(cloud: T[], local: T[]): T[] {
+  const items = new Map<string, T>();
+  for (const item of cloud) items.set(item.id, item);
+  // Local entries win on the same id; new cloud entries are still kept.
+  for (const item of local) items.set(item.id, item);
+  return [...items.values()];
+}
+
+function mergeSnapshots(
+  cloud: unknown,
+  local: StudybookSnapshot,
+): StudybookSnapshot {
+  const source = isRecord(cloud) ? cloud : {};
+
+  const cloudClasses = Array.isArray(source.classes)
+    ? source.classes.filter(isClassSession)
+    : [];
+  const cloudSavedClasses = Array.isArray(source.savedClasses)
+    ? source.savedClasses.filter(isSavedClass)
+    : [];
+  const cloudTasks = Array.isArray(source.tasks)
+    ? source.tasks.filter(isStudyTask)
+    : [];
+  const cloudNotes = Array.isArray(source.notes)
+    ? source.notes.filter(isStudyNote)
+    : [];
+  const cloudExams = Array.isArray(source.exams)
+    ? source.exams.filter(isExam)
+    : [];
+  const cloudRoutine = Array.isArray(source.routine)
+    ? source.routine.filter(isRoutineItem)
+    : [];
+
+  const notes = new Map<string, StudyNote>();
+  for (const note of cloudNotes) notes.set(note.id, note);
+  for (const note of local.notes) {
+    const existing = notes.get(note.id);
+    if (!existing || note.updatedAt >= existing.updatedAt) {
+      notes.set(note.id, note);
+    }
+  }
+
+  const saved = new Map<string, SavedClass>();
+  for (const item of cloudSavedClasses) saved.set(savedClassKey(item), item);
+  for (const item of local.savedClasses) saved.set(savedClassKey(item), item);
+
+  return {
+    classes: mergeById(cloudClasses, local.classes),
+    classChecks: {
+      ...(isClassChecks(source.classChecks) ? source.classChecks : {}),
+      ...local.classChecks,
+    },
+    savedClasses: [...saved.values()],
+    tasks: mergeById(cloudTasks, local.tasks),
+    notes: [...notes.values()],
+    exams: mergeById(cloudExams, local.exams),
+    routine: mergeById(cloudRoutine, local.routine),
+    routineChecks: {
+      ...(isRoutineChecks(source.routineChecks) ? source.routineChecks : {}),
+      ...local.routineChecks,
+    },
+    profileAvatar:
+      local.profileAvatar ||
+      (typeof source.profileAvatar === "string" ? source.profileAvatar : ""),
+  };
+}
+
 function isStudyNote(value: unknown): value is StudyNote {
   return (
     isRecord(value) &&
@@ -615,10 +686,16 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
 
         const cloudData = data?.data as unknown;
         const localData = snapshotRef.current;
+        const cloudHasContent = snapshotHasContent(cloudData);
+        const localHasContent = snapshotHasContent(localData);
 
-        if (snapshotHasContent(cloudData)) {
+        if (cloudHasContent && localHasContent) {
+          // Keep items added on this device (for example a to-do entered before
+          // the first sync) while also loading the account's other data.
+          applyCloudSnapshot(mergeSnapshots(cloudData, localData));
+        } else if (cloudHasContent) {
           applyCloudSnapshot(cloudData);
-        } else if (snapshotHasContent(localData)) {
+        } else if (localHasContent) {
           const { error: uploadError } = await supabase
             .from("studybook_snapshots")
             .upsert(

@@ -851,11 +851,6 @@ export function ScheduleView() {
                       <button
                         className={`saved-class-chip${added ? " added" : ""}`}
                         onClick={() => applySavedClass(saved)}
-                        title={
-                          added
-                            ? "Already in your schedule — tap to reuse or move it"
-                            : "Fill the form with this class"
-                        }
                         type="button"
                       >
                         <strong>{saved.subject}</strong>
@@ -869,7 +864,6 @@ export function ScheduleView() {
                         aria-label={`Remove ${saved.subject} from saved classes`}
                         className="saved-class-remove"
                         onClick={() => removeSavedClass(saved.id)}
-                        title="Remove from saved classes — this does not delete it from your schedule"
                         type="button"
                       >
                         <LuX size={12} />
