@@ -220,12 +220,11 @@ function AuthModal({
 
   const isRegistering = mode === "register";
   return (
-    <div className="modal-backdrop" onClick={onClose} role="presentation">
+    <div className="modal-backdrop" role="presentation">
       <section
         aria-labelledby="auth-title"
         aria-modal="true"
         className="modal"
-        onClick={(event) => event.stopPropagation()}
         role="dialog"
       >
         <div className="modal-heading">
