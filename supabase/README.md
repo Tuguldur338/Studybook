@@ -25,8 +25,13 @@ supabase db push
 ```
 
 Alternatively, copy
-[`migrations/20261025093000_create_studybook_schema.sql`](./migrations/20261025093000_create_studybook_schema.sql)
+[`migrations/schema.sql`](./migrations/schema.sql)
 into the Supabase Dashboard SQL Editor and run it against your project.
+
+> **Already have the tables?** Do not rerun the base schema — `create table` is
+> not idempotent, and `ERROR 42P07: relation "profiles" already exists` means it
+> has already been applied. Skip to the incremental migrations below; in
+> particular, `sync.sql` is the one that creates the cloud-sync table.
 
 The Studybook app's registration and sign-in forms use Supabase Auth when the
 project credentials below are configured. With the `sync.sql` migration
@@ -126,6 +131,20 @@ Apply the migrations in order after the base schema:
 5. [`migrations/sync.sql`](./migrations/sync.sql) — cross-device
    `studybook_snapshots` for the schedule, tasks, notes, exams, routine, and
    profile picture.
+
+These migration files are meant for a **fresh project**. If the base schema,
+messaging, or usernames are already working, do not rerun them. Expected errors
+when rerunning are:
+
+- `42P07: relation "profiles" already exists` — base schema is already applied.
+- `42710: constraint "messages_body_check" ... already exists` — messaging-v2
+  is already applied.
+- `42703: column "recipient_id" does not exist` — you are running the old
+  pre-v2 `messaging.sql` after `messaging-v2.sql`; the direct-message schema was
+  replaced. Skip it.
+
+If sign-in and messaging already work, apply only the **missing** newer
+migrations: `leaderboard.sql` (points) and `sync.sql` (cross-device data).
 
 ## Leaderboard
 

@@ -148,8 +148,8 @@ export default function MessagingPanel({
   const fileRef = useRef<HTMLInputElement>(null);
 
   const activeConversation = activeConversationId
-    ? api.conversations.find((item) => item.id === activeConversationId) ??
-      null
+    ? (api.conversations.find((item) => item.id === activeConversationId) ??
+      null)
     : null;
   const thread = api.messagesFor(activeConversationId);
   const { markConversationRead } = api;
@@ -321,394 +321,392 @@ export default function MessagingPanel({
       className={`messenger messenger-docked${minimized ? " is-minimized" : ""}`}
     >
       <header className="messenger-head">
-          {creatingGroup || activeConversation ? (
+        {creatingGroup || activeConversation ? (
+          <button
+            aria-label="Back"
+            className="icon-button"
+            onClick={() => {
+              if (creatingGroup) {
+                setCreatingGroup(false);
+                setGroupTitle("");
+                setGroupMemberIds([]);
+              } else {
+                setActiveConversationId(null);
+              }
+              setError("");
+            }}
+            type="button"
+          >
+            <LuArrowLeft size={17} />
+          </button>
+        ) : (
+          <span className="messenger-mark">
+            <LuMessageCircle size={18} />
+          </span>
+        )}
+        <div className="messenger-title">
+          <h2>{title}</h2>
+          <p>
+            {creatingGroup
+              ? "Choose friends to add"
+              : activeConversation
+                ? activeConversation.kind === "group"
+                  ? `${activeConversation.members.length + 1} members`
+                  : "Direct message"
+                : "Chats, friends and requests"}
+          </p>
+        </div>
+        <button
+          aria-label="Minimize messages"
+          className="icon-button"
+          onClick={onMinimize}
+          title="Minimize"
+          type="button"
+        >
+          <LuMinus size={17} />
+        </button>
+        <button
+          aria-label="Close messages"
+          className="icon-button"
+          onClick={onClose}
+          title="Close"
+          type="button"
+        >
+          <LuX size={17} />
+        </button>
+      </header>
+
+      {!api.configured ? (
+        <div className="messenger-empty">
+          <LuMessageCircle size={28} />
+          <p>Messaging needs Supabase credentials.</p>
+          <p className="messenger-hint">
+            Add NEXT_PUBLIC_SUPABASE_URL and
+            NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY to .env.local.
+          </p>
+        </div>
+      ) : !user ? (
+        <div className="messenger-empty">
+          <LuMessageCircle size={28} />
+          <p>Sign in to send friend requests and messages.</p>
+          <p className="messenger-hint">
+            Use the Register or Sign in button in the top bar.
+          </p>
+        </div>
+      ) : creatingGroup ? (
+        <form className="messenger-body" onSubmit={handleCreateGroup}>
+          <div className="field">
+            <label htmlFor="group-title">Group name</label>
+            <input
+              autoFocus
+              className="input"
+              id="group-title"
+              maxLength={80}
+              onChange={(event) => setGroupTitle(event.target.value)}
+              placeholder="e.g. Biology study group"
+              required
+              value={groupTitle}
+            />
+          </div>
+
+          <section className="messenger-section">
+            <h3>Add friends</h3>
+            {api.friends.length === 0 && (
+              <p className="messenger-hint">
+                You need friends first — add someone by email below.
+              </p>
+            )}
+            {api.friends.map((friend) => (
+              <label className="group-member" key={friend.id}>
+                <input
+                  checked={groupMemberIds.includes(friend.id)}
+                  onChange={() => toggleGroupMember(friend.id)}
+                  type="checkbox"
+                />
+                <PersonAvatar person={friend} />
+                <span>{friend.name}</span>
+              </label>
+            ))}
+          </section>
+
+          {error && <p className="notice">{error}</p>}
+
+          <div className="form-actions">
             <button
-              aria-label="Back"
-              className="icon-button"
+              className="secondary-button"
               onClick={() => {
-                if (creatingGroup) {
-                  setCreatingGroup(false);
-                  setGroupTitle("");
-                  setGroupMemberIds([]);
-                } else {
-                  setActiveConversationId(null);
-                }
+                setCreatingGroup(false);
+                setGroupMemberIds([]);
+                setGroupTitle("");
                 setError("");
               }}
               type="button"
             >
-              <LuArrowLeft size={17} />
+              Cancel
             </button>
-          ) : (
-            <span className="messenger-mark">
-              <LuMessageCircle size={18} />
-            </span>
-          )}
-          <div className="messenger-title">
-            <h2>{title}</h2>
-            <p>
-              {creatingGroup
-                ? "Choose friends to add"
-                : activeConversation
-                  ? activeConversation.kind === "group"
-                    ? `${activeConversation.members.length + 1} members`
-                    : "Direct message"
-                  : "Chats, friends and requests"}
-            </p>
+            <button
+              className="primary-button"
+              disabled={busy || !groupTitle.trim()}
+              type="submit"
+            >
+              <LuUsers size={15} /> Create group
+            </button>
           </div>
-          <button
-            aria-label="Minimize messages"
-            className="icon-button"
-            onClick={onMinimize}
-            title="Minimize"
-            type="button"
-          >
-            <LuMinus size={17} />
-          </button>
-          <button
-            aria-label="Close messages"
-            className="icon-button"
-            onClick={onClose}
-            title="Close"
-            type="button"
-          >
-            <LuX size={17} />
-          </button>
-        </header>
+        </form>
+      ) : activeConversation && activeConversationId ? (
+        <>
+          <div className="messenger-thread" ref={threadRef}>
+            {thread.length === 0 && (
+              <p className="messenger-hint messenger-thread-empty">
+                No messages yet. Say hello.
+              </p>
+            )}
+            {thread.map((message: ChatMessage) => {
+              const mine = message.sender_id === user.id;
+              return (
+                <div
+                  className={`bubble${mine ? " mine" : ""}`}
+                  key={message.id}
+                >
+                  {activeConversation.kind === "group" && !mine && (
+                    <span className="bubble-sender">
+                      {api.person(message.sender_id).name}
+                    </span>
+                  )}
+                  {message.attachment_type === "image" &&
+                    message.attachment_url && (
+                      <a
+                        className="bubble-image-link"
+                        href={message.attachment_url}
+                        rel="noreferrer noopener"
+                        target="_blank"
+                      >
+                        <img
+                          alt="Shared attachment"
+                          className="bubble-image"
+                          loading="lazy"
+                          src={message.attachment_url}
+                        />
+                      </a>
+                    )}
+                  <MessageBody body={message.body} />
+                  <time dateTime={message.created_at}>
+                    {new Date(message.created_at).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </time>
+                </div>
+              );
+            })}
+          </div>
 
-        {!api.configured ? (
-          <div className="messenger-empty">
-            <LuMessageCircle size={28} />
-            <p>Messaging needs Supabase credentials.</p>
-            <p className="messenger-hint">
-              Add NEXT_PUBLIC_SUPABASE_URL and
-              NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY to .env.local.
-            </p>
-          </div>
-        ) : !user ? (
-          <div className="messenger-empty">
-            <LuMessageCircle size={28} />
-            <p>Sign in to send friend requests and messages.</p>
-            <p className="messenger-hint">
-              Use the Register or Sign in button in the top bar.
-            </p>
-          </div>
-        ) : creatingGroup ? (
-          <form className="messenger-body" onSubmit={handleCreateGroup}>
-            <div className="field">
-              <label htmlFor="group-title">Group name</label>
+          {error && <p className="notice messenger-notice">{error}</p>}
+
+          <form className="messenger-composer" onSubmit={handleSend}>
+            <label className="composer-attach" title="Attach a picture">
+              <LuImagePlus size={18} />
               <input
-                autoFocus
-                className="input"
-                id="group-title"
-                maxLength={80}
-                onChange={(event) => setGroupTitle(event.target.value)}
-                placeholder="e.g. Biology study group"
-                required
-                value={groupTitle}
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                onChange={handleImageChange}
+                ref={fileRef}
+                type="file"
               />
-            </div>
-
-            <section className="messenger-section">
-              <h3>Add friends</h3>
-              {api.friends.length === 0 && (
-                <p className="messenger-hint">
-                  You need friends first — add someone by email below.
-                </p>
+            </label>
+            <div className="composer-input">
+              <input
+                aria-label={`Message ${activeConversation.title}`}
+                className="input"
+                maxLength={2000}
+                onChange={(event) => setDraft(event.target.value)}
+                placeholder="Write a message or paste a link..."
+                value={draft}
+              />
+              {image && (
+                <span className="attachment-chip">
+                  {image.name}
+                  <button
+                    aria-label="Remove picture"
+                    onClick={() => {
+                      setImage(null);
+                      if (fileRef.current) fileRef.current.value = "";
+                    }}
+                    type="button"
+                  >
+                    <LuX size={12} />
+                  </button>
+                </span>
               )}
-              {api.friends.map((friend) => (
-                <label className="group-member" key={friend.id}>
-                  <input
-                    checked={groupMemberIds.includes(friend.id)}
-                    onChange={() => toggleGroupMember(friend.id)}
-                    type="checkbox"
-                  />
-                  <PersonAvatar person={friend} />
-                  <span>{friend.name}</span>
-                </label>
-              ))}
+            </div>
+            <button
+              className="primary-button"
+              disabled={busy || (!draft.trim() && !image)}
+              type="submit"
+            >
+              <LuSend size={15} />
+              Send
+            </button>
+          </form>
+        </>
+      ) : (
+        <div className="messenger-body">
+          {notice && <p className="notice success-notice">{notice}</p>}
+          {error && <p className="notice">{error}</p>}
+          {api.error && <p className="notice">{api.error}</p>}
+
+          {api.incomingRequests.length > 0 && (
+            <section className="messenger-section">
+              <h3>Friend requests</h3>
+              {api.incomingRequests.map((request) => {
+                const person = api.person(request.requester_id);
+                return (
+                  <div className="messenger-row" key={request.id}>
+                    <PersonAvatar person={person} />
+                    <div className="messenger-row-main">
+                      <strong>{person.name}</strong>
+                      <span>wants to be friends</span>
+                    </div>
+                    <div className="messenger-row-actions">
+                      <button
+                        aria-label={`Accept ${person.name}`}
+                        className="icon-button messenger-accept"
+                        onClick={() => handleRespond(request, true)}
+                        type="button"
+                      >
+                        <LuCheck size={16} />
+                      </button>
+                      <button
+                        aria-label={`Decline ${person.name}`}
+                        className="icon-button messenger-decline"
+                        onClick={() => handleRespond(request, false)}
+                        type="button"
+                      >
+                        <LuX size={16} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </section>
+          )}
 
-            {error && <p className="notice">{error}</p>}
-
-            <div className="form-actions">
+          <section className="messenger-section">
+            <div className="messenger-section-head">
+              <h3>Chats</h3>
               <button
-                className="secondary-button"
+                className="text-button"
                 onClick={() => {
-                  setCreatingGroup(false);
-                  setGroupMemberIds([]);
-                  setGroupTitle("");
+                  setCreatingGroup(true);
                   setError("");
                 }}
                 type="button"
               >
-                Cancel
+                + New group
               </button>
+            </div>
+            {api.loading && <p className="messenger-hint">Loading…</p>}
+            {!api.loading && api.conversations.length === 0 && (
+              <p className="messenger-hint">
+                No chats yet. Start one from your friends below.
+              </p>
+            )}
+            {api.conversations.map((conversation) => (
               <button
-                className="primary-button"
-                disabled={busy || !groupTitle.trim()}
-                type="submit"
+                className="messenger-row"
+                key={conversation.id}
+                onClick={() => {
+                  setActiveConversationId(conversation.id);
+                  setError("");
+                }}
+                type="button"
               >
-                <LuUsers size={15} /> Create group
+                {conversation.kind === "group" ? (
+                  <GroupAvatar title={conversation.title} />
+                ) : (
+                  <PersonAvatar
+                    person={
+                      conversation.members[0] ?? {
+                        id: conversation.id,
+                        name: conversation.title,
+                        avatar: conversation.avatar,
+                      }
+                    }
+                  />
+                )}
+                <div className="messenger-row-main">
+                  <strong>{conversation.title}</strong>
+                  <span>{conversationPreview(conversation)}</span>
+                </div>
+                {conversation.unread > 0 && (
+                  <span className="nav-badge">{conversation.unread}</span>
+                )}
+              </button>
+            ))}
+          </section>
+
+          <section className="messenger-section">
+            <h3>Friends</h3>
+            {api.friends.length === 0 && (
+              <p className="messenger-hint">
+                No friends yet. Send a request below.
+              </p>
+            )}
+            {api.friends.map((friend) => (
+              <button
+                className="messenger-row"
+                disabled={busy}
+                key={friend.id}
+                onClick={() => handleOpenFriend(friend.id)}
+                type="button"
+              >
+                <PersonAvatar person={friend} />
+                <div className="messenger-row-main">
+                  <strong>{friend.name}</strong>
+                  <span>Message</span>
+                </div>
+              </button>
+            ))}
+          </section>
+
+          <form className="messenger-add" onSubmit={handleAddFriend}>
+            <label htmlFor="friend-login">
+              Add a friend by email or username
+            </label>
+            <div className="messenger-add-row">
+              <input
+                className="input"
+                id="friend-login"
+                onChange={(event) => setLogin(event.target.value)}
+                placeholder="friend@example.com or alex_student"
+                required
+                type="text"
+                value={login}
+              />
+              <button className="primary-button" disabled={busy} type="submit">
+                <LuUserPlus size={15} /> Request
               </button>
             </div>
           </form>
-        ) : activeConversation && activeConversationId ? (
-          <>
-            <div className="messenger-thread" ref={threadRef}>
-              {thread.length === 0 && (
-                <p className="messenger-hint messenger-thread-empty">
-                  No messages yet. Say hello.
-                </p>
-              )}
-              {thread.map((message: ChatMessage) => {
-                const mine = message.sender_id === user.id;
+
+          {api.outgoingRequests.length > 0 && (
+            <section className="messenger-section">
+              <h3>Sent requests</h3>
+              {api.outgoingRequests.map((request) => {
+                const person = api.person(request.addressee_id);
                 return (
-                  <div
-                    className={`bubble${mine ? " mine" : ""}`}
-                    key={message.id}
-                  >
-                    {activeConversation.kind === "group" && !mine && (
-                      <span className="bubble-sender">
-                        {api.person(message.sender_id).name}
-                      </span>
-                    )}
-                    {message.attachment_type === "image" &&
-                      message.attachment_url && (
-                        <a
-                          className="bubble-image-link"
-                          href={message.attachment_url}
-                          rel="noreferrer noopener"
-                          target="_blank"
-                        >
-                          <img
-                            alt="Shared attachment"
-                            className="bubble-image"
-                            loading="lazy"
-                            src={message.attachment_url}
-                          />
-                        </a>
-                      )}
-                    <MessageBody body={message.body} />
-                    <time dateTime={message.created_at}>
-                      {new Date(message.created_at).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </time>
+                  <div className="messenger-row" key={request.id}>
+                    <PersonAvatar person={person} />
+                    <div className="messenger-row-main">
+                      <strong>{person.name}</strong>
+                      <span>Waiting for a reply</span>
+                    </div>
                   </div>
                 );
               })}
-            </div>
-
-            {error && <p className="notice messenger-notice">{error}</p>}
-
-            <form className="messenger-composer" onSubmit={handleSend}>
-              <label className="composer-attach" title="Attach a picture">
-                <LuImagePlus size={18} />
-                <input
-                  accept="image/png,image/jpeg,image/webp,image/gif"
-                  onChange={handleImageChange}
-                  ref={fileRef}
-                  type="file"
-                />
-              </label>
-              <div className="composer-input">
-                <input
-                  aria-label={`Message ${activeConversation.title}`}
-                  className="input"
-                  maxLength={2000}
-                  onChange={(event) => setDraft(event.target.value)}
-                  placeholder="Write a message or paste a link..."
-                  value={draft}
-                />
-                {image && (
-                  <span className="attachment-chip">
-                    {image.name}
-                    <button
-                      aria-label="Remove picture"
-                      onClick={() => {
-                        setImage(null);
-                        if (fileRef.current) fileRef.current.value = "";
-                      }}
-                      type="button"
-                    >
-                      <LuX size={12} />
-                    </button>
-                  </span>
-                )}
-              </div>
-              <button
-                className="primary-button"
-                disabled={busy || (!draft.trim() && !image)}
-                type="submit"
-              >
-                <LuSend size={15} />
-                Send
-              </button>
-            </form>
-          </>
-        ) : (
-          <div className="messenger-body">
-            {notice && <p className="notice success-notice">{notice}</p>}
-            {error && <p className="notice">{error}</p>}
-            {api.error && <p className="notice">{api.error}</p>}
-
-            {api.incomingRequests.length > 0 && (
-              <section className="messenger-section">
-                <h3>Friend requests</h3>
-                {api.incomingRequests.map((request) => {
-                  const person = api.person(request.requester_id);
-                  return (
-                    <div className="messenger-row" key={request.id}>
-                      <PersonAvatar person={person} />
-                      <div className="messenger-row-main">
-                        <strong>{person.name}</strong>
-                        <span>wants to be friends</span>
-                      </div>
-                      <div className="messenger-row-actions">
-                        <button
-                          aria-label={`Accept ${person.name}`}
-                          className="icon-button messenger-accept"
-                          onClick={() => handleRespond(request, true)}
-                          type="button"
-                        >
-                          <LuCheck size={16} />
-                        </button>
-                        <button
-                          aria-label={`Decline ${person.name}`}
-                          className="icon-button messenger-decline"
-                          onClick={() => handleRespond(request, false)}
-                          type="button"
-                        >
-                          <LuX size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </section>
-            )}
-
-            <section className="messenger-section">
-              <div className="messenger-section-head">
-                <h3>Chats</h3>
-                <button
-                  className="text-button"
-                  onClick={() => {
-                    setCreatingGroup(true);
-                    setError("");
-                  }}
-                  type="button"
-                >
-                  + New group
-                </button>
-              </div>
-              {api.loading && <p className="messenger-hint">Loading…</p>}
-              {!api.loading && api.conversations.length === 0 && (
-                <p className="messenger-hint">
-                  No chats yet. Start one from your friends below.
-                </p>
-              )}
-              {api.conversations.map((conversation) => (
-                <button
-                  className="messenger-row"
-                  key={conversation.id}
-                  onClick={() => {
-                    setActiveConversationId(conversation.id);
-                    setError("");
-                  }}
-                  type="button"
-                >
-                  {conversation.kind === "group" ? (
-                    <GroupAvatar title={conversation.title} />
-                  ) : (
-                    <PersonAvatar
-                      person={
-                        conversation.members[0] ?? {
-                          id: conversation.id,
-                          name: conversation.title,
-                          avatar: conversation.avatar,
-                        }
-                      }
-                    />
-                  )}
-                  <div className="messenger-row-main">
-                    <strong>{conversation.title}</strong>
-                    <span>{conversationPreview(conversation)}</span>
-                  </div>
-                  {conversation.unread > 0 && (
-                    <span className="nav-badge">{conversation.unread}</span>
-                  )}
-                </button>
-              ))}
             </section>
-
-            <section className="messenger-section">
-              <h3>Friends</h3>
-              {api.friends.length === 0 && (
-                <p className="messenger-hint">
-                  No friends yet. Send a request below.
-                </p>
-              )}
-              {api.friends.map((friend) => (
-                <button
-                  className="messenger-row"
-                  disabled={busy}
-                  key={friend.id}
-                  onClick={() => handleOpenFriend(friend.id)}
-                  type="button"
-                >
-                  <PersonAvatar person={friend} />
-                  <div className="messenger-row-main">
-                    <strong>{friend.name}</strong>
-                    <span>Message</span>
-                  </div>
-                </button>
-              ))}
-            </section>
-
-            <form className="messenger-add" onSubmit={handleAddFriend}>
-              <label htmlFor="friend-login">Add a friend by email or username</label>
-              <div className="messenger-add-row">
-                <input
-                  className="input"
-                  id="friend-login"
-                  onChange={(event) => setLogin(event.target.value)}
-                  placeholder="friend@example.com or alex_student"
-                  required
-                  type="text"
-                  value={login}
-                />
-                <button
-                  className="primary-button"
-                  disabled={busy}
-                  type="submit"
-                >
-                  <LuUserPlus size={15} /> Request
-                </button>
-              </div>
-            </form>
-
-            {api.outgoingRequests.length > 0 && (
-              <section className="messenger-section">
-                <h3>Sent requests</h3>
-                {api.outgoingRequests.map((request) => {
-                  const person = api.person(request.addressee_id);
-                  return (
-                    <div className="messenger-row" key={request.id}>
-                      <PersonAvatar person={person} />
-                      <div className="messenger-row-main">
-                        <strong>{person.name}</strong>
-                        <span>Waiting for a reply</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </section>
-            )}
-          </div>
-        )}
-      </aside>
+          )}
+        </div>
+      )}
+    </aside>
   );
 }
