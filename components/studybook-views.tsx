@@ -1848,7 +1848,7 @@ export function NotesView() {
   );
 }
 export function AccountView() {
-  const { notify, profile, setProfile } = useStudybook();
+  const { notify, profile, setProfile, syncStatus } = useStudybook();
   const { user, ready: accountReady } = useSupabaseUser();
   const [draft, setDraft] = useState<typeof profile | null>(null);
   const [photoError, setPhotoError] = useState("");
@@ -2091,9 +2091,16 @@ export function AccountView() {
         title="My account"
       />
       <p className="field-hint" style={{ marginBottom: 14, marginTop: -8 }}>
-        <strong>Cloud sync:</strong> your schedule, to-dos, notes, exams,
-        routine, and profile picture follow your account. Theme and music stay
-        on this device.
+        <strong>Cloud sync:</strong>{" "}
+        {syncStatus === "synced"
+          ? "Synced to your account."
+          : syncStatus === "syncing"
+            ? "Syncing…"
+            : syncStatus === "error"
+              ? "Local only — run supabase/migrations/sync.sql in Supabase, then reload."
+              : "Sign in to sync."}{" "}
+        Your schedule, to-dos, notes, exams, routine, and profile picture follow
+        your account; theme and music stay on this device.
       </p>
       <div className="profile-layout">
         <section className="panel profile-card">

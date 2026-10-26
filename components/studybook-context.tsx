@@ -147,6 +147,7 @@ type StudybookContextValue = {
   setFont: Dispatch<SetStateAction<FontFamily>>;
   holidayEffects: boolean;
   setHolidayEffects: Dispatch<SetStateAction<boolean>>;
+  syncStatus: "local" | "syncing" | "synced" | "error";
   isLoaded: boolean;
   storageError: string;
   toasts: Toast[];
@@ -348,6 +349,9 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [font, setFont] = useState<FontFamily>("geist");
   const [holidayEffects, setHolidayEffects] = useState(true);
+  const [syncStatus, setSyncStatus] = useState<
+    "local" | "syncing" | "synced" | "error"
+  >("local");
   const [isLoaded, setIsLoaded] = useState(false);
   const [storageError, setStorageError] = useState("");
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -529,7 +533,10 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (authUser) return;
-    const timer = window.setTimeout(() => setSyncedUserId(null), 0);
+    const timer = window.setTimeout(() => {
+      setSyncedUserId(null);
+      setSyncStatus("local");
+    }, 0);
     return () => window.clearTimeout(timer);
   }, [authUser]);
 
@@ -539,6 +546,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
 
     let active = true;
     const timer = window.setTimeout(async () => {
+      setSyncStatus("syncing");
       try {
         const supabase = getSupabaseBrowserClient();
         const { data, error } = await supabase
@@ -551,6 +559,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
 
         if (error) {
           console.warn("Studybook cloud sync is unavailable:", error.message);
+          setSyncStatus("error");
           setSyncedUserId(authUser.id);
           return;
         }
@@ -582,10 +591,16 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
         }
 
         window.localStorage.setItem(SYNC_USER_KEY, authUser.id);
-        if (active) setSyncedUserId(authUser.id);
+        if (active) {
+          setSyncStatus("synced");
+          setSyncedUserId(authUser.id);
+        }
       } catch (cause) {
         console.warn("Studybook cloud sync failed:", cause);
-        if (active) setSyncedUserId(authUser.id);
+        if (active) {
+          setSyncStatus("error");
+          setSyncedUserId(authUser.id);
+        }
       }
     }, 0);
 
@@ -618,6 +633,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     };
 
     const timer = window.setTimeout(async () => {
+      setSyncStatus("syncing");
       try {
         const supabase = getSupabaseBrowserClient();
         const { error } = await supabase
@@ -628,9 +644,13 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
           );
         if (error) {
           console.warn("Studybook cloud save failed:", error.message);
+          setSyncStatus("error");
+        } else {
+          setSyncStatus("synced");
         }
       } catch (cause) {
         console.warn("Studybook cloud save failed:", cause);
+        setSyncStatus("error");
       }
     }, 700);
 
@@ -677,6 +697,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
         setFont,
         holidayEffects,
         setHolidayEffects,
+        syncStatus,
         isLoaded,
         storageError,
         toasts,

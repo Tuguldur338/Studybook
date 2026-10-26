@@ -28,6 +28,10 @@ export function useSupabaseUser() {
         if (!active) return;
         setUser(data.user ?? null);
         setReady(true);
+      })
+      .catch(() => {
+        // Offline or the auth endpoint is unreachable; let local data load.
+        if (active) setReady(true);
       });
 
     const {
