@@ -1969,6 +1969,18 @@ a {
   font-size: 12px;
 }
 
+.profile-username {
+  margin: 2px 0 5px;
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.profile-username-input {
+  color: var(--muted);
+  cursor: default;
+}
+
 .avatar-upload {
   display: inline-flex;
   align-items: center;
