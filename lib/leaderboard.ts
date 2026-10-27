@@ -42,16 +42,16 @@ export async function awardTaskPoints(
     });
 
     if (error) {
-      const missingSetup =
-        /award_points|schema cache|could not find|does not exist/i.test(
-          error.message,
-        );
+      const missingSetup = /could not find the function|schema cache|does not exist/i.test(
+        error.message,
+      );
+      console.warn("Leaderboard points RPC failed:", error.message);
       return {
         ok: false,
         delta,
         message: missingSetup
-          ? "Leaderboard setup is missing — run supabase/migrations/leaderboard.sql."
-          : "Could not save leaderboard points.",
+          ? "Leaderboard setup is missing in the project this app uses. Run leaderboard.sql in the same Supabase project as the app."
+          : `Leaderboard error: ${error.message}`,
       };
     }
 
