@@ -34,7 +34,10 @@ begin
   end if;
 
   update public.profiles
-     set points = pg_catalog.greatest(0, points + amount)
+     set points = case
+       when points + amount < 0 then 0
+       else points + amount
+     end
    where id = auth.uid()
    returning points into new_total;
 

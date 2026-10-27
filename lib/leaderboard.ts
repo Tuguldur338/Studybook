@@ -42,9 +42,9 @@ export async function awardTaskPoints(
     });
 
     if (error) {
-      const missingSetup = /could not find the function|schema cache|does not exist/i.test(
-        error.message,
-      );
+      const missingSetup =
+        /could not find the function|schema cache/i.test(error.message) &&
+        /award_points/i.test(error.message);
       console.warn("Leaderboard points RPC failed:", error.message);
       return {
         ok: false,
