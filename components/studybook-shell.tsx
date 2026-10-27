@@ -11,6 +11,7 @@ import {
 import {
   LuBookOpen,
   LuCalendarDays,
+  LuCalendarRange,
   LuChevronRight,
   LuCheck,
   LuCircleAlert,
@@ -56,6 +57,7 @@ import {
 const navigation = [
   { label: "Overview", href: "/", icon: LuHouse },
   { label: "Weekly schedule", href: "/schedule", icon: LuCalendarDays },
+  { label: "Calendar", href: "/calendar", icon: LuCalendarRange },
   { label: "To-do list", href: "/to-do-list", icon: LuCheck },
   { label: "Daily routine", href: "/routine", icon: LuSunrise },
   { label: "My notes", href: "/notes", icon: LuNotebookPen },
@@ -67,6 +69,7 @@ const navigation = [
 const pageNames: Record<string, string> = {
   "/": "Overview",
   "/schedule": "Weekly schedule",
+  "/calendar": "Calendar",
   "/to-do-list": "To-do list",
   "/routine": "Daily routine",
   "/notes": "My notes",

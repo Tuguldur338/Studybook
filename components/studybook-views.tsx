@@ -14,6 +14,7 @@ import {
 } from "react";
 import {
   LuArrowRight,
+  LuBookOpen,
   LuCalendarDays,
   LuCalendarPlus,
   LuChevronDown,
@@ -24,6 +25,7 @@ import {
   LuClock,
   LuExternalLink,
   LuFileText,
+  LuGraduationCap,
   LuNotebookPen,
   LuPencil,
   LuPlus,
@@ -1282,6 +1284,389 @@ const emptyTaskForm = {
   dueDate: "",
   priority: "medium" as StudyTask["priority"],
 };
+
+type CalendarEventKind = "class" | "exam" | "task";
+
+type CalendarEvent = {
+  id: string;
+  kind: CalendarEventKind;
+  title: string;
+  detail: string;
+  time: string;
+  done?: boolean;
+};
+
+const calendarKindLabel: Record<CalendarEventKind, string> = {
+  class: "Classes",
+  exam: "Exams",
+  task: "Tasks due",
+};
+
+function startOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function formatExamTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+export function CalendarView() {
+  const { classes, exams, tasks } = useStudybook();
+  const [monthStart, setMonthStart] = useState<Date | null>(null);
+  const [selectedIso, setSelectedIso] = useState("");
+  const [todayIso, setTodayIso] = useState("");
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const now = new Date();
+      setMonthStart(startOfMonth(now));
+      setTodayIso(toISODate(now));
+      setSelectedIso(toISODate(now));
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setTodayIso(toISODate(new Date()));
+    }, 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const cells = useMemo(() => {
+    if (!monthStart) return [];
+
+    const examsByDate = new Map<string, typeof exams>();
+    for (const exam of exams) {
+      const date = new Date(exam.date);
+      if (Number.isNaN(date.getTime())) continue;
+      const iso = toISODate(date);
+      const list = examsByDate.get(iso) ?? [];
+      list.push(exam);
+      examsByDate.set(iso, list);
+    }
+
+    const firstWeekday = (monthStart.getDay() + 6) % 7;
+    const daysInMonth = new Date(
+      monthStart.getFullYear(),
+      monthStart.getMonth() + 1,
+      0,
+    ).getDate();
+    const cellCount = Math.ceil((firstWeekday + daysInMonth) / 7) * 7;
+    const gridStart = addDays(monthStart, -firstWeekday);
+
+    return Array.from({ length: cellCount }, (_, index) => {
+      const date = addDays(gridStart, index);
+      const iso = toISODate(date);
+      const weekday = (date.getDay() + 6) % 7;
+      const events: CalendarEvent[] = [
+        ...classes
+          .filter((item) => item.day === weekday)
+          .sort((a, b) => a.startTime.localeCompare(b.startTime))
+          .map((item) => ({
+            id: `class-${item.id}-${iso}`,
+            kind: "class" as const,
+            title: item.subject,
+            detail:
+              [item.location, item.instructor].filter(Boolean).join(" · ") ||
+              "Class",
+            time: formatTime(item.startTime),
+          })),
+        ...(examsByDate.get(iso) ?? []).map((exam) => ({
+          id: `exam-${exam.id}-${iso}`,
+          kind: "exam" as const,
+          title: exam.title,
+          detail: "Exam",
+          time: formatExamTime(exam.date),
+        })),
+        ...tasks
+          .filter((task) => task.dueDate === iso)
+          .map((task) => ({
+            id: `task-${task.id}-${iso}`,
+            kind: "task" as const,
+            title: task.title,
+            detail: task.course || "Personal",
+            time: "Due",
+            done: task.completed,
+          })),
+      ];
+
+      return {
+        date,
+        iso,
+        inMonth: date.getMonth() === monthStart.getMonth(),
+        isToday: iso === todayIso,
+        events,
+      };
+    });
+  }, [classes, exams, monthStart, tasks, todayIso]);
+
+  const selected = cells.find((cell) => cell.iso === selectedIso);
+  const selectedEvents = selected?.events ?? [];
+  const selectedDate = new Date(`${selectedIso}T00:00:00`);
+  const selectedLabel = Number.isNaN(selectedDate.getTime())
+    ? "Pick a day"
+    : new Intl.DateTimeFormat(undefined, {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      }).format(selectedDate);
+  const monthLabel = monthStart
+    ? new Intl.DateTimeFormat(undefined, {
+        month: "long",
+        year: "numeric",
+      }).format(monthStart)
+    : "";
+  const monthPrefix = monthStart
+    ? `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, "0")}`
+    : "";
+  const monthTaskCount = monthPrefix
+    ? tasks.filter((task) => task.dueDate.startsWith(monthPrefix)).length
+    : 0;
+  const monthExamCount = monthPrefix
+    ? exams.filter((exam) => {
+        const date = new Date(exam.date);
+        return (
+          !Number.isNaN(date.getTime()) &&
+          toISODate(date).startsWith(monthPrefix)
+        );
+      }).length
+    : 0;
+
+  function moveMonth(delta: number) {
+    if (!monthStart) return;
+    const next = new Date(
+      monthStart.getFullYear(),
+      monthStart.getMonth() + delta,
+      1,
+    );
+    setMonthStart(next);
+    setSelectedIso(toISODate(next));
+  }
+
+  function goToday() {
+    const now = new Date();
+    setMonthStart(startOfMonth(now));
+    setTodayIso(toISODate(now));
+    setSelectedIso(toISODate(now));
+  }
+
+  if (!monthStart) {
+    return (
+      <>
+        <PageHeading
+          eyebrow="Plan ahead"
+          subtitle="A month at a glance — classes, due tasks, and exams."
+          title="Calendar"
+        />
+        <section className="panel calendar-loading">
+          <p className="notice">Loading your calendar…</p>
+        </section>
+      </>
+    );
+  }
+
+  const detailGroups = (["class", "exam", "task"] as CalendarEventKind[])
+    .map((kind) => ({
+      kind,
+      label: calendarKindLabel[kind],
+      events: selectedEvents.filter((event) => event.kind === kind),
+    }))
+    .filter((group) => group.events.length > 0);
+
+  return (
+    <>
+      <PageHeading
+        eyebrow="Plan ahead"
+        subtitle="A month at a glance — classes, due tasks, and exams."
+        title="Calendar"
+      />
+      <div className="calendar-view">
+        <section className="panel calendar-main">
+          <div className="calendar-toolbar">
+            <div>
+              <h2 className="calendar-title">{monthLabel}</h2>
+              <p className="calendar-subtitle">
+                {classes.length} weekly{" "}
+                {classes.length === 1 ? "class" : "classes"} · {monthTaskCount}{" "}
+                {monthTaskCount === 1 ? "task" : "tasks"} due · {monthExamCount}{" "}
+                {monthExamCount === 1 ? "exam" : "exams"}
+              </p>
+            </div>
+            <div className="calendar-controls">
+              <button
+                aria-label="Previous month"
+                className="calendar-icon-button"
+                onClick={() => moveMonth(-1)}
+                type="button"
+              >
+                <LuChevronLeft aria-hidden="true" size={16} />
+              </button>
+              <button
+                className="calendar-today-button"
+                onClick={goToday}
+                type="button"
+              >
+                Today
+              </button>
+              <button
+                aria-label="Next month"
+                className="calendar-icon-button"
+                onClick={() => moveMonth(1)}
+                type="button"
+              >
+                <LuChevronRight aria-hidden="true" size={16} />
+              </button>
+            </div>
+          </div>
+
+          <div className="calendar-grid-wrap">
+            <div className="calendar-weekdays">
+              {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(
+                (day) => (
+                  <span className="calendar-weekday" key={day}>
+                    {day}
+                  </span>
+                ),
+              )}
+            </div>
+            <div className="calendar-grid">
+              {cells.map((cell) => {
+                const dayNumber = cell.date.getDate();
+                const isSelected = cell.iso === selectedIso;
+                return (
+                  <button
+                    aria-current={cell.isToday ? "date" : undefined}
+                    aria-label={`${new Intl.DateTimeFormat(undefined, {
+                      weekday: "long",
+                      month: "long",
+                      day: "numeric",
+                    }).format(cell.date)} — ${cell.events.length} ${
+                      cell.events.length === 1 ? "event" : "events"
+                    }`}
+                    aria-pressed={isSelected}
+                    className={[
+                      "calendar-day",
+                      cell.inMonth ? "" : "outside",
+                      cell.isToday ? "today" : "",
+                      isSelected ? "selected" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    key={cell.iso}
+                    onClick={() => {
+                      if (!cell.inMonth) setMonthStart(startOfMonth(cell.date));
+                      setSelectedIso(cell.iso);
+                    }}
+                    type="button"
+                  >
+                    <span className="calendar-day-head">
+                      <span className="calendar-day-number">{dayNumber}</span>
+                      {cell.isToday && (
+                        <span className="calendar-today-pill">Today</span>
+                      )}
+                    </span>
+                    <span className="calendar-chips">
+                      {cell.events.slice(0, 3).map((event) => (
+                        <span
+                          className={`calendar-chip ${event.kind}${
+                            event.done ? " done" : ""
+                          }`}
+                          key={event.id}
+                          title={event.title}
+                        >
+                          <span className="calendar-chip-dot" />
+                          <span className="calendar-chip-label">
+                            {event.title}
+                          </span>
+                        </span>
+                      ))}
+                      {cell.events.length > 3 && (
+                        <span className="calendar-more">
+                          +{cell.events.length - 3} more
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="calendar-legend">
+            <span className="calendar-legend-item">
+              <span className="calendar-legend-dot class" /> Classes
+            </span>
+            <span className="calendar-legend-item">
+              <span className="calendar-legend-dot exam" /> Exams
+            </span>
+            <span className="calendar-legend-item">
+              <span className="calendar-legend-dot task" /> Tasks due
+            </span>
+          </div>
+        </section>
+
+        <aside className="panel calendar-detail">
+          <div className="calendar-detail-head">
+            <p className="eyebrow">Day at a glance</p>
+            <h2 className="calendar-detail-date">{selectedLabel}</h2>
+            <p className="calendar-detail-count">
+              {selectedEvents.length}{" "}
+              {selectedEvents.length === 1 ? "event" : "events"} planned
+            </p>
+          </div>
+          <div className="calendar-detail-body">
+            {detailGroups.length ? (
+              detailGroups.map((group) => (
+                <div className="calendar-detail-group" key={group.kind}>
+                  <h3>{group.label}</h3>
+                  {group.events.map((event) => (
+                    <div
+                      className={`calendar-event ${event.kind}${
+                        event.done ? " done" : ""
+                      }`}
+                      key={event.id}
+                    >
+                      <span className={`calendar-event-icon ${event.kind}`}>
+                        {event.kind === "class" ? (
+                          <LuBookOpen aria-hidden="true" size={13} />
+                        ) : event.kind === "exam" ? (
+                          <LuGraduationCap aria-hidden="true" size={13} />
+                        ) : (
+                          <LuCircleCheck aria-hidden="true" size={13} />
+                        )}
+                      </span>
+                      <span className="calendar-event-main">
+                        <strong className="calendar-event-title">
+                          {event.title}
+                        </strong>
+                        <span className="calendar-event-detail">
+                          {event.detail}
+                        </span>
+                      </span>
+                      <span className="calendar-event-time">{event.time}</span>
+                    </div>
+                  ))}
+                </div>
+              ))
+            ) : (
+              <div className="calendar-detail-empty">
+                <LuCalendarDays aria-hidden="true" size={22} />
+                <p>Nothing scheduled</p>
+                <span>Pick another day or add a task.</span>
+              </div>
+            )}
+          </div>
+        </aside>
+      </div>
+    </>
+  );
+}
 
 type TaskFilter = "all" | "active" | "done";
 type TaskSort = "due" | "priority" | "newest";
