@@ -78,6 +78,20 @@ function createId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+type NotifyFn = (message: string, type?: "success" | "error" | "info") => void;
+
+function notifyPointsResult(
+  result: Awaited<ReturnType<typeof awardTaskPoints>>,
+  notify: NotifyFn,
+) {
+  if (!result.ok) {
+    if (result.message) notify(result.message, "error");
+    return;
+  }
+
+  notify(`${result.delta > 0 ? "+" : ""}${result.delta} leaderboard points.`);
+}
+
 function toISODate(date: Date) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -283,7 +297,7 @@ function ConfirmDialog({
   );
 }
 export default function DashboardView() {
-  const { classes, notes, profile, tasks } = useStudybook();
+  const { classes, notes, notify, profile, setTasks, tasks } = useStudybook();
   const [today, setToday] = useState<{ day: number; label: string } | null>(
     null,
   );
@@ -331,6 +345,17 @@ export default function DashboardView() {
     .slice(0, 3);
 
   const firstName = profile.name.trim().split(/\s+/)[0] || "student";
+
+  function completeTask(task: StudyTask) {
+    setTasks((current) =>
+      current.map((item) =>
+        item.id === task.id ? { ...item, completed: true } : item,
+      ),
+    );
+    void awardTaskPoints(task.priority, 1).then((result) =>
+      notifyPointsResult(result, notify),
+    );
+  }
 
   return (
     <>
@@ -465,14 +490,11 @@ export default function DashboardView() {
                     className={`task-row${isOverdue(task, todayStr) ? " overdue" : ""}`}
                     key={task.id}
                   >
-                    <span
-                      className="task-check"
-                      aria-hidden="true"
-                      style={{
-                        border: "1px solid var(--border-strong)",
-                        borderRadius: "50%",
-                        background: "var(--surface)",
-                      }}
+                    <button
+                      aria-label={`Complete ${task.title}`}
+                      className="task-check dashboard-task-check"
+                      onClick={() => completeTask(task)}
+                      type="button"
                     />
                     <div className="task-main">
                       <div className="task-title">{task.title}</div>
@@ -1370,7 +1392,9 @@ export function ToDoListView() {
         item.id === task.id ? { ...item, completed: nextCompleted } : item,
       ),
     );
-    void awardTaskPoints(task.priority, nextCompleted ? 1 : -1);
+    void awardTaskPoints(task.priority, nextCompleted ? 1 : -1).then(
+      (result) => notifyPointsResult(result, notify),
+    );
   }
 
   function renderTask(task: StudyTask) {
@@ -3268,8 +3292,8 @@ export function LeaderboardView() {
           </button>
         ) : null
       }
-      eyebrow="Earn your place"
-      subtitle="Points for finishing to-dos: high +30, medium +20, low +10."
+      eyebrow="Friends only"
+      subtitle="Points for finishing to-dos — only you and your accepted friends appear here. High +30, medium +20, low +10."
       title="Leaderboard"
     />
   );
@@ -3291,10 +3315,10 @@ export function LeaderboardView() {
           <span aria-hidden="true" className="leaderboard-empty-icon">
             <LuTrophy size={26} />
           </span>
-          <h2 className="leaderboard-empty-title">Sign in to join the board</h2>
+          <h2 className="leaderboard-empty-title">Sign in to see your circle</h2>
           <p className="page-subtitle">
-            Points are saved to your Studybook account. Use Sign in at the top
-            right, then complete a to-do to claim your spot.
+            Points are saved to your Studybook account. Sign in, add friends in
+            Messages, and complete a to-do to compare.
           </p>
         </section>
       </>
@@ -3320,7 +3344,7 @@ export function LeaderboardView() {
           <section className="panel leaderboard-board">
             <div className="panel-heading">
               <h2 className="panel-title">
-                <LuTrophy aria-hidden="true" size={16} /> Top students
+                <LuTrophy aria-hidden="true" size={16} /> You &amp; your friends
               </h2>
               <span className="panel-link">{rows.length} ranked</span>
             </div>
@@ -3355,7 +3379,7 @@ export function LeaderboardView() {
                             </>
                           ) : (
                             <span className="podium-waiting">
-                              Waiting for a champion
+                              Waiting for a friend
                             </span>
                           )}
                         </div>
@@ -3407,7 +3431,7 @@ export function LeaderboardView() {
                         : "Complete a to-do to earn points."}
                     </span>
                     {!isRanked && ownPoints !== null && ownPoints > 0 && (
-                      <span> Keep going to reach the top 25.</span>
+                      <span> Keep going to climb the board.</span>
                     )}
                   </div>
                 </>
@@ -3416,9 +3440,12 @@ export function LeaderboardView() {
                   <span aria-hidden="true" className="leaderboard-empty-icon">
                     <LuTrophy size={26} />
                   </span>
-                  <h2 className="leaderboard-empty-title">No points yet</h2>
+                  <h2 className="leaderboard-empty-title">
+                    No points in your circle yet
+                  </h2>
                   <p className="page-subtitle">
-                    Be the first on the podium — complete a to-do and come back.
+                    Complete a to-do to start — add friends in Messages to make
+                    it a friendly competition.
                   </p>
                 </div>
               )}

@@ -129,7 +129,7 @@ Apply the migrations in order after the base schema:
    sign-up, uniqueness checks, and lookup by email or `@username`.
 4. [`migrations/leaderboard.sql`](./migrations/leaderboard.sql) — adds
    `profiles.points`, the `award_points()` function that checks off tasks call,
-   and `get_leaderboard()` for the public top list.
+   and `get_leaderboard()` for the friends-only top list.
 5. [`migrations/sync.sql`](./migrations/sync.sql) — cross-device
    `studybook_snapshots` for the schedule, tasks, notes, exams, routine, and
    profile picture.
@@ -151,14 +151,15 @@ migrations: `leaderboard.sql` (points) and `sync.sql` (cross-device data).
 ## Leaderboard
 
 Completing a to-do task awards leaderboard points by priority:
-**high +30, medium +20, low +10**. Un-checking a task subtracts the same amount
-(never below zero). The points are stored on the user's profile, and the
-Leaderboard page shows the top three on a podium plus the rest of the top 20.
+**high +30, medium +20, low +10**. Un-checking the same task automatically
+deducts the same amount (never below zero). The points are stored on the user's
+profile, and the Leaderboard page only shows the signed-in user and their
+**accepted friends** — add friends from Messages to compare.
 
-Points are only awarded while signed in. The task list itself synchronizes
-through the `studybook_snapshots` table, but the server cannot independently
-verify a completion; the database functions only validate the amount, not the
-task itself.
+Points are awarded while signed in when the task checkbox is toggled (from the
+To-do list or the Overview's Next up card). The browser's task list is local, so
+the server cannot independently verify a completion; the database functions
+only validate the amount, not the task itself.
 
 The migrations add the tables to the `supabase_realtime` publication; if you
 prefer the dashboard, make sure everything is toggled on under

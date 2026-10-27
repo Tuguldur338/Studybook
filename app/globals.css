@@ -1155,6 +1155,20 @@ a {
   cursor: pointer;
 }
 
+.task-check.dashboard-task-check {
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--surface);
+  padding: 0;
+  appearance: none;
+  transition: border-color 160ms ease;
+}
+
+.task-check.dashboard-task-check:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .task-main {
   flex: 1;
   min-width: 0;

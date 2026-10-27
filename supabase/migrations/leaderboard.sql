@@ -1,4 +1,4 @@
--- Leaderboard: points for completed to-do tasks, and a public top list.
+-- Leaderboard: points for completed to-do tasks, shared only with friends.
 --
 -- Tasks live in the browser, so the client awards points when a task is
 -- checked off. The allowlist below ties an amount to a priority:
@@ -6,7 +6,8 @@
 --
 -- The profiles table only lets a user read their own row, so the leaderboard
 -- is exposed through a security-definer function that returns just the public
--- fields (username, display name, avatar, points).
+-- fields (username, display name, avatar, points) for the signed-in user and
+-- their accepted friends.
 
 alter table public.profiles
   add column if not exists points integer not null default 0;
@@ -69,6 +70,10 @@ as $$
     p.points
   from public.profiles p
   where p.points > 0
+    and (
+      p.id = auth.uid()
+      or public.are_friends(auth.uid(), p.id)
+    )
   order by p.points desc, p.username asc nulls last
   limit least(greatest(coalesce(max_rows, 20), 1), 100);
 $$;
