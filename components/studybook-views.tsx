@@ -2166,9 +2166,6 @@ export function AccountView() {
             name={currentProfile.name}
           />
           <h2 className="profile-name">{currentProfile.name || "Student"}</h2>
-          {currentUsername && (
-            <p className="profile-username">@{currentUsername}</p>
-          )}
           <p className="profile-email">
             {currentProfile.email || "Your student space"}
           </p>
@@ -2228,19 +2225,6 @@ export function AccountView() {
               value={currentProfile.email}
             />
           </div>
-          <div className="field" style={{ marginTop: 14 }}>
-            <label htmlFor="profile-username">Username</label>
-            <input
-              className="input profile-username-input"
-              id="profile-username"
-              placeholder="No username yet"
-              readOnly
-              value={currentUsername ? `@${currentUsername}` : ""}
-            />
-            <p className="field-hint">
-              Your @handle is managed under Sign-in details.
-            </p>
-          </div>
           <div className="notice" style={{ marginTop: 17 }}>
             Your schedule, tasks, notes, and profile picture are stored in this
             browser. Username and password are managed by your Studybook
@@ -2277,6 +2261,10 @@ export function AccountView() {
           </p>
         ) : (
           <>
+            <div className="account-identity">
+              <span className="account-identity-label">Signed in as</span>
+              <strong>{profile.name || "Student"}</strong>
+            </div>
             <form className="account-form" onSubmit={handleUsernameSubmit}>
               <div className="field">
                 <label htmlFor="account-username">Username</label>
@@ -2397,31 +2385,6 @@ export function AccountView() {
 
 export function ProfileView() {
   const { classes, profile, tasks } = useStudybook();
-  const { user, ready } = useSupabaseUser();
-  const [username, setUsername] = useState("");
-
-  useEffect(() => {
-    if (!ready || !user) return;
-
-    let active = true;
-    const timer = window.setTimeout(async () => {
-      const supabase = getSupabaseBrowserClient();
-      const { data } = await supabase
-        .from("profiles")
-        .select("username")
-        .eq("id", user.id)
-        .maybeSingle();
-      if (active) {
-        setUsername(typeof data?.username === "string" ? data.username : "");
-      }
-    }, 0);
-
-    return () => {
-      active = false;
-      window.clearTimeout(timer);
-    };
-  }, [ready, user]);
-
   const completed = tasks
     .filter((task) => task.completed)
     .sort((a, b) => {
@@ -2446,9 +2409,6 @@ export function ProfileView() {
         <section className="panel profile-card">
           <ProfileAvatar image={profile.avatar} large name={profile.name} />
           <h2 className="profile-name">{profile.name}</h2>
-          {user && username && (
-            <p className="profile-username">@{username}</p>
-          )}
           <p className="profile-email">
             {profile.email || "Your student space"}
           </p>

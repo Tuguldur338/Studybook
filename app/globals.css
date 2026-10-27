@@ -1969,16 +1969,29 @@ a {
   font-size: 12px;
 }
 
-.profile-username {
-  margin: 2px 0 5px;
-  color: var(--accent-strong);
-  font-size: 12px;
-  font-weight: 650;
+.account-identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 7px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-muted);
+  padding: 10px 12px;
+  margin-bottom: 16px;
 }
 
-.profile-username-input {
+.account-identity-label {
   color: var(--muted);
-  cursor: default;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.account-identity strong {
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .avatar-upload {
