@@ -1967,7 +1967,10 @@ export function AccountView() {
       const supabase = getSupabaseBrowserClient();
       const { error } = await supabase
         .from("profiles")
-        .update({ display_name: nextName })
+        .update({
+          display_name: nextName,
+          avatar_url: currentProfile.avatar || null,
+        })
         .eq("id", user.id);
       if (error) throw error;
 
@@ -1978,8 +1981,8 @@ export function AccountView() {
     } catch (cause) {
       setProfileError(
         cause instanceof Error
-          ? `Saved on this device, but could not sync your name: ${cause.message}`
-          : "Saved on this device, but could not sync your name.",
+          ? `Saved on this device, but could not sync your profile: ${cause.message}`
+          : "Saved on this device, but could not sync your profile.",
       );
     } finally {
       setSavingProfile(false);
@@ -1988,6 +1991,24 @@ export function AccountView() {
 
   function updateDraft(changes: Partial<typeof profile>) {
     setDraft((current) => ({ ...(current ?? profile), ...changes }));
+  }
+
+  async function syncAvatar(avatar: string) {
+    if (!user) return;
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { error } = await supabase
+        .from("profiles")
+        .update({ avatar_url: avatar || null })
+        .eq("id", user.id);
+      if (error) throw error;
+    } catch (cause) {
+      setPhotoError(
+        cause instanceof Error
+          ? `Saved on this device, but could not sync your picture: ${cause.message}`
+          : "Saved on this device, but could not sync your picture.",
+      );
+    }
   }
 
   function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
@@ -2011,8 +2032,9 @@ export function AccountView() {
     reader.onload = () => {
       const avatar = reader.result;
       if (typeof avatar === "string") {
-        updateDraft({ avatar });
         setPhotoError("");
+        updateDraft({ avatar });
+        void syncAvatar(avatar);
       } else {
         setPhotoError("The image could not be read. Try choosing it again.");
       }
@@ -2188,7 +2210,10 @@ export function AccountView() {
           {currentProfile.avatar && (
             <button
               className="text-button"
-              onClick={() => updateDraft({ avatar: "" })}
+              onClick={() => {
+                updateDraft({ avatar: "" });
+                void syncAvatar("");
+              }}
               type="button"
             >
               Remove picture

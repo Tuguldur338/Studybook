@@ -3532,6 +3532,9 @@ button.messenger-row:hover {
 .podium-person .avatar {
   width: 56px;
   height: 56px;
+  flex: 0 0 56px;
+  aspect-ratio: 1;
+  border-radius: 50%;
   font-size: 20px;
 }
 
@@ -4133,6 +4136,7 @@ button.messenger-row:hover {
   .podium-person .avatar {
     width: 46px;
     height: 46px;
+    flex-basis: 46px;
     font-size: 16px;
   }
 
