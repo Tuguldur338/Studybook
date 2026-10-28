@@ -46,6 +46,7 @@ import {
 } from "@/components/studybook-context";
 import MessagingPanel from "@/components/messaging-panel";
 import HolidayEffects from "@/components/holiday-effects";
+import HalloweenChallenge from "@/components/halloween-challenge";
 import { MusicProvider } from "@/components/music-context";
 import MusicPlayer from "@/components/music-player";
 import { useMessaging } from "@/components/use-messaging";
@@ -834,6 +835,7 @@ function StudybookFrame({ children }: { children: ReactNode }) {
           </div>
         ))}
       </div>
+      <HalloweenChallenge />
       <HolidayEffects />
       <MusicPlayer />
     </>

@@ -82,6 +82,12 @@ export type MessagingApi = {
   respondToRequest: (request: Friendship, accept: boolean) => Promise<void>;
   startDirectChat: (friendId: string) => Promise<string>;
   createGroup: (title: string, memberIds: string[]) => Promise<string>;
+  renameGroup: (conversationId: string, title: string) => Promise<void>;
+  addGroupMembers: (
+    conversationId: string,
+    memberIds: string[],
+  ) => Promise<void>;
+  leaveConversation: (conversationId: string) => Promise<void>;
   sendMessage: (
     conversationId: string,
     body: string,
@@ -465,6 +471,47 @@ export function useMessaging(user: User | null): MessagingApi {
     [configured, refresh, userId],
   );
 
+  const renameGroup = useCallback(
+    async (conversationId: string, title: string) => {
+      if (!configured || !userId) throw new Error("Sign in to edit a group.");
+      const supabase = getSupabaseBrowserClient();
+      const { error: rpcError } = await supabase.rpc("rename_group", {
+        target_conversation: conversationId,
+        new_title: title.trim(),
+      });
+      if (rpcError) throw rpcError;
+      await refresh();
+    },
+    [configured, refresh, userId],
+  );
+
+  const addGroupMembers = useCallback(
+    async (conversationId: string, memberIds: string[]) => {
+      if (!configured || !userId) throw new Error("Sign in to add friends.");
+      const supabase = getSupabaseBrowserClient();
+      const { error: rpcError } = await supabase.rpc("add_group_members", {
+        target_conversation: conversationId,
+        member_ids: memberIds,
+      });
+      if (rpcError) throw rpcError;
+      await refresh();
+    },
+    [configured, refresh, userId],
+  );
+
+  const leaveConversation = useCallback(
+    async (conversationId: string) => {
+      if (!configured || !userId) throw new Error("Sign in to leave a chat.");
+      const supabase = getSupabaseBrowserClient();
+      const { error: rpcError } = await supabase.rpc("leave_conversation", {
+        target_conversation: conversationId,
+      });
+      if (rpcError) throw rpcError;
+      await refresh();
+    },
+    [configured, refresh, userId],
+  );
+
   const sendMessage = useCallback(
     async (conversationId: string, body: string, image?: File | null) => {
       if (!configured || !userId) throw new Error("Sign in to send messages.");
@@ -575,6 +622,9 @@ export function useMessaging(user: User | null): MessagingApi {
     respondToRequest,
     startDirectChat,
     createGroup,
+    renameGroup,
+    addGroupMembers,
+    leaveConversation,
     sendMessage,
     markConversationRead,
   };

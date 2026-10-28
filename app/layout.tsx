@@ -1,5 +1,12 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import {
+  Caveat,
+  Cinzel,
+  Geist,
+  Geist_Mono,
+  Great_Vibes,
+  Playfair_Display,
+} from "next/font/google";
 import "./globals.css";
 import StudybookShell from "@/components/studybook-shell";
 
@@ -11,6 +18,27 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+const greatVibes = Great_Vibes({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-great-vibes",
+});
+
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  variable: "--font-playfair",
+});
+
+const caveat = Caveat({
+  subsets: ["latin"],
+  variable: "--font-caveat",
+});
+
+const cinzel = Cinzel({
+  subsets: ["latin"],
+  variable: "--font-cinzel",
 });
 
 export const metadata: Metadata = {
@@ -29,7 +57,16 @@ const themeScript = `
     var theme = saved
       ? (saved.theme === "dark" ? "dark" : "light")
       : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-    var fonts = { geist: true, system: true, serif: true, mono: true };
+    var fonts = {
+      geist: true,
+      system: true,
+      serif: true,
+      mono: true,
+      "great-vibes": true,
+      playfair: true,
+      caveat: true,
+      cinzel: true
+    };
     var font = saved && fonts[saved.font] ? saved.font : "geist";
     document.documentElement.dataset.theme = theme;
     document.documentElement.dataset.font = font;
@@ -44,7 +81,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${greatVibes.variable} ${playfair.variable} ${caveat.variable} ${cinzel.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="min-h-full">

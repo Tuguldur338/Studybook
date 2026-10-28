@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type CSSProperties,
   type FormEvent,
 } from "react";
 import type { User } from "@supabase/supabase-js";
@@ -15,9 +16,13 @@ import {
   LuCheck,
   LuExternalLink,
   LuImagePlus,
+  LuLogOut,
   LuMessageCircle,
   LuMinus,
+  LuPencil,
   LuSend,
+  LuSettings2,
+  LuSmile,
   LuUserPlus,
   LuUsers,
   LuX,
@@ -67,6 +72,68 @@ function GroupAvatar({ title }: { title: string }) {
 }
 
 const URL_PATTERN = /(https?:\/\/[^\s]+)/g;
+
+const CHAT_COLORS = [
+  {
+    id: "sage",
+    label: "Sage",
+    bg: "var(--note-sage-bg)",
+    fg: "var(--note-sage-accent)",
+  },
+  {
+    id: "sky",
+    label: "Sky",
+    bg: "var(--note-sky-bg)",
+    fg: "var(--note-sky-accent)",
+  },
+  {
+    id: "rose",
+    label: "Rose",
+    bg: "var(--note-rose-bg)",
+    fg: "var(--note-rose-accent)",
+  },
+  {
+    id: "amber",
+    label: "Amber",
+    bg: "var(--note-amber-bg)",
+    fg: "var(--note-amber-accent)",
+  },
+  {
+    id: "violet",
+    label: "Violet",
+    bg: "var(--note-violet-bg)",
+    fg: "var(--note-violet-accent)",
+  },
+] as const;
+
+type ChatColorId = (typeof CHAT_COLORS)[number]["id"];
+
+const CHAT_COLORS_KEY = "studybook-chat-colors-v1";
+
+const CHAT_EMOJIS = [
+  "😀",
+  "😂",
+  "🥰",
+  "😎",
+  "🤔",
+  "😭",
+  "🔥",
+  "✨",
+  "🎉",
+  "💀",
+  "👻",
+  "🎃",
+  "❤️",
+  "👍",
+  "🙏",
+  "💯",
+  "😅",
+  "🫶",
+  "🌙",
+  "☕",
+  "📚",
+  "✅",
+];
 
 function linkLabel(url: string) {
   try {
@@ -144,8 +211,14 @@ export default function MessagingPanel({
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsTitle, setSettingsTitle] = useState("");
+  const [settingsMemberIds, setSettingsMemberIds] = useState<string[]>([]);
+  const [chatColor, setChatColor] = useState<ChatColorId>("sage");
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const threadRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const activeConversation = activeConversationId
     ? (api.conversations.find((item) => item.id === activeConversationId) ??
@@ -153,6 +226,48 @@ export default function MessagingPanel({
     : null;
   const thread = api.messagesFor(activeConversationId);
   const { markConversationRead } = api;
+  const activeColor =
+    CHAT_COLORS.find((color) => color.id === chatColor) ?? CHAT_COLORS[0];
+  const addableFriends =
+    activeConversation?.kind === "group"
+      ? api.friends.filter(
+          (friend) =>
+            !activeConversation.members.some(
+              (member) => member.id === friend.id,
+            ),
+        )
+      : [];
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSettingsOpen(false);
+      setEmojiOpen(false);
+      setSettingsMemberIds([]);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [activeConversationId]);
+
+  useEffect(() => {
+    if (!activeConversationId) return;
+    const timer = window.setTimeout(() => {
+      try {
+        const raw = window.localStorage.getItem(
+          `${CHAT_COLORS_KEY}:${user?.id ?? "guest"}`,
+        );
+        const saved = raw
+          ? (JSON.parse(raw) as Record<string, ChatColorId>)[
+              activeConversationId
+            ]
+          : undefined;
+        setChatColor(
+          CHAT_COLORS.some((color) => color.id === saved) ? saved! : "sage",
+        );
+      } catch {
+        setChatColor("sage");
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [activeConversationId, user?.id]);
 
   useEffect(() => {
     if (minimized) return;
@@ -290,6 +405,7 @@ export default function MessagingPanel({
       await api.sendMessage(activeConversationId, draft, image);
       setDraft("");
       setImage(null);
+      setEmojiOpen(false);
       if (fileRef.current) fileRef.current.value = "";
       void api.markConversationRead(activeConversationId);
     } catch (cause) {
@@ -309,16 +425,131 @@ export default function MessagingPanel({
     );
   }
 
+  function toggleSettingsMember(friendId: string) {
+    setSettingsMemberIds((current) =>
+      current.includes(friendId)
+        ? current.filter((id) => id !== friendId)
+        : [...current, friendId],
+    );
+  }
+
+  function chooseChatColor(id: ChatColorId) {
+    setChatColor(id);
+    if (!activeConversationId) return;
+    try {
+      const key = `${CHAT_COLORS_KEY}:${user?.id ?? "guest"}`;
+      const raw = window.localStorage.getItem(key);
+      const map = raw ? (JSON.parse(raw) as Record<string, ChatColorId>) : {};
+      map[activeConversationId] = id;
+      window.localStorage.setItem(key, JSON.stringify(map));
+    } catch {
+      // Device-local preference only; ignore storage failures.
+    }
+  }
+
+  function insertEmoji(emoji: string) {
+    setDraft((current) => `${current}${emoji}`);
+    setEmojiOpen(false);
+    window.setTimeout(() => inputRef.current?.focus(), 0);
+  }
+
+  function openSettings() {
+    if (!activeConversation) return;
+    setSettingsOpen(true);
+    setSettingsTitle(activeConversation.title);
+    setSettingsMemberIds([]);
+    setNotice("");
+    setError("");
+    setEmojiOpen(false);
+  }
+
+  async function handleRename(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!activeConversationId) return;
+    const nextTitle = settingsTitle.trim();
+    if (!nextTitle) {
+      setError("Give the group a name first.");
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await api.renameGroup(activeConversationId, nextTitle);
+      setNotice("Group name updated.");
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Could not rename the group.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleAddMembers() {
+    if (!activeConversationId || settingsMemberIds.length === 0) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await api.addGroupMembers(activeConversationId, settingsMemberIds);
+      setSettingsMemberIds([]);
+      setNotice("Friends added to the group.");
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Could not add those friends.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleLeave() {
+    if (!activeConversationId) return;
+    if (
+      !window.confirm(
+        activeConversation?.kind === "group"
+          ? "Leave this group? You will stop receiving its messages."
+          : "Leave this chat? Messaging the person again will reopen it.",
+      )
+    ) {
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    try {
+      await api.leaveConversation(activeConversationId);
+      setActiveConversationId(null);
+      setSettingsOpen(false);
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Could not leave the chat.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const title = creatingGroup
     ? "New group"
     : activeConversation
-      ? activeConversation.title
+      ? settingsOpen
+        ? "Chat settings"
+        : activeConversation.title
       : "Messages";
 
   return (
     <aside
       aria-label="Messages"
       className={`messenger messenger-docked${minimized ? " is-minimized" : ""}`}
+      style={
+        {
+          "--chat-bubble-bg": activeColor.bg,
+          "--chat-bubble-fg": activeColor.fg,
+        } as CSSProperties
+      }
     >
       <header className="messenger-head">
         {creatingGroup || activeConversation ? (
@@ -326,7 +557,9 @@ export default function MessagingPanel({
             aria-label="Back"
             className="icon-button"
             onClick={() => {
-              if (creatingGroup) {
+              if (settingsOpen) {
+                setSettingsOpen(false);
+              } else if (creatingGroup) {
                 setCreatingGroup(false);
                 setGroupTitle("");
                 setGroupMemberIds([]);
@@ -350,12 +583,31 @@ export default function MessagingPanel({
             {creatingGroup
               ? "Choose friends to add"
               : activeConversation
-                ? activeConversation.kind === "group"
-                  ? `${activeConversation.members.length + 1} members`
-                  : "Direct message"
+                ? settingsOpen
+                  ? "Colours, members and more"
+                  : activeConversation.kind === "group"
+                    ? `${activeConversation.members.length + 1} members`
+                    : "Direct message"
                 : "Chats, friends and requests"}
           </p>
         </div>
+        {activeConversation && !creatingGroup && (
+          <button
+            aria-label="Chat settings"
+            aria-pressed={settingsOpen}
+            className="icon-button"
+            onClick={() => {
+              if (settingsOpen) {
+                setSettingsOpen(false);
+              } else {
+                openSettings();
+              }
+            }}
+            type="button"
+          >
+            <LuSettings2 size={16} />
+          </button>
+        )}
         <button
           aria-label="Minimize messages"
           className="icon-button"
@@ -454,100 +706,235 @@ export default function MessagingPanel({
           </div>
         </form>
       ) : activeConversation && activeConversationId ? (
-        <>
-          <div className="messenger-thread" ref={threadRef}>
-            {thread.length === 0 && (
-              <p className="messenger-hint messenger-thread-empty">
-                No messages yet. Say hello.
-              </p>
-            )}
-            {thread.map((message: ChatMessage) => {
-              const mine = message.sender_id === user.id;
-              return (
-                <div
-                  className={`bubble${mine ? " mine" : ""}`}
-                  key={message.id}
-                >
-                  {activeConversation.kind === "group" && !mine && (
-                    <span className="bubble-sender">
-                      {api.person(message.sender_id).name}
-                    </span>
-                  )}
-                  {message.attachment_type === "image" &&
-                    message.attachment_url && (
-                      <a
-                        className="bubble-image-link"
-                        href={message.attachment_url}
-                        rel="noreferrer noopener"
-                        target="_blank"
-                      >
-                        <img
-                          alt="Shared attachment"
-                          className="bubble-image"
-                          loading="lazy"
-                          src={message.attachment_url}
-                        />
-                      </a>
-                    )}
-                  <MessageBody body={message.body} />
-                  <time dateTime={message.created_at}>
-                    {new Date(message.created_at).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </time>
-                </div>
-              );
-            })}
-          </div>
-
-          {error && <p className="notice messenger-notice">{error}</p>}
-
-          <form className="messenger-composer" onSubmit={handleSend}>
-            <label className="composer-attach" title="Attach a picture">
-              <LuImagePlus size={18} />
-              <input
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                onChange={handleImageChange}
-                ref={fileRef}
-                type="file"
-              />
-            </label>
-            <div className="composer-input">
-              <input
-                aria-label={`Message ${activeConversation.title}`}
-                className="input"
-                maxLength={2000}
-                onChange={(event) => setDraft(event.target.value)}
-                placeholder="Write a message or paste a link..."
-                value={draft}
-              />
-              {image && (
-                <span className="attachment-chip">
-                  {image.name}
+        settingsOpen ? (
+          <div className="messenger-body messenger-settings">
+            <section className="messenger-section">
+              <div className="messenger-section-head">
+                <h3>Chat colour</h3>
+                <span className="messenger-hint">Saved on this device</span>
+              </div>
+              <div className="chat-color-choices">
+                {CHAT_COLORS.map((color) => (
                   <button
-                    aria-label="Remove picture"
-                    onClick={() => {
-                      setImage(null);
-                      if (fileRef.current) fileRef.current.value = "";
-                    }}
+                    aria-pressed={chatColor === color.id}
+                    className={`chat-color${chatColor === color.id ? " selected" : ""}`}
+                    key={color.id}
+                    onClick={() => chooseChatColor(color.id)}
+                    style={{ background: color.bg, color: color.fg }}
                     type="button"
                   >
-                    <LuX size={12} />
+                    <span
+                      aria-hidden="true"
+                      className="chat-color-dot"
+                      style={{ background: color.fg }}
+                    />
+                    {color.label}
                   </button>
-                </span>
+                ))}
+              </div>
+            </section>
+
+            {activeConversation.kind === "group" && (
+              <>
+                <section className="messenger-section">
+                  <h3>Group name</h3>
+                  <form
+                    className="messenger-inline-form"
+                    onSubmit={handleRename}
+                  >
+                    <input
+                      className="input"
+                      maxLength={80}
+                      onChange={(event) => setSettingsTitle(event.target.value)}
+                      value={settingsTitle}
+                    />
+                    <button
+                      className="secondary-button"
+                      disabled={busy || !settingsTitle.trim()}
+                      type="submit"
+                    >
+                      <LuPencil size={14} /> Rename
+                    </button>
+                  </form>
+                </section>
+
+                <section className="messenger-section">
+                  <h3>Add friends</h3>
+                  {addableFriends.length === 0 ? (
+                    <p className="messenger-hint">
+                      Everyone you can add is already in this group.
+                    </p>
+                  ) : (
+                    <>
+                      {addableFriends.map((friend) => (
+                        <label className="group-member" key={friend.id}>
+                          <input
+                            checked={settingsMemberIds.includes(friend.id)}
+                            onChange={() => toggleSettingsMember(friend.id)}
+                            type="checkbox"
+                          />
+                          <PersonAvatar person={friend} />
+                          <span>{friend.name}</span>
+                        </label>
+                      ))}
+                      <button
+                        className="secondary-button"
+                        disabled={busy || settingsMemberIds.length === 0}
+                        onClick={handleAddMembers}
+                        type="button"
+                      >
+                        <LuUserPlus size={14} /> Add selected
+                      </button>
+                    </>
+                  )}
+                </section>
+              </>
+            )}
+
+            <section className="messenger-section">
+              <h3>Leave chat</h3>
+              <p className="messenger-hint">
+                {activeConversation.kind === "group"
+                  ? "You will stop receiving this group's messages. A friend can add you back."
+                  : "This removes the chat from your list. Messaging the person again reopens it."}
+              </p>
+              <button
+                className="danger-button"
+                disabled={busy}
+                onClick={handleLeave}
+                type="button"
+              >
+                <LuLogOut size={14} /> Leave{" "}
+                {activeConversation.kind === "group" ? "group" : "chat"}
+              </button>
+            </section>
+
+            {notice && <p className="notice success-notice">{notice}</p>}
+            {error && <p className="notice">{error}</p>}
+          </div>
+        ) : (
+          <>
+            <div className="messenger-thread" ref={threadRef}>
+              {thread.length === 0 && (
+                <p className="messenger-hint messenger-thread-empty">
+                  No messages yet. Say hello.
+                </p>
               )}
+              {thread.map((message: ChatMessage) => {
+                const mine = message.sender_id === user.id;
+                return (
+                  <div
+                    className={`bubble${mine ? " mine" : ""}`}
+                    key={message.id}
+                  >
+                    {activeConversation.kind === "group" && !mine && (
+                      <span className="bubble-sender">
+                        {api.person(message.sender_id).name}
+                      </span>
+                    )}
+                    {message.attachment_type === "image" &&
+                      message.attachment_url && (
+                        <a
+                          className="bubble-image-link"
+                          href={message.attachment_url}
+                          rel="noreferrer noopener"
+                          target="_blank"
+                        >
+                          <img
+                            alt="Shared attachment"
+                            className="bubble-image"
+                            loading="lazy"
+                            src={message.attachment_url}
+                          />
+                        </a>
+                      )}
+                    <MessageBody body={message.body} />
+                    <time dateTime={message.created_at}>
+                      {new Date(message.created_at).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </time>
+                  </div>
+                );
+              })}
             </div>
-            <button
-              className="primary-button"
-              disabled={busy || (!draft.trim() && !image)}
-              type="submit"
-            >
-              <LuSend size={15} />
-              Send
-            </button>
-          </form>
-        </>
+
+            {error && <p className="notice messenger-notice">{error}</p>}
+
+            <form className="messenger-composer" onSubmit={handleSend}>
+              <label className="composer-attach" title="Attach a picture">
+                <LuImagePlus size={18} />
+                <input
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  onChange={handleImageChange}
+                  ref={fileRef}
+                  type="file"
+                />
+              </label>
+              <div className="composer-emoji">
+                <button
+                  aria-expanded={emojiOpen}
+                  aria-label="Add an emoji"
+                  className="composer-emoji-button"
+                  onClick={() => setEmojiOpen((current) => !current)}
+                  type="button"
+                >
+                  <LuSmile size={18} />
+                </button>
+                {emojiOpen && (
+                  <div aria-label="Emoji picker" className="emoji-popover">
+                    {CHAT_EMOJIS.map((emoji) => (
+                      <button
+                        aria-label={`Insert ${emoji}`}
+                        className="emoji-choice"
+                        key={emoji}
+                        onClick={() => insertEmoji(emoji)}
+                        type="button"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="composer-input">
+                <input
+                  aria-label={`Message ${activeConversation.title}`}
+                  className="input"
+                  maxLength={2000}
+                  onChange={(event) => setDraft(event.target.value)}
+                  placeholder="Write a message or paste a link..."
+                  ref={inputRef}
+                  value={draft}
+                />
+                {image && (
+                  <span className="attachment-chip">
+                    {image.name}
+                    <button
+                      aria-label="Remove picture"
+                      onClick={() => {
+                        setImage(null);
+                        if (fileRef.current) fileRef.current.value = "";
+                      }}
+                      type="button"
+                    >
+                      <LuX size={12} />
+                    </button>
+                  </span>
+                )}
+              </div>
+              <button
+                className="primary-button"
+                disabled={busy || (!draft.trim() && !image)}
+                type="submit"
+              >
+                <LuSend size={15} />
+                Send
+              </button>
+            </form>
+          </>
+        )
       ) : (
         <div className="messenger-body">
           {notice && <p className="notice success-notice">{notice}</p>}

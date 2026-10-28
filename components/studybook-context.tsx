@@ -104,7 +104,16 @@ export type ClassChecks = Record<string, ClassCheck>;
  */
 export type SavedClass = ClassSession & { savedAt: string };
 
-export const FONT_OPTIONS = ["geist", "system", "serif", "mono"] as const;
+export const FONT_OPTIONS = [
+  "geist",
+  "system",
+  "serif",
+  "mono",
+  "great-vibes",
+  "playfair",
+  "caveat",
+  "cinzel",
+] as const;
 
 export type FontFamily = (typeof FONT_OPTIONS)[number];
 

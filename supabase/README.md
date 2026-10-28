@@ -127,10 +127,13 @@ Apply the migrations in order after the base schema:
    creates the `chat-images` Storage bucket.
 3. [`migrations/usernames.sql`](./migrations/usernames.sql) — usernames at
    sign-up, uniqueness checks, and lookup by email or `@username`.
-4. [`migrations/leaderboard.sql`](./migrations/leaderboard.sql) — adds
+4. [`migrations/chat-customization.sql`](./migrations/chat-customization.sql) —
+   `rename_group()`, `add_group_members()`, and `leave_conversation()` for the
+   chat settings panel.
+5. [`migrations/leaderboard.sql`](./migrations/leaderboard.sql) — adds
    `profiles.points`, the `award_points()` function that checks off tasks call,
    and `get_leaderboard()` for the friends-only top list.
-5. [`migrations/sync.sql`](./migrations/sync.sql) — cross-device
+6. [`migrations/sync.sql`](./migrations/sync.sql) — cross-device
    `studybook_snapshots` for the schedule, tasks, notes, exams, routine, and
    profile picture.
 
@@ -146,7 +149,8 @@ when rerunning are:
   replaced. Skip it.
 
 If sign-in and messaging already work, apply only the **missing** newer
-migrations: `leaderboard.sql` (points) and `sync.sql` (cross-device data).
+migrations: `chat-customization.sql` (group settings), `leaderboard.sql`
+(points), and `sync.sql` (cross-device data).
 
 ## Leaderboard
 
@@ -170,7 +174,9 @@ private media.
 To start a chat, open **Messages** in the sidebar, sign in, and send a friend
 request using the other person's email or `@username`. Once they accept, click
 their name under **Friends** to open a direct chat, or use **+ New group** to
-create a group with two or more friends. Messages, group invites, and friend
+create a group with two or more friends. Open the gear in a chat to rename a
+group, add friends, leave the chat, and pick a chat colour; the emoji button in
+the composer inserts emoji into a message. Messages, group invites, and friend
 requests arrive live; pictures are uploaded when you press Send, and pasted
 links (TikTok, Instagram, YouTube, and any other URL) render as tappable link
 cards.

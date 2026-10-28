@@ -14,14 +14,13 @@ export type AwardTaskPointsResult = {
 };
 
 /**
- * Award (or reverse) leaderboard points for a task priority. The task list is
- * local, so the server can only validate the amount, not the task itself.
+ * Award (or reverse) leaderboard points. The server validates the amount, so
+ * callers may only pass the amounts allowed by award_points (10, 20, or 30).
  */
-export async function awardTaskPoints(
-  priority: "low" | "medium" | "high",
-  direction: 1 | -1,
+export async function awardPoints(
+  amount: number,
 ): Promise<AwardTaskPointsResult> {
-  const delta = TASK_POINTS[priority] * direction;
+  const delta = amount;
 
   try {
     const supabase = getSupabaseBrowserClient();
@@ -67,4 +66,15 @@ export async function awardTaskPoints(
       message: "Could not save leaderboard points.",
     };
   }
+}
+
+/**
+ * Award (or reverse) leaderboard points for a task priority. The task list is
+ * local, so the server can only validate the amount, not the task itself.
+ */
+export async function awardTaskPoints(
+  priority: "low" | "medium" | "high",
+  direction: 1 | -1,
+): Promise<AwardTaskPointsResult> {
+  return awardPoints(TASK_POINTS[priority] * direction);
 }

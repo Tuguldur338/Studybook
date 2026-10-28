@@ -2937,6 +2937,26 @@ const FONT_META: Record<
     description: "Fixed-width and code-friendly",
     stack: "ui-monospace, Consolas, monospace",
   },
+  "great-vibes": {
+    label: "Great Vibes",
+    description: "Flowing calligraphy for a dramatic look",
+    stack: 'var(--font-great-vibes), "Brush Script MT", cursive',
+  },
+  playfair: {
+    label: "Playfair Display",
+    description: "High-contrast editorial serif",
+    stack: 'var(--font-playfair), Georgia, "Times New Roman", serif',
+  },
+  caveat: {
+    label: "Caveat",
+    description: "Relaxed handwriting",
+    stack: 'var(--font-caveat), "Comic Sans MS", cursive',
+  },
+  cinzel: {
+    label: "Cinzel",
+    description: "Classic carved-capital serif",
+    stack: 'var(--font-cinzel), Georgia, serif',
+  },
 };
 
 export function SettingsView() {
