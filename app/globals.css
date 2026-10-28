@@ -5236,3 +5236,61 @@ button.messenger-row:hover {
     align-items: stretch;
   }
 }
+
+.chat-color-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  background: var(--surface-muted);
+  padding: 9px 10px;
+}
+
+.chat-color-preview-label {
+  color: var(--muted);
+  font-size: 9.5px;
+  line-height: 1.35;
+}
+
+.chat-color-preview-bubble {
+  max-width: 68%;
+  border-radius: 14px 14px 4px 14px;
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.messenger-leave-button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  justify-self: start;
+  gap: 7px;
+  border: 1px solid color-mix(in srgb, var(--danger) 32%, var(--border));
+  border-radius: 10px;
+  background: var(--danger-soft);
+  padding: 0 14px;
+  color: var(--danger-strong);
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.messenger-leave-button:hover:not(:disabled) {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: #fff;
+}
+
+.messenger-leave-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

@@ -732,6 +732,17 @@ export default function MessagingPanel({
                   </button>
                 ))}
               </div>
+              <div className="chat-color-preview" aria-live="polite">
+                <span className="chat-color-preview-label">
+                  Your messages will look like this
+                </span>
+                <span
+                  className="chat-color-preview-bubble"
+                  style={{ background: activeColor.bg, color: activeColor.fg }}
+                >
+                  Hey! 🎃
+                </span>
+              </div>
             </section>
 
             {activeConversation.kind === "group" && (
@@ -799,7 +810,7 @@ export default function MessagingPanel({
                   : "This removes the chat from your list. Messaging the person again reopens it."}
               </p>
               <button
-                className="danger-button"
+                className="messenger-leave-button"
                 disabled={busy}
                 onClick={handleLeave}
                 type="button"
