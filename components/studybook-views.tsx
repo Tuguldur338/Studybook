@@ -64,6 +64,7 @@ import { HOLIDAYS } from "@/lib/holidays";
 import { awardTaskPoints } from "@/lib/leaderboard";
 import { isPlayableSource, type MusicTrack } from "@/lib/music-store";
 import { embedUrlFor } from "@/lib/music-embed";
+import { THRILLER_TRACK } from "@/lib/music-specials";
 import { borderClass, borderIdFromMonth, borderLabel } from "@/lib/borders";
 
 const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
@@ -3229,14 +3230,7 @@ const SOURCE_LABELS: Record<string, string> = {
   builtin: "Built-in theme",
 };
 
-const HALLOWEEN_OPENER: MusicTrack = {
-  id: "halloween-opener-thriller",
-  title: "Thriller — Michael Jackson",
-  source: "youtube",
-  url: "https://www.youtube.com/watch?v=sOnqjkJTMaA",
-  day: "halloween",
-  createdAt: "",
-};
+const HALLOWEEN_OPENER: MusicTrack = THRILLER_TRACK;
 
 export function MusicView() {
   const {

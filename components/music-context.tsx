@@ -32,6 +32,7 @@ import {
   type MusicSettings,
   type MusicTrack,
 } from "@/lib/music-store";
+import { THRILLER_TRACK } from "@/lib/music-specials";
 
 type MusicContextValue = {
   ready: boolean;
@@ -81,6 +82,8 @@ type MusicContextValue = {
 const MusicContext = createContext<MusicContextValue | null>(null);
 
 function builtinTrack(holiday: Holiday): MusicTrack {
+  if (holiday.key === "halloween") return THRILLER_TRACK;
+
   return {
     id: `builtin:${holiday.key}`,
     title: `${holiday.name} theme`,
@@ -352,6 +355,17 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     [startAudio, startSynth, stopPlayback],
   );
 
+  const openEmbed = useCallback(
+    (track: MusicTrack) => {
+      queueRef.current = [];
+      stopPlayback();
+      setIsPlaying(false);
+      lastStartedRef.current = currentTrack?.id ?? null;
+      setEmbedTrack(track);
+    },
+    [currentTrack, stopPlayback],
+  );
+
   const play = useCallback(async () => {
     if (!currentTrack) return;
     queueRef.current = [];
@@ -359,8 +373,15 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       commit({ ...settingsRef.current, enabled: true });
     }
     lastStartedRef.current = currentTrack.id;
+    if (
+      currentTrack.source === "youtube" ||
+      currentTrack.source === "spotify"
+    ) {
+      openEmbed(currentTrack);
+      return;
+    }
     await startTrack(currentTrack);
-  }, [commit, currentTrack, startTrack]);
+  }, [commit, currentTrack, openEmbed, startTrack]);
 
   const pause = useCallback(() => {
     stopPlayback();
@@ -399,13 +420,9 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   const playEmbed = useCallback(
     (track: MusicTrack) => {
       if (track.source !== "youtube" && track.source !== "spotify") return;
-      queueRef.current = [];
-      stopPlayback();
-      setIsPlaying(false);
-      lastStartedRef.current = currentTrack?.id ?? null;
-      setEmbedTrack(track);
+      openEmbed(track);
     },
-    [currentTrack, stopPlayback],
+    [openEmbed],
   );
 
   const playPlaylist = useCallback(
@@ -668,11 +685,29 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     if (lastStartedRef.current === currentTrack.id) return;
 
     lastStartedRef.current = currentTrack.id;
+    if (
+      currentTrack.source === "youtube" ||
+      currentTrack.source === "spotify"
+    ) {
+      const embedTimer = window.setTimeout(() => {
+        playEmbed(currentTrack);
+      }, 0);
+      return () => window.clearTimeout(embedTimer);
+    }
+
     const timer = window.setTimeout(() => {
       void startTrack(currentTrack);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [currentTrack, embedTrack, nowPlaying, ready, settings.enabled, startTrack]);
+  }, [
+    currentTrack,
+    embedTrack,
+    nowPlaying,
+    playEmbed,
+    ready,
+    settings.enabled,
+    startTrack,
+  ]);
 
   return (
     <MusicContext.Provider

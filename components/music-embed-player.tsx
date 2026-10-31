@@ -10,6 +10,7 @@ export default function MusicEmbedPlayer() {
   const { closeEmbed, embedTrack } = useMusic();
   const [ready, setReady] = useState(false);
   const [cardOpen, setCardOpen] = useState(true);
+  const [hovered, setHovered] = useState(false);
 
   useEffect(() => {
     if (!embedTrack) return;
@@ -19,6 +20,12 @@ export default function MusicEmbedPlayer() {
     }, 0);
     return () => window.clearTimeout(timer);
   }, [embedTrack]);
+
+  useEffect(() => {
+    if (!ready || !cardOpen || hovered) return;
+    const timer = window.setTimeout(() => setCardOpen(false), 8000);
+    return () => window.clearTimeout(timer);
+  }, [cardOpen, hovered, ready]);
 
   if (!embedTrack) return null;
 
@@ -31,7 +38,12 @@ export default function MusicEmbedPlayer() {
   return (
     <>
       {ready && cardOpen && (
-        <section className="music-now-card" aria-label="Embedded music">
+        <section
+          aria-label="Embedded music"
+          className="music-now-card"
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+        >
           <div className="music-now-top">
             <span className="music-now-kicker">
               <span aria-hidden="true" className="music-now-live" />
