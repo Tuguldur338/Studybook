@@ -44,11 +44,17 @@ type MusicContextValue = {
   error: string;
   play: () => Promise<void>;
   playTrack: (track: MusicTrack) => Promise<void>;
+  nextTrack: () => Promise<void>;
+  previousTrack: () => Promise<void>;
   pause: () => void;
   toggle: () => void;
   setVolume: (value: number) => void;
   addUrlTrack: (url: string, day: string, title: string) => Promise<MusicTrack>;
   addFileTrack: (file: File, day: string, title: string) => Promise<MusicTrack>;
+  updateTrack: (
+    id: string,
+    changes: { title?: string; day?: string },
+  ) => void;
   removeTrack: (id: string) => void;
   assignTrack: (day: string, id: string | null) => void;
 };
@@ -70,8 +76,17 @@ export function resolveTrack(
   holiday: Holiday | null,
   settings: MusicSettings,
 ): MusicTrack | null {
-  // Music is only for celebrations, never an everyday soundtrack.
-  if (!holiday) return null;
+  const activeAny = settings.tracks.find(
+    (track) =>
+      track.id === settings.activeByDay.any && isPlayableSource(track.source),
+  );
+  const anyTrack = settings.tracks.find(
+    (track) => track.day === "any" && isPlayableSource(track.source),
+  );
+
+  // Music is primarily for celebrations, but an "Any day" track can be a
+  // normal browser playlist too.
+  if (!holiday) return activeAny ?? anyTrack ?? null;
 
   const activeId = settings.activeByDay[holiday.key];
   const active = settings.tracks.find((track) => track.id === activeId);
@@ -82,14 +97,7 @@ export function resolveTrack(
   );
   if (dayTrack) return dayTrack;
 
-  const activeAny = settings.tracks.find(
-    (track) => track.id === settings.activeByDay.any,
-  );
-  if (activeAny && isPlayableSource(activeAny.source)) return activeAny;
-
-  const anyTrack = settings.tracks.find(
-    (track) => track.day === "any" && isPlayableSource(track.source),
-  );
+  if (activeAny) return activeAny;
   if (anyTrack) return anyTrack;
 
   return builtinTrack(holiday);
@@ -324,6 +332,33 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     [commit, holiday, startTrack],
   );
 
+  const nextTrack = useCallback(async () => {
+    const playable = settingsRef.current.tracks.filter((track) =>
+      isPlayableSource(track.source),
+    );
+    if (!playable.length) return;
+
+    const index = currentTrack
+      ? playable.findIndex((track) => track.id === currentTrack.id)
+      : -1;
+    const next = playable[(index + 1) % playable.length] ?? playable[0];
+    await playTrack(next);
+  }, [currentTrack, playTrack]);
+
+  const previousTrack = useCallback(async () => {
+    const playable = settingsRef.current.tracks.filter((track) =>
+      isPlayableSource(track.source),
+    );
+    if (!playable.length) return;
+
+    const index = currentTrack
+      ? playable.findIndex((track) => track.id === currentTrack.id)
+      : 0;
+    const previous =
+      playable[(index - 1 + playable.length) % playable.length] ?? playable[0];
+    await playTrack(previous);
+  }, [currentTrack, playTrack]);
+
   const setVolume = useCallback(
     (value: number) => {
       const volume = Math.min(1, Math.max(0, value));
@@ -427,6 +462,32 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     [commit, pause],
   );
 
+  const updateTrack = useCallback(
+    (id: string, changes: { title?: string; day?: string }) => {
+      const current = settingsRef.current;
+      const track = current.tracks.find((item) => item.id === id);
+      if (!track) return;
+
+      const nextTitle = changes.title?.trim() || track.title;
+      const nextDay = changes.day ?? track.day;
+      const tracks = current.tracks.map((item) =>
+        item.id === id ? { ...item, title: nextTitle, day: nextDay } : item,
+      );
+
+      let activeByDay = current.activeByDay;
+      if (nextDay !== track.day) {
+        activeByDay = { ...current.activeByDay };
+        for (const [day, trackId] of Object.entries(activeByDay)) {
+          if (trackId === id) delete activeByDay[day];
+        }
+        if (isPlayableSource(track.source)) activeByDay[nextDay] = id;
+      }
+
+      commit({ ...current, tracks, activeByDay });
+    },
+    [commit],
+  );
+
   const assignTrack = useCallback(
     (day: string, id: string | null) => {
       const activeByDay = { ...settingsRef.current.activeByDay };
@@ -439,7 +500,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const audio = new Audio();
-    audio.loop = true;
+    audio.loop = false;
     audio.preload = "auto";
     audio.volume = DEFAULT_MUSIC_SETTINGS.volume;
     audioRef.current = audio;
@@ -450,6 +511,16 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       audioRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const handleEnded = () => {
+      void nextTrack();
+    };
+    audio.addEventListener("ended", handleEnded);
+    return () => audio.removeEventListener("ended", handleEnded);
+  }, [nextTrack]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -502,11 +573,14 @@ export function MusicProvider({ children }: { children: ReactNode }) {
         error,
         play,
         playTrack,
+        nextTrack,
+        previousTrack,
         pause,
         toggle,
         setVolume,
         addUrlTrack,
         addFileTrack,
+        updateTrack,
         removeTrack,
         assignTrack,
       }}

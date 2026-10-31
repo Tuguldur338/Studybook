@@ -349,9 +349,12 @@ export default function DashboardView() {
   const firstName = profile.name.trim().split(/\s+/)[0] || "student";
 
   function completeTask(task: StudyTask) {
+    const changedAt = new Date().toISOString();
     setTasks((current) =>
       current.map((item) =>
-        item.id === task.id ? { ...item, completed: true } : item,
+        item.id === task.id
+          ? { ...item, completed: true, updatedAt: changedAt }
+          : item,
       ),
     );
     void awardTaskPoints(task.priority, 1).then((result) =>
@@ -1718,6 +1721,7 @@ export function ToDoListView() {
       priority: form.priority,
       id: editingId ?? createId(),
       completed: existing?.completed ?? false,
+      updatedAt: new Date().toISOString(),
     };
     setTasks((current) =>
       editingId
@@ -1772,9 +1776,12 @@ export function ToDoListView() {
 
   function handleToggleTask(task: StudyTask) {
     const nextCompleted = !task.completed;
+    const changedAt = new Date().toISOString();
     setTasks((current) =>
       current.map((item) =>
-        item.id === task.id ? { ...item, completed: nextCompleted } : item,
+        item.id === task.id
+          ? { ...item, completed: nextCompleted, updatedAt: changedAt }
+          : item,
       ),
     );
     void awardTaskPoints(task.priority, nextCompleted ? 1 : -1).then(
@@ -3120,6 +3127,7 @@ export function MusicView() {
     setVolume,
     settings,
     toggle,
+    updateTrack,
     upcoming,
   } = useMusic();
 
@@ -3130,15 +3138,21 @@ export function MusicView() {
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState("");
   const [notice, setNotice] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDay, setEditDay] = useState("any");
   const fileRef = useRef<HTMLInputElement>(null);
-  const selectedDay =
-    dayChoice ??
-    holiday?.key ??
-    upcoming?.holiday.key ??
-    Object.keys(HOLIDAYS)[0];
+  const selectedDay = dayChoice ?? holiday?.key ?? "any";
 
   const dayLabel = (key: string) =>
     key === "any" ? "Any day" : (HOLIDAYS[key]?.name ?? key);
+  const dayChoices = [
+    { value: "any", label: "🎵 Any day" },
+    ...Object.values(HOLIDAYS).map((item) => ({
+      value: item.key,
+      label: `${item.emoji} ${item.name}`,
+    })),
+  ];
 
   async function handleAdd(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -3180,11 +3194,26 @@ export function MusicView() {
     setFormError("");
   }
 
+  function startEdit(track: (typeof settings.tracks)[number]) {
+    setEditingId(track.id);
+    setEditTitle(track.title);
+    setEditDay(track.day);
+    setFormError("");
+    setNotice("");
+  }
+
+  function saveEdit() {
+    if (!editingId) return;
+    updateTrack(editingId, { title: editTitle, day: editDay });
+    setEditingId(null);
+    setNotice("Track updated.");
+  }
+
   return (
     <>
       <PageHeading
         eyebrow="Set the mood"
-        subtitle="A quiet soundtrack for celebrations, chosen by you."
+        subtitle="Add your own soundtrack and play it in the browser any day."
         title="Music"
       />
 
@@ -3195,17 +3224,17 @@ export function MusicView() {
           </span>
           <div>
             <p className="eyebrow">
-              {holiday ? "Today's celebration" : "Background music"}
+              {holiday ? "Today's celebration" : "Your soundtrack"}
             </p>
             <h2 className="music-hero-title">
-              {holiday ? holiday.name : "No special day today"}
+              {holiday ? holiday.name : "Any day"}
             </h2>
             <p className="page-subtitle">
               {currentTrack
                 ? `Now: ${currentTrack.title}`
                 : holiday
                   ? "The built-in theme will play once you press Play."
-                  : "Add a track for an upcoming celebration, or wait for the next special day."}
+                  : "Add a track below and play it whenever you like."}
             </p>
           </div>
         </div>
@@ -3272,6 +3301,7 @@ export function MusicView() {
                 onChange={(event) => setDayChoice(event.target.value)}
                 value={selectedDay}
               >
+                <option value="any">🎵 Any day</option>
                 {Object.values(HOLIDAYS).map((item) => (
                   <option key={item.key} value={item.key}>
                     {item.emoji} {item.name}
@@ -3306,7 +3336,7 @@ export function MusicView() {
           </div>
         </div>
         <p className="field-hint">
-          Audio files and direct audio links can play in the background.
+          Audio files and direct audio links can play in the background any day.
           YouTube and Spotify links are saved to your list and open in their own
           apps.
         </p>
@@ -3333,6 +3363,71 @@ export function MusicView() {
               {settings.tracks.map((track) => {
                 const current = currentTrack?.id === track.id;
                 const playable = isPlayableSource(track.source);
+                if (editingId === track.id) {
+                  return (
+                    <div
+                      className="music-row music-row-editing"
+                      key={track.id}
+                    >
+                      <div className="music-edit-form">
+                        <div className="field">
+                          <label htmlFor={`music-edit-title-${track.id}`}>
+                            Title
+                          </label>
+                          <input
+                            className="input"
+                            id={`music-edit-title-${track.id}`}
+                            maxLength={120}
+                            onChange={(event) =>
+                              setEditTitle(event.target.value)
+                            }
+                            value={editTitle}
+                          />
+                        </div>
+                        <div className="field">
+                          <label htmlFor={`music-edit-day-${track.id}`}>
+                            Plays on
+                          </label>
+                          <div className="select-wrap">
+                            <select
+                              className="select"
+                              id={`music-edit-day-${track.id}`}
+                              onChange={(event) =>
+                                setEditDay(event.target.value)
+                              }
+                              value={editDay}
+                            >
+                              {dayChoices.map((choice) => (
+                                <option key={choice.value} value={choice.value}>
+                                  {choice.label}
+                                </option>
+                              ))}
+                            </select>
+                            <span aria-hidden="true" className="select-chevron">
+                              <LuChevronDown size={15} strokeWidth={2.5} />
+                            </span>
+                          </div>
+                        </div>
+                        <div className="music-edit-actions">
+                          <button
+                            className="secondary-button"
+                            onClick={() => setEditingId(null)}
+                            type="button"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            className="primary-button"
+                            onClick={saveEdit}
+                            type="button"
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
                 return (
                   <div
                     className={`music-row${current ? " current" : ""}`}
@@ -3374,6 +3469,14 @@ export function MusicView() {
                       </a>
                     )}
                     <button
+                      aria-label={`Edit ${track.title}`}
+                      className="small-icon-button"
+                      onClick={() => startEdit(track)}
+                      type="button"
+                    >
+                      <LuPencil size={13} />
+                    </button>
+                    <button
                       aria-label={`Remove ${track.title}`}
                       className="small-icon-button danger"
                       onClick={() => removeTrack(track.id)}
@@ -3387,7 +3490,7 @@ export function MusicView() {
             </div>
           ) : (
             <EmptyState
-              copy="Add a song above and choose which celebration it belongs to."
+              copy="Add a song above and choose any day or a celebration."
               icon={<LuMusic aria-hidden="true" size={22} />}
               title="No tracks yet"
             />

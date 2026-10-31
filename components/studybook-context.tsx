@@ -31,6 +31,8 @@ export type StudyTask = {
   dueDate: string;
   priority: "low" | "medium" | "high";
   completed: boolean;
+  /** ISO timestamp of the last local change, used to merge devices. */
+  updatedAt?: string;
 };
 
 export type Exam = {
@@ -208,7 +210,8 @@ function isStudyTask(value: unknown): value is StudyTask {
     (value.priority === "low" ||
       value.priority === "medium" ||
       value.priority === "high") &&
-    typeof value.completed === "boolean"
+    typeof value.completed === "boolean" &&
+    (value.updatedAt === undefined || typeof value.updatedAt === "string")
   );
 }
 
@@ -285,6 +288,26 @@ function mergeById<T extends { id: string }>(cloud: T[], local: T[]): T[] {
   return [...items.values()];
 }
 
+function taskTimestamp(task: StudyTask) {
+  if (!task.updatedAt) return 0;
+  const time = Date.parse(task.updatedAt);
+  return Number.isNaN(time) ? 0 : time;
+}
+
+function mergeTasks(cloud: StudyTask[], local: StudyTask[]): StudyTask[] {
+  const items = new Map<string, StudyTask>();
+  for (const task of cloud) items.set(task.id, task);
+  for (const task of local) {
+    const existing = items.get(task.id);
+    // Newest completed/edited state wins across devices. Tasks saved before
+    // this field existed fall back to the previous local-wins behaviour.
+    if (!existing || taskTimestamp(task) >= taskTimestamp(existing)) {
+      items.set(task.id, task);
+    }
+  }
+  return [...items.values()];
+}
+
 function mergeSnapshots(
   cloud: unknown,
   local: StudybookSnapshot,
@@ -330,7 +353,7 @@ function mergeSnapshots(
       ...local.classChecks,
     },
     savedClasses: [...saved.values()],
-    tasks: mergeById(cloudTasks, local.tasks),
+    tasks: mergeTasks(cloudTasks, local.tasks),
     notes: [...notes.values()],
     exams: mergeById(cloudExams, local.exams),
     routine: mergeById(cloudRoutine, local.routine),
@@ -744,6 +767,67 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
   }, [
     applyCloudSnapshot,
     authReady,
+    authUserId,
+    isLoaded,
+    loadedKey,
+    storageKey,
+    syncedUserId,
+  ]);
+
+  useEffect(() => {
+    if (
+      !isLoaded ||
+      !authUserId ||
+      loadedKey !== storageKey ||
+      syncedUserId !== authUserId
+    ) {
+      return;
+    }
+
+    let active = true;
+    let syncing = false;
+
+    async function pullCloudChanges() {
+      if (!active || syncing || document.visibilityState === "hidden") return;
+      syncing = true;
+      try {
+        const supabase = getSupabaseBrowserClient();
+        const { data } = await supabase
+          .from("studybook_snapshots")
+          .select("data")
+          .eq("user_id", authUserId)
+          .maybeSingle();
+        if (!active || !data?.data) return;
+
+        const merged = mergeSnapshots(data.data, snapshotRef.current);
+        if (JSON.stringify(merged) !== JSON.stringify(snapshotRef.current)) {
+          applyCloudSnapshot(merged);
+        }
+      } catch (cause) {
+        console.warn("Studybook cloud refresh failed:", cause);
+      } finally {
+        syncing = false;
+      }
+    }
+
+    const interval = window.setInterval(() => {
+      void pullCloudChanges();
+    }, 15_000);
+
+    function refreshWhenVisible() {
+      if (document.visibilityState === "visible") void pullCloudChanges();
+    }
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    window.addEventListener("focus", refreshWhenVisible);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      window.removeEventListener("focus", refreshWhenVisible);
+    };
+  }, [
+    applyCloudSnapshot,
     authUserId,
     isLoaded,
     loadedKey,

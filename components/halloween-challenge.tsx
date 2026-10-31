@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { LuArrowLeft, LuX } from "react-icons/lu";
+import { useMusic } from "@/components/music-context";
 import { useSupabaseUser } from "@/components/use-supabase-user";
 import {
   HALLOWEEN_DIFFICULTY_LABEL,
@@ -24,6 +26,12 @@ const CLAIM_PREFIX = "studybook-halloween-claim-v1";
 
 export default function HalloweenChallenge() {
   const { user } = useSupabaseUser();
+  const {
+    currentTrack: halloweenTrack,
+    holiday: musicHoliday,
+    isPlaying: musicPlaying,
+    toggle: toggleMusic,
+  } = useMusic();
   const [now, setNow] = useState<Date | null>(null);
   const [riddle, setRiddle] = useState<HalloweenRiddle | null>(null);
   const [claimed, setClaimed] = useState(false);
@@ -192,6 +200,18 @@ export default function HalloweenChallenge() {
               <LuX size={16} />
             </button>
 
+            <div aria-hidden="true" className="halloween-decor">
+              <span className="halloween-moon" />
+              <span className="halloween-bat bat-one">🦇</span>
+              <span className="halloween-bat bat-two">🦇</span>
+              <span className="halloween-ghost ghost-one">👻</span>
+              <span className="halloween-ghost ghost-two">👻</span>
+              <span className="halloween-pumpkin">🎃</span>
+              <span className="halloween-candle candle-one">🕯️</span>
+              <span className="halloween-candle candle-two">🕯️</span>
+              <span className="halloween-spider">🕷️</span>
+            </div>
+
             <p className="eyebrow">October 31 · Halloween</p>
             <h2 className="halloween-title" id="halloween-title">
               {stage === "riddle"
@@ -200,6 +220,31 @@ export default function HalloweenChallenge() {
                   ? "Your Halloween treat"
                   : "Trick or treat?"}
             </h2>
+
+            <div className="halloween-soundtrack">
+              <span aria-hidden="true" className="halloween-soundtrack-icon">
+                🎵
+              </span>
+              <span className="halloween-soundtrack-copy">
+                <strong>
+                  {halloweenTrack?.title ?? "No Halloween track yet"}
+                </strong>
+                <span>{musicHoliday?.name ?? "Halloween night"}</span>
+              </span>
+              {halloweenTrack ? (
+                <button
+                  className="halloween-soundtrack-button"
+                  onClick={toggleMusic}
+                  type="button"
+                >
+                  {musicPlaying ? "Pause" : "Play"}
+                </button>
+              ) : (
+                <Link className="halloween-soundtrack-button" href="/music">
+                  Add music
+                </Link>
+              )}
+            </div>
 
             {stage === "choose" && (
               <>
