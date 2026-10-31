@@ -40,6 +40,9 @@ type MusicContextValue = {
   settings: MusicSettings;
   currentTrack: MusicTrack | null;
   isPlaying: boolean;
+  embedTrack: MusicTrack | null;
+  playEmbed: (track: MusicTrack) => void;
+  closeEmbed: () => void;
   blocked: boolean;
   error: string;
   play: () => Promise<void>;
@@ -134,6 +137,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   >(null);
   const [ready, setReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [embedTrack, setEmbedTrack] = useState<MusicTrack | null>(null);
   const [blocked, setBlocked] = useState(false);
   const [error, setError] = useState("");
 
@@ -362,6 +366,19 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     [commit, holiday, startTrack],
   );
 
+  const playEmbed = useCallback(
+    (track: MusicTrack) => {
+      if (track.source !== "youtube" && track.source !== "spotify") return;
+      stopPlayback();
+      setIsPlaying(false);
+      lastStartedRef.current = currentTrack?.id ?? null;
+      setEmbedTrack(track);
+    },
+    [currentTrack, stopPlayback],
+  );
+
+  const closeEmbed = useCallback(() => setEmbedTrack(null), []);
+
   const nextTrack = useCallback(async () => {
     const playable = playlistFor(holiday, settingsRef.current);
     if (!playable.length) return;
@@ -576,7 +593,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!ready || !settings.enabled || !currentTrack) return;
+    if (!ready || !settings.enabled || !currentTrack || embedTrack) return;
     if (lastStartedRef.current === currentTrack.id) return;
 
     lastStartedRef.current = currentTrack.id;
@@ -584,7 +601,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       void startTrack(currentTrack);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [currentTrack, ready, settings.enabled, startTrack]);
+  }, [currentTrack, embedTrack, ready, settings.enabled, startTrack]);
 
   return (
     <MusicContext.Provider
@@ -599,6 +616,9 @@ export function MusicProvider({ children }: { children: ReactNode }) {
         error,
         play,
         playTrack,
+        playEmbed,
+        closeEmbed,
+        embedTrack,
         nextTrack,
         previousTrack,
         pause,

@@ -49,6 +49,7 @@ import HolidayEffects from "@/components/holiday-effects";
 import HalloweenChallenge from "@/components/halloween-challenge";
 import { MusicProvider } from "@/components/music-context";
 import MusicPlayer from "@/components/music-player";
+import MusicEmbedPlayer from "@/components/music-embed-player";
 import { useMessaging } from "@/components/use-messaging";
 import {
   getSupabaseBrowserClient,
@@ -840,6 +841,7 @@ function StudybookFrame({ children }: { children: ReactNode }) {
       <HalloweenChallenge />
       <HolidayEffects />
       <MusicPlayer />
+      <MusicEmbedPlayer />
     </>
   );
 }

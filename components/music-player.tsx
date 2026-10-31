@@ -19,6 +19,7 @@ import { isPlayableSource } from "@/lib/music-store";
 export default function MusicPlayer() {
   const {
     currentTrack,
+    embedTrack,
     holiday,
     isPlaying,
     nextTrack,
@@ -30,7 +31,7 @@ export default function MusicPlayer() {
   } = useMusic();
   const [open, setOpen] = useState(false);
 
-  if (!currentTrack) return null;
+  if (embedTrack || !currentTrack) return null;
 
   const playableTracks = settings.tracks.filter((track) =>
     isPlayableSource(track.source),

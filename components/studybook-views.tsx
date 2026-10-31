@@ -63,6 +63,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { HOLIDAYS } from "@/lib/holidays";
 import { awardTaskPoints } from "@/lib/leaderboard";
 import { isPlayableSource, type MusicTrack } from "@/lib/music-store";
+import { embedUrlFor } from "@/lib/music-embed";
 import { borderClass, borderIdFromMonth, borderLabel } from "@/lib/borders";
 
 const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
@@ -3226,46 +3227,6 @@ const SOURCE_LABELS: Record<string, string> = {
   builtin: "Built-in theme",
 };
 
-function embedUrlFor(track: MusicTrack) {
-  if (track.source !== "youtube" && track.source !== "spotify") return null;
-
-  try {
-    const url = new URL(track.url);
-    const host = url.hostname.replace(/^www\./, "").toLowerCase();
-
-    if (track.source === "youtube") {
-      let id = "";
-      if (host === "youtu.be") {
-        id = url.pathname.split("/").filter(Boolean)[0] ?? "";
-      } else if (host.includes("youtube.com")) {
-        if (
-          url.pathname.startsWith("/shorts/") ||
-          url.pathname.startsWith("/embed/")
-        ) {
-          id = url.pathname.split("/")[2] ?? "";
-        } else {
-          id = url.searchParams.get("v") ?? "";
-        }
-      }
-      return id
-        ? `https://www.youtube.com/embed/${encodeURIComponent(id)}?autoplay=1`
-        : null;
-    }
-
-    const parts = url.pathname.split("/").filter(Boolean);
-    if (
-      ["track", "album", "playlist", "episode"].includes(parts[0]) &&
-      parts[1]
-    ) {
-      return `https://open.spotify.com/embed/${parts[0]}/${encodeURIComponent(parts[1])}`;
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
-}
-
 export function MusicView() {
   const {
     addFileTrack,
@@ -3275,6 +3236,7 @@ export function MusicView() {
     error,
     holiday,
     isPlaying,
+    playEmbed,
     playTrack,
     removeTrack,
     setVolume,
@@ -3295,7 +3257,6 @@ export function MusicView() {
   const [editTitle, setEditTitle] = useState("");
   const [editDay, setEditDay] = useState("any");
   const [search, setSearch] = useState("");
-  const [embedTrack, setEmbedTrack] = useState<MusicTrack | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const selectedDay = dayChoice ?? holiday?.key ?? "any";
 
@@ -3563,7 +3524,7 @@ export function MusicView() {
                       <button
                         aria-label={`Play ${track.title} in browser`}
                         className="small-icon-button"
-                        onClick={() => setEmbedTrack(track)}
+                        onClick={() => playEmbed(track)}
                         type="button"
                       >
                         <LuPlay size={13} />
@@ -3723,7 +3684,7 @@ export function MusicView() {
                       <button
                         aria-label={`Play ${track.title} in browser`}
                         className="small-icon-button"
-                        onClick={() => setEmbedTrack(track)}
+                        onClick={() => playEmbed(track)}
                         type="button"
                       >
                         <LuPlay size={13} />
@@ -3796,44 +3757,6 @@ export function MusicView() {
           )}
         </div>
       </section>
-
-      {embedTrack && embedUrlFor(embedTrack) && (
-        <div
-          className="music-embed-backdrop"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setEmbedTrack(null);
-          }}
-          role="presentation"
-        >
-          <div
-            aria-labelledby="music-embed-title"
-            aria-modal="true"
-            className="music-embed-panel"
-            role="dialog"
-          >
-            <div className="music-embed-head">
-              <h2 id="music-embed-title">{embedTrack.title}</h2>
-              <button
-                aria-label="Close player"
-                className="small-icon-button"
-                onClick={() => setEmbedTrack(null)}
-                type="button"
-              >
-                <LuX size={15} />
-              </button>
-            </div>
-            <iframe
-              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-              allowFullScreen
-              src={embedUrlFor(embedTrack) ?? ""}
-              title={`${embedTrack.title} player`}
-            />
-            <p className="field-hint">
-              Embedded player. Close it to go back to your library.
-            </p>
-          </div>
-        </div>
-      )}
     </>
   );
 }
