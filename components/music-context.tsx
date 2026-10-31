@@ -32,7 +32,7 @@ import {
   type MusicSettings,
   type MusicTrack,
 } from "@/lib/music-store";
-import { THRILLER_TRACK } from "@/lib/music-specials";
+import { HALLOWEEN_THEME_TRACK } from "@/lib/music-specials";
 
 type MusicContextValue = {
   ready: boolean;
@@ -82,7 +82,7 @@ type MusicContextValue = {
 const MusicContext = createContext<MusicContextValue | null>(null);
 
 function builtinTrack(holiday: Holiday): MusicTrack {
-  if (holiday.key === "halloween") return THRILLER_TRACK;
+  if (holiday.key === "halloween") return HALLOWEEN_THEME_TRACK;
 
   return {
     id: `builtin:${holiday.key}`,

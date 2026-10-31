@@ -6980,3 +6980,58 @@ button.messenger-row:hover {
   background: var(--danger-soft);
   color: var(--danger);
 }
+
+/* Music orb wrapper and pause button */
+.music-orb-wrap {
+  position: fixed;
+  z-index: 55;
+  right: 20px;
+  bottom: 90px;
+  width: 58px;
+  height: 58px;
+}
+
+.music-orb-wrap .music-orb {
+  position: relative;
+  right: auto;
+  bottom: auto;
+}
+
+.music-orb-pause {
+  position: absolute;
+  z-index: 3;
+  right: -3px;
+  bottom: -3px;
+  display: grid;
+  width: 23px;
+  height: 23px;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 26%);
+  border-radius: 50%;
+  background: #14121f;
+  color: #fff;
+  box-shadow: 0 4px 10px rgb(0 0 0 / 45%);
+  cursor: pointer;
+}
+
+.music-orb-pause:hover {
+  border-color: #8b6cff;
+  background: #7c5cff;
+}
+
+.music-orb-eq {
+  right: auto;
+  left: 8px;
+}
+
+@media (max-width: 640px) {
+  .music-orb-wrap {
+    right: 12px;
+    bottom: 82px;
+  }
+
+  .music-orb-wrap .music-orb {
+    right: auto;
+    bottom: auto;
+  }
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LuChevronDown, LuX } from "react-icons/lu";
 import MusicOrb from "@/components/music-orb";
 import { useMusic } from "@/components/music-context";
@@ -11,12 +11,15 @@ export default function MusicEmbedPlayer() {
   const [ready, setReady] = useState(false);
   const [cardOpen, setCardOpen] = useState(true);
   const [hovered, setHovered] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     if (!embedTrack) return;
     const timer = window.setTimeout(() => {
       setReady(false);
       setCardOpen(true);
+      setPaused(false);
     }, 0);
     return () => window.clearTimeout(timer);
   }, [embedTrack]);
@@ -34,6 +37,19 @@ export default function MusicEmbedPlayer() {
 
   const cover = ready ? null : coverUrlFor(embedTrack);
   const loading = !ready;
+
+  function toggleEmbed() {
+    if (!ready || !embedTrack || embedTrack.source !== "youtube") return;
+    iframeRef.current?.contentWindow?.postMessage(
+      JSON.stringify({
+        event: "command",
+        func: paused ? "playVideo" : "pauseVideo",
+        args: [],
+      }),
+      "*",
+    );
+    setPaused((value) => !value);
+  }
 
   return (
     <>
@@ -93,6 +109,7 @@ export default function MusicEmbedPlayer() {
           allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
           allowFullScreen
           onLoad={() => setReady(true)}
+          ref={iframeRef}
           src={url}
           title={`${embedTrack.title} player`}
         />
@@ -103,7 +120,11 @@ export default function MusicEmbedPlayer() {
         label={cardOpen ? "Collapse embedded player" : "Open embedded player"}
         loading={loading}
         onClick={() => setCardOpen((value) => !value)}
-        playing={ready}
+        onToggle={
+          ready && embedTrack.source === "youtube" ? toggleEmbed : undefined
+        }
+        paused={paused}
+        playing={ready && !paused}
       />
     </>
   );

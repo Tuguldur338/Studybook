@@ -196,6 +196,8 @@ export default function MusicPlayer() {
         label={cardOpen ? "Collapse music player" : "Open music player"}
         loading={loading}
         onClick={() => setCardOpen((value) => !value)}
+        onToggle={togglePlayback}
+        paused={!isPlaying}
         playing={isPlaying && !loading}
       />
     </>
