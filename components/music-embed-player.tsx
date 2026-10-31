@@ -74,28 +74,6 @@ export default function MusicEmbedPlayer({
     return () => window.clearTimeout(timer);
   }, [cardOpen, closeCard, expanded, hovered, leaving, ready]);
 
-  useEffect(() => {
-    if (!ready || !embedTrack || embedTrack.source !== "youtube" || gestureReady) {
-      return;
-    }
-
-    // Browsers block audible autoplay until the page has a user gesture.
-    // The first click/keypress anywhere resumes the hidden YouTube player.
-    const resume = () => resumeEmbed();
-    document.addEventListener("pointerdown", resume, {
-      capture: true,
-      once: true,
-    });
-    document.addEventListener("keydown", resume, {
-      capture: true,
-      once: true,
-    });
-    return () => {
-      document.removeEventListener("pointerdown", resume, { capture: true });
-      document.removeEventListener("keydown", resume, { capture: true });
-    };
-  }, [embedTrack, gestureReady, ready, resumeEmbed]);
-
   if (!embedTrack) return null;
 
   const url = embedUrlFor(embedTrack);
@@ -133,7 +111,13 @@ export default function MusicEmbedPlayer({
             <button
               aria-label="Show embedded music controls"
               className="music-now-compact"
-              onClick={() => setExpanded(true)}
+              onClick={() => {
+                if (!gestureReady) {
+                  resumeEmbed();
+                  return;
+                }
+                setExpanded(true);
+              }}
               type="button"
             >
               <span aria-hidden="true" className="music-now-live" />

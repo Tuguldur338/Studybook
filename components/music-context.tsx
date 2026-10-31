@@ -709,21 +709,6 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     startTrack,
   ]);
 
-  useEffect(() => {
-    if (!blocked || !currentTrack) return;
-
-    const resume = () => {
-      setBlocked(false);
-      void play();
-    };
-    window.addEventListener("pointerdown", resume, { once: true });
-    window.addEventListener("keydown", resume, { once: true });
-    return () => {
-      window.removeEventListener("pointerdown", resume);
-      window.removeEventListener("keydown", resume);
-    };
-  }, [blocked, currentTrack, play]);
-
   return (
     <MusicContext.Provider
       value={{
