@@ -7504,3 +7504,13 @@ textarea.input:focus {
   max-height: 900px;
   overflow: hidden;
 }
+
+.music-now-compact-hint {
+  flex: 0 0 auto;
+  color: #c7b8ff;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}

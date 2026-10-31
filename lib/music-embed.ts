@@ -39,7 +39,7 @@ export function embedUrlFor(track: MusicTrack) {
     if (track.source === "youtube") {
       const id = youtubeIdFor(track);
       return id
-        ? `https://www.youtube.com/embed/${encodeURIComponent(id)}?autoplay=1&enablejsapi=1`
+        ? `https://www.youtube.com/embed/${encodeURIComponent(id)}?autoplay=1&enablejsapi=1&playsinline=1`
         : null;
     }
 

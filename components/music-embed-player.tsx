@@ -14,8 +14,23 @@ export default function MusicEmbedPlayer() {
   const [paused, setPaused] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [gestureReady, setGestureReady] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const closeTimerRef = useRef<number | null>(null);
+
+  const sendPlayerCommand = useCallback((func: string) => {
+    iframeRef.current?.contentWindow?.postMessage(
+      JSON.stringify({ event: "command", func, args: [] }),
+      "*",
+    );
+  }, []);
+
+  const resumeEmbed = useCallback(() => {
+    sendPlayerCommand("unMute");
+    sendPlayerCommand("playVideo");
+    setPaused(false);
+    setGestureReady(true);
+  }, [sendPlayerCommand]);
 
   const closeCard = useCallback(() => {
     if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
@@ -55,6 +70,28 @@ export default function MusicEmbedPlayer() {
     return () => window.clearTimeout(timer);
   }, [cardOpen, closeCard, expanded, hovered, leaving, ready]);
 
+  useEffect(() => {
+    if (!ready || !embedTrack || embedTrack.source !== "youtube" || gestureReady) {
+      return;
+    }
+
+    // Browsers block audible autoplay until the page has a user gesture.
+    // The first click/keypress anywhere resumes the hidden YouTube player.
+    const resume = () => resumeEmbed();
+    document.addEventListener("pointerdown", resume, {
+      capture: true,
+      once: true,
+    });
+    document.addEventListener("keydown", resume, {
+      capture: true,
+      once: true,
+    });
+    return () => {
+      document.removeEventListener("pointerdown", resume, { capture: true });
+      document.removeEventListener("keydown", resume, { capture: true });
+    };
+  }, [embedTrack, gestureReady, ready, resumeEmbed]);
+
   if (!embedTrack) return null;
 
   const url = embedUrlFor(embedTrack);
@@ -62,9 +99,11 @@ export default function MusicEmbedPlayer() {
 
   const cover = ready ? null : coverUrlFor(embedTrack);
   const loading = !ready;
+  const audible = ready && !paused && gestureReady;
 
   function toggleEmbed() {
     if (!ready || !embedTrack || embedTrack.source !== "youtube") return;
+    setGestureReady(true);
     iframeRef.current?.contentWindow?.postMessage(
       JSON.stringify({
         event: "command",
@@ -81,7 +120,7 @@ export default function MusicEmbedPlayer() {
       {ready && cardOpen && (
         <section
           aria-label="Embedded music"
-          className={`music-now-card${paused ? " is-paused" : " is-playing"}${expanded ? " is-expanded" : " is-compact"}${leaving ? " is-leaving" : ""}`}
+          className={`music-now-card${audible ? " is-playing" : " is-paused"}${expanded ? " is-expanded" : " is-compact"}${leaving ? " is-leaving" : ""}`}
           key={embedTrack.id}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
@@ -97,6 +136,9 @@ export default function MusicEmbedPlayer() {
               <span className="music-now-compact-title">
                 {embedTrack.title}
               </span>
+              {!gestureReady && (
+                <span className="music-now-compact-hint">Tap for sound</span>
+              )}
               <span aria-hidden="true" className="music-now-eq">
                 <i />
                 <i />
@@ -135,11 +177,22 @@ export default function MusicEmbedPlayer() {
                 {embedTrack.source === "youtube" && (
                   <button
                     className="music-now-control"
-                    onClick={toggleEmbed}
+                    onClick={() => {
+                      if (!gestureReady) resumeEmbed();
+                      else toggleEmbed();
+                    }}
                     type="button"
                   >
-                    {paused ? <LuPlay size={14} /> : <LuPause size={14} />}{" "}
-                    {paused ? "Resume" : "Pause"}
+                    {!gestureReady || paused ? (
+                      <LuPlay size={14} />
+                    ) : (
+                      <LuPause size={14} />
+                    )}{" "}
+                    {!gestureReady
+                      ? "Play sound"
+                      : paused
+                        ? "Resume"
+                        : "Pause"}
                   </button>
                 )}
                 <button
@@ -198,7 +251,7 @@ export default function MusicEmbedPlayer() {
             setCardOpen(true);
           }
         }}
-        playing={ready && !paused}
+        playing={audible}
       />
     </>
   );
