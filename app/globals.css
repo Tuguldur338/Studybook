@@ -7388,3 +7388,40 @@ textarea.input:focus {
     clip-path: inset(0 0 0 100%);
   }
 }
+
+/* Place the now-playing card to the left of the music bubble */
+.music-now-card {
+  right: 88px;
+  bottom: 90px;
+  max-height: min(620px, calc(100dvh - 120px));
+  transition:
+    width 200ms ease,
+    padding 200ms ease,
+    border-radius 200ms ease,
+    bottom 200ms ease;
+}
+
+.music-now-card.is-compact {
+  bottom: 101px;
+  max-width: min(430px, calc(100vw - 124px));
+}
+
+.music-now-card.is-expanded {
+  width: min(342px, calc(100vw - 124px));
+}
+
+@media (max-width: 640px) {
+  .music-now-card {
+    right: 78px;
+    bottom: 82px;
+  }
+
+  .music-now-card.is-compact {
+    bottom: 93px;
+    max-width: calc(100vw - 104px);
+  }
+
+  .music-now-card.is-expanded {
+    width: min(342px, calc(100vw - 104px));
+  }
+}
