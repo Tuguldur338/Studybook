@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { LuChevronDown, LuPause, LuPlay, LuX } from "react-icons/lu";
 import MusicOrb from "@/components/music-orb";
 import { useMusic } from "@/components/music-context";
@@ -12,23 +12,46 @@ export default function MusicEmbedPlayer() {
   const [cardOpen, setCardOpen] = useState(true);
   const [hovered, setHovered] = useState(false);
   const [paused, setPaused] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const closeTimerRef = useRef<number | null>(null);
+
+  const closeCard = useCallback(() => {
+    if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+    setLeaving(true);
+    closeTimerRef.current = window.setTimeout(() => {
+      setCardOpen(false);
+      setLeaving(false);
+      closeTimerRef.current = null;
+    }, 360);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!embedTrack) return;
+    if (closeTimerRef.current) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
     const timer = window.setTimeout(() => {
       setReady(false);
       setCardOpen(true);
       setPaused(false);
+      setLeaving(false);
     }, 0);
     return () => window.clearTimeout(timer);
   }, [embedTrack]);
 
   useEffect(() => {
-    if (!ready || !cardOpen || hovered) return;
-    const timer = window.setTimeout(() => setCardOpen(false), 8000);
+    if (!ready || !cardOpen || leaving || hovered) return;
+    const timer = window.setTimeout(closeCard, 2000);
     return () => window.clearTimeout(timer);
-  }, [cardOpen, hovered, ready]);
+  }, [cardOpen, closeCard, hovered, leaving, ready]);
 
   if (!embedTrack) return null;
 
@@ -56,7 +79,8 @@ export default function MusicEmbedPlayer() {
       {ready && cardOpen && (
         <section
           aria-label="Embedded music"
-          className={`music-now-card${paused ? " is-paused" : " is-playing"}`}
+          className={`music-now-card${paused ? " is-paused" : " is-playing"}${leaving ? " is-leaving" : ""}`}
+          key={embedTrack.id}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
         >
@@ -73,7 +97,7 @@ export default function MusicEmbedPlayer() {
             <button
               aria-label="Collapse embedded player"
               className="music-now-collapse"
-              onClick={() => setCardOpen(false)}
+              onClick={closeCard}
               type="button"
             >
               <LuChevronDown size={15} />
@@ -106,7 +130,7 @@ export default function MusicEmbedPlayer() {
             </button>
             <button
               className="music-now-control"
-              onClick={() => setCardOpen(false)}
+              onClick={closeCard}
               type="button"
             >
               Hide card
@@ -134,7 +158,14 @@ export default function MusicEmbedPlayer() {
         cover={cover}
         label={cardOpen ? "Collapse embedded player" : "Open embedded player"}
         loading={loading}
-        onClick={() => setCardOpen((value) => !value)}
+        onClick={() => {
+          if (cardOpen) {
+            closeCard();
+          } else {
+            setLeaving(false);
+            setCardOpen(true);
+          }
+        }}
         onToggle={
           ready && embedTrack.source === "youtube" ? toggleEmbed : undefined
         }

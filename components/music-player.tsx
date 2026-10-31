@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   LuChevronDown,
   LuListMusic,
@@ -42,21 +42,46 @@ export default function MusicPlayer() {
   const [cardOpen, setCardOpen] = useState(true);
   const [playlistOpen, setPlaylistOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const closeTimerRef = useRef<number | null>(null);
+
+  const closeCard = useCallback(() => {
+    if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+    setLeaving(true);
+    closeTimerRef.current = window.setTimeout(() => {
+      setCardOpen(false);
+      setLeaving(false);
+      closeTimerRef.current = null;
+    }, 360);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!nowPlaying) return;
+    if (closeTimerRef.current) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
     const timer = window.setTimeout(() => {
       setCardOpen(true);
       setPlaylistOpen(false);
+      setLeaving(false);
     }, 0);
     return () => window.clearTimeout(timer);
   }, [nowPlaying]);
 
   useEffect(() => {
-    if (!cardOpen || !nowPlaying || startingTrack || hovered) return;
-    const timer = window.setTimeout(() => setCardOpen(false), 8000);
+    if (!cardOpen || leaving || !nowPlaying || startingTrack || hovered) {
+      return;
+    }
+    const timer = window.setTimeout(closeCard, 2000);
     return () => window.clearTimeout(timer);
-  }, [cardOpen, hovered, nowPlaying, startingTrack]);
+  }, [cardOpen, closeCard, hovered, leaving, nowPlaying, startingTrack]);
 
   if (embedTrack || (!nowPlaying && !startingTrack)) return null;
 
@@ -83,8 +108,9 @@ export default function MusicPlayer() {
     <>
       {showCard && nowPlaying && (
         <section
-          className={`music-now-card${isPlaying ? " is-playing" : " is-paused"}`}
+          className={`music-now-card${isPlaying ? " is-playing" : " is-paused"}${leaving ? " is-leaving" : ""}`}
           aria-label="Now playing"
+          key={nowPlaying.id}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
         >
@@ -101,7 +127,7 @@ export default function MusicPlayer() {
             <button
               aria-label="Collapse music player"
               className="music-now-collapse"
-              onClick={() => setCardOpen(false)}
+              onClick={closeCard}
               type="button"
             >
               <LuChevronDown size={15} />
@@ -200,7 +226,14 @@ export default function MusicPlayer() {
         cover={cover}
         label={cardOpen ? "Collapse music player" : "Open music player"}
         loading={loading}
-        onClick={() => setCardOpen((value) => !value)}
+        onClick={() => {
+          if (cardOpen) {
+            closeCard();
+          } else {
+            setLeaving(false);
+            setCardOpen(true);
+          }
+        }}
         onToggle={togglePlayback}
         paused={!isPlaying}
         playing={isPlaying && !loading}
