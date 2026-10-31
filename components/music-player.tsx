@@ -26,7 +26,7 @@ const SOURCE_LABELS: Record<string, string> = {
   builtin: "Holiday theme",
 };
 
-export default function MusicPlayer() {
+export default function MusicPlayer({ raised = false }: { raised?: boolean }) {
   const {
     embedTrack,
     isPlaying,
@@ -125,7 +125,7 @@ export default function MusicPlayer() {
     <>
       {showCard && nowPlaying && (
         <section
-          className={`music-now-card${isPlaying ? " is-playing" : " is-paused"}${expanded ? " is-expanded" : " is-compact"}${leaving ? " is-leaving" : ""}`}
+          className={`music-now-card${isPlaying ? " is-playing" : " is-paused"}${expanded ? " is-expanded" : " is-compact"}${leaving ? " is-leaving" : ""}${raised ? " is-raised" : ""}`}
           aria-label="Now playing"
           key={nowPlaying.id}
           onMouseEnter={() => setHovered(true)}
@@ -281,6 +281,7 @@ export default function MusicPlayer() {
           }
         }}
         playing={isPlaying && !loading}
+        raised={raised}
       />
     </>
   );

@@ -840,8 +840,8 @@ function StudybookFrame({ children }: { children: ReactNode }) {
       </div>
       <HalloweenChallenge />
       <HolidayEffects />
-      <MusicPlayer />
-      <MusicEmbedPlayer />
+      <MusicPlayer raised={messagesWidget === "open"} />
+      <MusicEmbedPlayer raised={messagesWidget === "open"} />
     </>
   );
 }

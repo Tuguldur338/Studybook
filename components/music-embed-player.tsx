@@ -6,7 +6,11 @@ import MusicOrb from "@/components/music-orb";
 import { useMusic } from "@/components/music-context";
 import { coverUrlFor, embedUrlFor } from "@/lib/music-embed";
 
-export default function MusicEmbedPlayer() {
+export default function MusicEmbedPlayer({
+  raised = false,
+}: {
+  raised?: boolean;
+}) {
   const { closeEmbed, embedTrack } = useMusic();
   const [ready, setReady] = useState(false);
   const [cardOpen, setCardOpen] = useState(true);
@@ -120,7 +124,7 @@ export default function MusicEmbedPlayer() {
       {ready && cardOpen && (
         <section
           aria-label="Embedded music"
-          className={`music-now-card${audible ? " is-playing" : " is-paused"}${expanded ? " is-expanded" : " is-compact"}${leaving ? " is-leaving" : ""}`}
+          className={`music-now-card${audible ? " is-playing" : " is-paused"}${expanded ? " is-expanded" : " is-compact"}${leaving ? " is-leaving" : ""}${raised ? " is-raised" : ""}`}
           key={embedTrack.id}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
@@ -252,6 +256,7 @@ export default function MusicEmbedPlayer() {
           }
         }}
         playing={audible}
+        raised={raised}
       />
     </>
   );

@@ -7514,3 +7514,50 @@ textarea.input:focus {
   text-transform: uppercase;
   white-space: nowrap;
 }
+
+/* Lift the music bubble above the expanded messenger panel */
+.music-orb-wrap {
+  transition:
+    bottom 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    right 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (min-width: 641px) {
+  .music-orb-wrap.is-raised {
+    z-index: 56;
+    bottom: calc(20px + min(620px, calc(100dvh - 110px)) + 16px);
+  }
+
+  .music-now-card.is-raised {
+    z-index: 56;
+    bottom: calc(20px + min(620px, calc(100dvh - 110px)) + 27px);
+  }
+
+  .music-now-card.is-raised.is-expanded {
+    top: 16px;
+    bottom: auto;
+    max-height: calc(100dvh - 32px);
+  }
+}
+
+@media (max-width: 640px) {
+  .music-orb-wrap.is-raised {
+    z-index: 56;
+    right: 12px;
+    bottom: calc(88dvh + 12px);
+  }
+
+  .music-now-card.is-raised {
+    z-index: 56;
+    right: 78px;
+    bottom: calc(88dvh + 23px);
+  }
+
+  .music-now-card.is-raised.is-expanded {
+    top: 12px;
+    right: 12px;
+    bottom: auto;
+    width: min(342px, calc(100vw - 24px));
+    max-height: calc(100dvh - 24px);
+  }
+}
