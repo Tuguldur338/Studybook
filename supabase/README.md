@@ -52,10 +52,12 @@ How it behaves:
 - If the account has no snapshot yet, the current browser's local data is
   uploaded, so the first signed-in device seeds the account.
 - After that, changes are saved after a short debounce.
-- If both the cloud and local data have content, the app merges the lists by id
-  (local wins for the same id) and saves the union, so a to-do added before the
-  first sync is kept alongside the account's schedule. Deletions made only on
-  one stale device can reappear until that device syncs.
+- If both the cloud and local data have content, the app merges the lists by id.
+  Tasks use their latest `updatedAt` so a completed/unchecked task from another
+  device wins over a stale copy; other lists keep the local entry for the same
+  id. The app also pulls the cloud snapshot every 15 seconds and when the tab
+  regains focus, so simultaneous devices converge without a reload. Deletions
+  made only on one stale device can reappear until that device syncs.
 - Local data is now stored per account (`studybook-data-v1:<user id>`), so two
   accounts on the same browser keep separate schedules and to-dos. The older
   shared key is claimed only by an account whose email matches the saved
@@ -136,6 +138,9 @@ Apply the migrations in order after the base schema:
 6. [`migrations/sync.sql`](./migrations/sync.sql) — cross-device
    `studybook_snapshots` for the schedule, tasks, notes, exams, routine, and
    profile picture.
+7. [`migrations/halloween.sql`](./migrations/halloween.sql) — the
+   `halloween_claims` table and `claim_halloween()` function, so a trick-or-treat
+   can only be claimed once per account each year, on any device.
 
 These migration files are meant for a **fresh project**. If the base schema,
 messaging, or usernames are already working, do not rerun them. Expected errors
@@ -150,7 +155,20 @@ when rerunning are:
 
 If sign-in and messaging already work, apply only the **missing** newer
 migrations: `chat-customization.sql` (group settings), `leaderboard.sql`
-(points), and `sync.sql` (cross-device data).
+(points), `sync.sql` (cross-device data), and `halloween.sql` (the Halloween
+claim).
+
+## Halloween claim
+
+Apply [`migrations/halloween.sql`](./migrations/halloween.sql) to create the
+private `halloween_claims` table and the `claim_halloween(choice, point_value)`
+function. A claim is unique per account and year, so choosing a treat or riddle
+on one device hides the challenge on every other device for that account.
+`claim_halloween` records the choice and adds the points atomically; a second
+claim raises `23505` and the app shows “Already claimed”.
+
+The riddle bank rotates by year in [`lib/halloween.ts`](../lib/halloween.ts), so
+next Halloween uses a different question and difficulty.
 
 ## Leaderboard
 

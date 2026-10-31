@@ -12,7 +12,7 @@ import {
   isHalloween,
   type HalloweenRiddle,
 } from "@/lib/halloween";
-import { awardPoints } from "@/lib/leaderboard";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type Stage = "choose" | "riddle" | "result";
 
@@ -22,7 +22,10 @@ type ChallengeResult = {
   points: number;
 };
 
-const CLAIM_PREFIX = "studybook-halloween-claim-v1";
+type ClaimOutcome = {
+  already?: boolean;
+  error?: string;
+};
 
 export default function HalloweenChallenge() {
   const { user } = useSupabaseUser();
@@ -35,6 +38,7 @@ export default function HalloweenChallenge() {
   const [now, setNow] = useState<Date | null>(null);
   const [riddle, setRiddle] = useState<HalloweenRiddle | null>(null);
   const [claimed, setClaimed] = useState(false);
+  const [claimChecked, setClaimChecked] = useState(false);
   const [open, setOpen] = useState(false);
   const [stage, setStage] = useState<Stage>("choose");
   const [picked, setPicked] = useState<number | null>(null);
@@ -45,30 +49,101 @@ export default function HalloweenChallenge() {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const date = new Date();
-      const year = date.getFullYear();
       setNow(date);
-      setRiddle(getHalloweenRiddle(year));
-      try {
-        setClaimed(
-          Boolean(
-            window.localStorage.getItem(
-              `${CLAIM_PREFIX}:${year}:${user?.id ?? "guest"}`,
-            ),
-          ),
-        );
-      } catch {
-        setClaimed(false);
-      }
+      setRiddle(getHalloweenRiddle(date.getFullYear()));
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [user?.id]);
+  }, []);
 
-  if (!now || !isHalloween(now) || (claimed && !open)) {
+  useEffect(() => {
+    if (!now || !isHalloween(now)) return;
+    if (!user) {
+      const timer = window.setTimeout(() => {
+        setClaimed(false);
+        setClaimChecked(true);
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
+
+    let active = true;
+    const year = now.getFullYear();
+
+    async function checkClaim() {
+      try {
+        const supabase = getSupabaseBrowserClient();
+        const { data } = await supabase
+          .from("halloween_claims")
+          .select("choice")
+          .eq("user_id", user!.id)
+          .eq("year", year)
+          .maybeSingle();
+        if (data) {
+          if (active) setClaimed(true);
+          return;
+        }
+
+        // Move a claim saved by the earlier device-local version onto the
+        // account so other devices see it too, without awarding points twice.
+        try {
+          const raw = window.localStorage.getItem(
+            `studybook-halloween-claim-v1:${year}:${user!.id}`,
+          );
+          if (raw) {
+            const legacy = JSON.parse(raw) as {
+              choice?: string;
+              points?: number;
+            };
+            const points = Number(legacy.points ?? 0);
+            if (
+              (legacy.choice === "treat" || legacy.choice === "trick") &&
+              [0, 10, 20, 30].includes(points)
+            ) {
+              const { error: migrateError } = await supabase.rpc(
+                "record_halloween_claim",
+                {
+                  choice: legacy.choice,
+                  point_value: points,
+                },
+              );
+              if (!migrateError) {
+                if (active) setClaimed(true);
+                return;
+              }
+            }
+          }
+        } catch {
+          // A malformed old local claim should not block the new event.
+        }
+
+        if (active) setClaimed(false);
+      } catch {
+        // The claim table may not be migrated yet; the RPC will report it.
+      } finally {
+        if (active) setClaimChecked(true);
+      }
+    }
+
+    void checkClaim();
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") void checkClaim();
+    }, 30_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void checkClaim();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [now, user]);
+
+  if (!now || !isHalloween(now) || !claimChecked || (claimed && !open)) {
     return null;
   }
-
-  const year = now.getFullYear();
-  const claimKey = `${CLAIM_PREFIX}:${year}:${user?.id ?? "guest"}`;
 
   function openChallenge() {
     setStage("choose");
@@ -83,39 +158,60 @@ export default function HalloweenChallenge() {
     setError("");
   }
 
-  function markClaimed(choice: "treat" | "trick", points: number) {
-    try {
-      window.localStorage.setItem(
-        claimKey,
-        JSON.stringify({
-          choice,
-          points,
-          at: new Date().toISOString(),
-        }),
-      );
-    } catch {
-      // The event still works; only the yearly lock is device-local.
+  async function claimHalloween(
+    choice: "treat" | "trick",
+    pointValue: number,
+  ): Promise<ClaimOutcome> {
+    if (!user) {
+      return { error: "Sign in to collect leaderboard points." };
     }
-    setClaimed(true);
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { error: claimError } = await supabase.rpc("claim_halloween", {
+        choice,
+        point_value: pointValue,
+      });
+
+      if (claimError) {
+        if (/already claimed|duplicate key|23505/i.test(claimError.message)) {
+          setClaimed(true);
+          setClaimChecked(true);
+          return { already: true };
+        }
+        return { error: claimError.message };
+      }
+
+      setClaimed(true);
+      setClaimChecked(true);
+      return {};
+    } catch {
+      return { error: "Could not reach the Halloween claim service." };
+    }
   }
 
   async function claimTreat() {
-    if (!user) {
-      setError("Sign in to collect leaderboard points.");
-      return;
-    }
     setBusy(true);
     setError("");
-    const award = await awardPoints(10);
-    if (!award.ok) {
-      setError(award.message ?? "Could not claim the treat.");
+    const outcome = await claimHalloween("treat", 10);
+    if (outcome.error) {
+      setError(outcome.error);
       setBusy(false);
       return;
     }
-    markClaimed("treat", 10);
+    if (outcome.already) {
+      setResult({
+        title: "Already claimed",
+        body: "This account already claimed its Halloween treat on another device.",
+        points: 0,
+      });
+      setStage("result");
+      setBusy(false);
+      return;
+    }
     setResult({
       title: "Treat claimed!",
-      body: "A sweet little boost for your leaderboard.",
+      body: "A sweet little boost for your leaderboard, locked for this year.",
       points: 10,
     });
     setStage("result");
@@ -124,26 +220,29 @@ export default function HalloweenChallenge() {
 
   async function answerRiddle() {
     if (!riddle || picked === null) return;
-    if (!user) {
-      setError("Sign in to collect leaderboard points.");
-      return;
-    }
 
     setBusy(true);
     setError("");
     const correct = picked === riddle.answer;
     const points = correct ? HALLOWEEN_POINTS[riddle.difficulty] : 0;
+    const outcome = await claimHalloween("trick", points);
 
-    if (correct) {
-      const award = await awardPoints(points);
-      if (!award.ok) {
-        setError(award.message ?? "Could not add the points.");
-        setBusy(false);
-        return;
-      }
+    if (outcome.error) {
+      setError(outcome.error);
+      setBusy(false);
+      return;
+    }
+    if (outcome.already) {
+      setResult({
+        title: "Already claimed",
+        body: "This account already claimed its Halloween riddle on another device.",
+        points: 0,
+      });
+      setStage("result");
+      setBusy(false);
+      return;
     }
 
-    markClaimed("trick", points);
     setResult({
       title: correct ? "Correct!" : "So close!",
       body: correct

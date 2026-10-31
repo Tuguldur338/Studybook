@@ -299,9 +299,21 @@ function mergeTasks(cloud: StudyTask[], local: StudyTask[]): StudyTask[] {
   for (const task of cloud) items.set(task.id, task);
   for (const task of local) {
     const existing = items.get(task.id);
-    // Newest completed/edited state wins across devices. Tasks saved before
-    // this field existed fall back to the previous local-wins behaviour.
-    if (!existing || taskTimestamp(task) >= taskTimestamp(existing)) {
+    if (!existing) {
+      items.set(task.id, task);
+      continue;
+    }
+
+    const localTime = taskTimestamp(task);
+    const existingTime = taskTimestamp(existing);
+    if (localTime > existingTime) {
+      items.set(task.id, task);
+    } else if (localTime === existingTime && localTime === 0) {
+      // Older snapshots have no timestamps. Prefer a completed task so an
+      // older device's unchecked copy does not undo it.
+      if (task.completed && !existing.completed) items.set(task.id, task);
+    } else if (localTime === existingTime) {
+      // Same timestamp: local still wins for normal edits.
       items.set(task.id, task);
     }
   }
@@ -861,10 +873,21 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
       setSyncStatus("syncing");
       try {
         const supabase = getSupabaseBrowserClient();
+        // Merge the latest cloud copy before writing so a stale device cannot
+        // overwrite a newer task completion that arrived from another device.
+        const { data: cloudRow } = await supabase
+          .from("studybook_snapshots")
+          .select("data")
+          .eq("user_id", authUserId)
+          .maybeSingle();
+        const merged = cloudRow?.data
+          ? mergeSnapshots(cloudRow.data, snapshot)
+          : snapshot;
+
         const { error } = await supabase
           .from("studybook_snapshots")
           .upsert(
-            { user_id: authUserId, data: snapshot },
+            { user_id: authUserId, data: merged },
             { onConflict: "user_id" },
           );
         if (error) {
@@ -872,6 +895,9 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
           setSyncStatus("error");
         } else {
           setSyncStatus("synced");
+          if (JSON.stringify(merged) !== JSON.stringify(snapshot)) {
+            applyCloudSnapshot(merged);
+          }
         }
       } catch (cause) {
         console.warn("Studybook cloud save failed:", cause);
@@ -881,6 +907,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
 
     return () => window.clearTimeout(timer);
   }, [
+    applyCloudSnapshot,
     authUserId,
     classChecks,
     classes,
