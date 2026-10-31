@@ -69,6 +69,8 @@ type StudybookSnapshot = {
   routine: RoutineItem[];
   routineChecks: RoutineChecks;
   profileAvatar: string;
+  /** Tombstones for tasks deleted here, so a cloud merge cannot resurrect them. */
+  deletedTasks: Record<string, string>;
 };
 
 export const NOTE_COLORS = [
@@ -142,6 +144,7 @@ type StudybookContextValue = {
   setSavedClasses: Dispatch<SetStateAction<SavedClass[]>>;
   tasks: StudyTask[];
   setTasks: Dispatch<SetStateAction<StudyTask[]>>;
+  deleteTasks: (ids: string[]) => void;
   exams: Exam[];
   setExams: Dispatch<SetStateAction<Exam[]>>;
   routine: RoutineItem[];
@@ -245,6 +248,14 @@ function isRoutineChecks(value: unknown): value is RoutineChecks {
   );
 }
 
+function isDeletedTasks(value: unknown): value is Record<string, string> {
+  return (
+    isRecord(value) &&
+    !Array.isArray(value) &&
+    Object.values(value).every((entry) => typeof entry === "string")
+  );
+}
+
 function snapshotHasContent(data: unknown): boolean {
   if (!isRecord(data)) return false;
 
@@ -320,6 +331,21 @@ function mergeTasks(cloud: StudyTask[], local: StudyTask[]): StudyTask[] {
   return [...items.values()];
 }
 
+function mergeDeletedTasks(
+  cloud: unknown,
+  local: Record<string, string>,
+): Record<string, string> {
+  const merged: Record<string, string> = isDeletedTasks(cloud)
+    ? { ...cloud }
+    : {};
+
+  for (const [id, deletedAt] of Object.entries(local)) {
+    if (!merged[id] || deletedAt > merged[id]) merged[id] = deletedAt;
+  }
+
+  return merged;
+}
+
 function mergeSnapshots(
   cloud: unknown,
   local: StudybookSnapshot,
@@ -344,6 +370,7 @@ function mergeSnapshots(
   const cloudRoutine = Array.isArray(source.routine)
     ? source.routine.filter(isRoutineItem)
     : [];
+  const deletedTasks = mergeDeletedTasks(source.deletedTasks, local.deletedTasks);
 
   const notes = new Map<string, StudyNote>();
   for (const note of cloudNotes) notes.set(note.id, note);
@@ -365,7 +392,9 @@ function mergeSnapshots(
       ...local.classChecks,
     },
     savedClasses: [...saved.values()],
-    tasks: mergeTasks(cloudTasks, local.tasks),
+    tasks: mergeTasks(cloudTasks, local.tasks).filter(
+      (task) => !deletedTasks[task.id],
+    ),
     notes: [...notes.values()],
     exams: mergeById(cloudExams, local.exams),
     routine: mergeById(cloudRoutine, local.routine),
@@ -376,6 +405,7 @@ function mergeSnapshots(
     profileAvatar:
       local.profileAvatar ||
       (typeof source.profileAvatar === "string" ? source.profileAvatar : ""),
+    deletedTasks,
   };
 }
 
@@ -436,6 +466,9 @@ function readStudybookData(key = STORAGE_KEY) {
       ? parsed.savedClasses.filter(isSavedClass)
       : [],
     tasks: Array.isArray(parsed.tasks) ? parsed.tasks.filter(isStudyTask) : [],
+    deletedTasks: isDeletedTasks(parsed.deletedTasks)
+      ? parsed.deletedTasks
+      : {},
     exams: Array.isArray(parsed.exams) ? parsed.exams.filter(isExam) : [],
     routine: Array.isArray(parsed.routine)
       ? parsed.routine.filter(isRoutineItem)
@@ -459,6 +492,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
   const [classChecks, setClassChecks] = useState<ClassChecks>({});
   const [savedClasses, setSavedClasses] = useState<SavedClass[]>([]);
   const [tasks, setTasks] = useState<StudyTask[]>([]);
+  const [deletedTasks, setDeletedTasks] = useState<Record<string, string>>({});
   const [exams, setExams] = useState<Exam[]>([]);
   const [routine, setRoutine] = useState<RoutineItem[]>([]);
   const [routineChecks, setRoutineChecks] = useState<RoutineChecks>({});
@@ -490,6 +524,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     routine: [],
     routineChecks: {},
     profileAvatar: "",
+    deletedTasks: {},
   });
 
   const dismissToast = useCallback((id: string) => {
@@ -524,6 +559,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
         : [],
     );
     setTasks(Array.isArray(raw.tasks) ? raw.tasks.filter(isStudyTask) : []);
+    setDeletedTasks(isDeletedTasks(raw.deletedTasks) ? raw.deletedTasks : {});
     setNotes(Array.isArray(raw.notes) ? raw.notes.filter(isStudyNote) : []);
     setExams(Array.isArray(raw.exams) ? raw.exams.filter(isExam) : []);
     setRoutine(
@@ -539,11 +575,24 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const deleteTasks = useCallback((ids: string[]) => {
+    if (!ids.length) return;
+    const deletedAt = new Date().toISOString();
+    const idSet = new Set(ids);
+    setTasks((current) => current.filter((task) => !idSet.has(task.id)));
+    setDeletedTasks((current) => {
+      const next = { ...current };
+      for (const id of ids) next[id] = deletedAt;
+      return next;
+    });
+  }, []);
+
   const resetLocalSnapshot = useCallback(() => {
     setClasses([]);
     setClassChecks({});
     setSavedClasses([]);
     setTasks([]);
+    setDeletedTasks({});
     setNotes([]);
     setExams([]);
     setRoutine([]);
@@ -602,6 +651,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
           setClassChecks(saved.classChecks);
           setSavedClasses(saved.savedClasses);
           setTasks(saved.tasks);
+          setDeletedTasks(saved.deletedTasks);
           setExams(saved.exams);
           setRoutine(saved.routine);
           setRoutineChecks(saved.routineChecks);
@@ -641,6 +691,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
       routine,
       routineChecks,
       profileAvatar: profile.avatar,
+      deletedTasks,
     };
 
     try {
@@ -651,6 +702,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
           classChecks,
           savedClasses,
           tasks,
+          deletedTasks,
           exams,
           routine,
           routineChecks,
@@ -673,6 +725,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
   }, [
     classChecks,
     classes,
+    deletedTasks,
     exams,
     routine,
     routineChecks,
@@ -867,6 +920,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
       routine,
       routineChecks,
       profileAvatar: profile.avatar,
+      deletedTasks,
     };
 
     const timer = window.setTimeout(async () => {
@@ -911,6 +965,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     authUserId,
     classChecks,
     classes,
+    deletedTasks,
     exams,
     isLoaded,
     loadedKey,
@@ -935,6 +990,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
         setSavedClasses,
         tasks,
         setTasks,
+        deleteTasks,
         exams,
         setExams,
         routine,

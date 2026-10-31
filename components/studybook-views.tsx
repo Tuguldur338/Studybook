@@ -1678,7 +1678,7 @@ type TaskFilter = "all" | "active" | "done";
 type TaskSort = "due" | "priority" | "newest";
 
 export function ToDoListView() {
-  const { notify, setTasks, tasks } = useStudybook();
+  const { deleteTasks, notify, setTasks, tasks } = useStudybook();
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyTaskForm);
@@ -1771,7 +1771,11 @@ export function ToDoListView() {
   }, [tasks, query, filter, sort]);
 
   function clearCompleted() {
-    setTasks((current) => current.filter((task) => !task.completed));
+    const completedIds = tasks
+      .filter((task) => task.completed)
+      .map((task) => task.id);
+    if (!completedIds.length) return;
+    deleteTasks(completedIds);
     notify(
       `Cleared ${completedCount} completed ${completedCount === 1 ? "task" : "tasks"}.`,
     );
@@ -2045,9 +2049,7 @@ export function ToDoListView() {
           copy="This task will be permanently removed from your list."
           onCancel={() => setDeleteId(null)}
           onConfirm={() => {
-            setTasks((current) =>
-              current.filter((item) => item.id !== deleteId),
-            );
+            if (deleteId) deleteTasks([deleteId]);
             setDeleteId(null);
             notify("Task removed.");
           }}
