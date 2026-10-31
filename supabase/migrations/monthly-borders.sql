@@ -15,6 +15,26 @@ create table if not exists public.leaderboard_monthly (
 
 alter table public.leaderboard_monthly enable row level security;
 
+-- Earned borders are copied here once, so changing friends later cannot remove
+-- a border that was already awarded.
+create table if not exists public.profile_borders (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  month_start date not null,
+  points integer not null default 0 check (points >= 0),
+  earned_at timestamptz not null default timezone('utc', now()),
+  primary key (user_id, month_start)
+);
+
+alter table public.profile_borders enable row level security;
+
+drop policy if exists "Read own earned borders" on public.profile_borders;
+create policy "Read own earned borders"
+  on public.profile_borders for select
+  to authenticated
+  using (user_id = (select auth.uid()));
+
+grant select on public.profile_borders to authenticated;
+
 alter table public.profiles
   add column if not exists equipped_border text;
 
@@ -107,19 +127,27 @@ $$;
 revoke all on function public.get_leaderboard(integer) from public, anon;
 grant execute on function public.get_leaderboard(integer) to authenticated;
 
--- Returns one row per past month this user won (or tied for first).
-create or replace function public.get_my_borders()
-returns table (month text, points integer)
-language sql
+-- Locks in any border the user has earned so it stays permanently.
+create or replace function public.sync_my_borders()
+returns void
+language plpgsql
 security definer
 set search_path = ''
-stable
 as $$
+declare
+  me uuid := auth.uid();
+begin
+  if me is null then
+    raise exception 'Not signed in' using errcode = '28000';
+  end if;
+
+  insert into public.profile_borders (user_id, month_start, points)
   select
-    to_char(m.month_start, 'YYYY-MM') as month,
+    me,
+    m.month_start,
     m.points
   from public.leaderboard_monthly m
-  where m.user_id = auth.uid()
+  where m.user_id = me
     and m.month_start < date_trunc('month', current_date)::date
     and m.points > 0
     and m.points = (
@@ -131,7 +159,27 @@ as $$
           or public.are_friends(auth.uid(), x.user_id)
         )
     )
-  order by m.month_start desc;
+  on conflict (user_id, month_start) do nothing;
+end;
+$$;
+
+revoke all on function public.sync_my_borders() from public, anon;
+grant execute on function public.sync_my_borders() to authenticated;
+
+-- Returns the permanently stored borders.
+create or replace function public.get_my_borders()
+returns table (month text, points integer)
+language sql
+security definer
+set search_path = ''
+stable
+as $$
+  select
+    to_char(b.month_start, 'YYYY-MM') as month,
+    b.points
+  from public.profile_borders b
+  where b.user_id = auth.uid()
+  order by b.month_start desc;
 $$;
 
 revoke all on function public.get_my_borders() from public, anon;

@@ -6425,3 +6425,22 @@ button.messenger-row:hover {
     height: 165px;
   }
 }
+
+/* Keep music above the minimized Messages bubble */
+.music-bubble {
+  bottom: 90px;
+}
+
+.music-embed-dock {
+  bottom: 90px;
+}
+
+@media (max-width: 640px) {
+  .music-bubble {
+    bottom: 82px;
+  }
+
+  .music-embed-dock {
+    bottom: 82px;
+  }
+}

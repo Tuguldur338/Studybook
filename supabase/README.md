@@ -173,8 +173,9 @@ Apply [`migrations/monthly-borders.sql`](./migrations/monthly-borders.sql) after
   also count toward the current month;
 - makes `get_leaderboard()` return the current month's points plus the user's
   equipped border;
-- adds `get_my_borders()`, which lists each past month the signed-in user won
-  (or tied for first);
+- adds `get_my_borders()`, which reads the permanently stored borders; a border
+  is copied into `profile_borders` once by `sync_my_borders()`, so later friend
+  changes cannot remove it;
 - adds `profiles.equipped_border`, which stores the chosen border on the account
   so it follows the user to other devices.
 

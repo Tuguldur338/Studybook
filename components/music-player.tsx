@@ -18,20 +18,25 @@ import { isPlayableSource } from "@/lib/music-store";
 
 export default function MusicPlayer() {
   const {
-    currentTrack,
     embedTrack,
     holiday,
     isPlaying,
     nextTrack,
+    nowPlaying,
+    pause,
     playTrack,
     previousTrack,
     setVolume,
     settings,
-    toggle,
   } = useMusic();
   const [open, setOpen] = useState(false);
 
-  if (embedTrack || !currentTrack) return null;
+  if (embedTrack || !nowPlaying) return null;
+
+  function toggleNowPlaying() {
+    if (isPlaying) pause();
+    else void playTrack(nowPlaying!);
+  }
 
   const playableTracks = settings.tracks.filter((track) =>
     isPlayableSource(track.source),
@@ -51,7 +56,7 @@ export default function MusicPlayer() {
               {holiday?.emoji ?? "🎵"}
             </span>
             <div className="music-bubble-panel-copy">
-              <strong>{currentTrack.title}</strong>
+              <strong>{nowPlaying.title}</strong>
               <span>{holiday?.name ?? "Any day"}</span>
             </div>
             <button
@@ -76,7 +81,7 @@ export default function MusicPlayer() {
             <button
               aria-label={isPlaying ? "Pause music" : "Play music"}
               className="music-bubble-control music-bubble-play"
-              onClick={toggle}
+              onClick={toggleNowPlaying}
               type="button"
             >
               {isPlaying ? <LuPause size={16} /> : <LuPlay size={16} />}
@@ -106,7 +111,7 @@ export default function MusicPlayer() {
           <div className="music-bubble-list">
             {playableTracks.length ? (
               playableTracks.map((track) => {
-                const current = track.id === currentTrack.id;
+                const current = track.id === nowPlaying.id;
                 return (
                   <button
                     className={`music-bubble-track-row${current ? " current" : ""}`}
@@ -158,13 +163,13 @@ export default function MusicPlayer() {
           onClick={() => setOpen((value) => !value)}
           type="button"
         >
-          <strong>{currentTrack.title}</strong>
+          <strong>{nowPlaying.title}</strong>
           <span>{holiday?.name ?? "Any day"}</span>
         </button>
         <button
           aria-label={isPlaying ? "Pause music" : "Play music"}
           className="music-bubble-control"
-          onClick={toggle}
+          onClick={toggleNowPlaying}
           type="button"
         >
           {isPlaying ? <LuPause size={15} /> : <LuPlay size={15} />}

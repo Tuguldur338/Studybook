@@ -40,6 +40,7 @@ type MusicContextValue = {
   settings: MusicSettings;
   currentTrack: MusicTrack | null;
   isPlaying: boolean;
+  nowPlaying: MusicTrack | null;
   embedTrack: MusicTrack | null;
   playEmbed: (track: MusicTrack) => void;
   closeEmbed: () => void;
@@ -137,6 +138,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   >(null);
   const [ready, setReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [nowPlaying, setNowPlaying] = useState<MusicTrack | null>(null);
   const [embedTrack, setEmbedTrack] = useState<MusicTrack | null>(null);
   const [blocked, setBlocked] = useState(false);
   const [error, setError] = useState("");
@@ -252,7 +254,10 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     void context
       .resume()
       .then(() => {
-        if (!stopped) setIsPlaying(true);
+        if (!stopped) {
+          setIsPlaying(true);
+          setNowPlaying(track);
+        }
       })
       .catch(() => {
         setBlocked(true);
@@ -278,6 +283,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     audio.src = source;
     audio.volume = settingsRef.current.volume;
     await audio.play();
+    setNowPlaying(track);
     setIsPlaying(true);
   }, [stopPlayback]);
 
@@ -383,24 +389,24 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     const playable = playlistFor(holiday, settingsRef.current);
     if (!playable.length) return;
 
-    const index = currentTrack
-      ? playable.findIndex((track) => track.id === currentTrack.id)
+    const index = nowPlaying
+      ? playable.findIndex((track) => track.id === nowPlaying.id)
       : -1;
     const next = playable[(index + 1) % playable.length] ?? playable[0];
     await playTrack(next);
-  }, [currentTrack, holiday, playTrack]);
+  }, [nowPlaying, holiday, playTrack]);
 
   const previousTrack = useCallback(async () => {
     const playable = playlistFor(holiday, settingsRef.current);
     if (!playable.length) return;
 
-    const index = currentTrack
-      ? playable.findIndex((track) => track.id === currentTrack.id)
+    const index = nowPlaying
+      ? playable.findIndex((track) => track.id === nowPlaying.id)
       : 0;
     const previous =
       playable[(index - 1 + playable.length) % playable.length] ?? playable[0];
     await playTrack(previous);
-  }, [currentTrack, holiday, playTrack]);
+  }, [nowPlaying, holiday, playTrack]);
 
   const setVolume = useCallback(
     (value: number) => {
@@ -593,7 +599,15 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!ready || !settings.enabled || !currentTrack || embedTrack) return;
+    if (
+      !ready ||
+      !settings.enabled ||
+      !currentTrack ||
+      embedTrack ||
+      nowPlaying
+    ) {
+      return;
+    }
     if (lastStartedRef.current === currentTrack.id) return;
 
     lastStartedRef.current = currentTrack.id;
@@ -601,7 +615,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       void startTrack(currentTrack);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [currentTrack, embedTrack, ready, settings.enabled, startTrack]);
+  }, [currentTrack, embedTrack, nowPlaying, ready, settings.enabled, startTrack]);
 
   return (
     <MusicContext.Provider
@@ -612,6 +626,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
         settings,
         currentTrack,
         isPlaying,
+        nowPlaying,
         blocked,
         error,
         play,

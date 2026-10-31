@@ -2855,6 +2855,7 @@ export function ProfileView() {
     let active = true;
     const timer = window.setTimeout(async () => {
       const supabase = getSupabaseBrowserClient();
+      const { error: syncError } = await supabase.rpc("sync_my_borders");
       const [{ data: profileRow }, { data: borderRows, error: bordersError }] =
         await Promise.all([
           supabase
@@ -2866,7 +2867,8 @@ export function ProfileView() {
         ]);
 
       if (!active) return;
-      if (bordersError) setBorderError(bordersError.message);
+      const borderMessage = syncError?.message ?? bordersError?.message;
+      if (borderMessage) setBorderError(borderMessage);
       setEquippedBorder(
         (profileRow as { equipped_border?: string | null } | null)
           ?.equipped_border ?? null,
@@ -3236,6 +3238,7 @@ export function MusicView() {
     error,
     holiday,
     isPlaying,
+    nowPlaying,
     playEmbed,
     playTrack,
     removeTrack,
@@ -3364,11 +3367,13 @@ export function MusicView() {
               {holiday ? holiday.name : "Any day"}
             </h2>
             <p className="page-subtitle">
-              {currentTrack
-                ? `Now: ${currentTrack.title}`
-                : holiday
-                  ? "The built-in theme will play once you press Play."
-                  : "Add a track below and play it whenever you like."}
+              {nowPlaying
+                ? `Now: ${nowPlaying.title}`
+                : currentTrack
+                  ? `Selected: ${currentTrack.title}`
+                  : holiday
+                    ? "The built-in theme will play once you press Play."
+                    : "Add a track below and play it whenever you like."}
             </p>
           </div>
         </div>
@@ -3495,7 +3500,7 @@ export function MusicView() {
           {halloweenTracks.length ? (
             <div className="music-list">
               {halloweenTracks.map((track) => {
-                const current = currentTrack?.id === track.id;
+                const current = nowPlaying?.id === track.id;
                 const playable = isPlayableSource(track.source);
                 const embed = embedUrlFor(track);
                 return (
@@ -3583,7 +3588,7 @@ export function MusicView() {
           {visibleTracks.length ? (
             <div className="music-list">
               {visibleTracks.map((track) => {
-                const current = currentTrack?.id === track.id;
+                const current = nowPlaying?.id === track.id;
                 const playable = isPlayableSource(track.source);
                 const embed = embedUrlFor(track);
                 if (editingId === track.id) {
