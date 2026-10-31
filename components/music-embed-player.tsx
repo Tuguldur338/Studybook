@@ -24,7 +24,7 @@ export default function MusicEmbedPlayer() {
       setCardOpen(false);
       setLeaving(false);
       closeTimerRef.current = null;
-    }, 420);
+    }, 520);
   }, []);
 
   useEffect(() => {
@@ -51,7 +51,7 @@ export default function MusicEmbedPlayer() {
 
   useEffect(() => {
     if (!ready || !cardOpen || leaving || expanded || hovered) return;
-    const timer = window.setTimeout(closeCard, 2000);
+    const timer = window.setTimeout(closeCard, 3600);
     return () => window.clearTimeout(timer);
   }, [cardOpen, closeCard, expanded, hovered, leaving, ready]);
 
@@ -127,7 +127,7 @@ export default function MusicEmbedPlayer() {
 
               <h2 className="music-now-title">{embedTrack.title}</h2>
               <p className="music-now-sub">
-                {embedTrack.source === "youtube" ? "YouTube" : "Spotify"} Â·
+                {embedTrack.source === "youtube" ? "YouTube" : "Spotify"} Ã‚Â·
                 video hidden
               </p>
 
@@ -198,10 +198,6 @@ export default function MusicEmbedPlayer() {
             setCardOpen(true);
           }
         }}
-        onToggle={
-          ready && embedTrack.source === "youtube" ? toggleEmbed : undefined
-        }
-        paused={paused}
         playing={ready && !paused}
       />
     </>

@@ -1,22 +1,18 @@
 "use client";
 
-import { LuMusic, LuPause, LuPlay } from "react-icons/lu";
+import { LuMusic } from "react-icons/lu";
 
 export default function MusicOrb({
   cover,
   label,
   loading,
   onClick,
-  onToggle,
-  paused = false,
   playing,
 }: {
   cover?: string | null;
   label: string;
   loading?: boolean;
   onClick: () => void;
-  onToggle?: () => void;
-  paused?: boolean;
   playing?: boolean;
 }) {
   return (
@@ -47,17 +43,6 @@ export default function MusicOrb({
           </span>
         )}
       </button>
-
-      {onToggle && (
-        <button
-          aria-label={paused ? "Resume music" : "Pause music"}
-          className="music-orb-pause"
-          onClick={onToggle}
-          type="button"
-        >
-          {paused ? <LuPlay size={11} /> : <LuPause size={11} />}
-        </button>
-      )}
     </div>
   );
 }

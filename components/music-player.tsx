@@ -53,7 +53,7 @@ export default function MusicPlayer() {
       setCardOpen(false);
       setLeaving(false);
       closeTimerRef.current = null;
-    }, 420);
+    }, 520);
   }, []);
 
   useEffect(() => {
@@ -88,7 +88,7 @@ export default function MusicPlayer() {
     ) {
       return;
     }
-    const timer = window.setTimeout(closeCard, 2000);
+    const timer = window.setTimeout(closeCard, 3600);
     return () => window.clearTimeout(timer);
   }, [
     cardOpen,
@@ -172,7 +172,7 @@ export default function MusicPlayer() {
 
               <h2 className="music-now-title">{nowPlaying.title}</h2>
               <p className="music-now-sub">
-                {nowPlaying.playlist ?? dayLabel(nowPlaying.day)} Â·{" "}
+                {nowPlaying.playlist ?? dayLabel(nowPlaying.day)} Ã‚Â·{" "}
                 {SOURCE_LABELS[nowPlaying.source] ?? nowPlaying.source}
               </p>
 
@@ -236,7 +236,7 @@ export default function MusicPlayer() {
                         type="button"
                       >
                         <span aria-hidden="true" className="music-now-row-icon">
-                          {track.id === nowPlaying.id ? "â—‰" : "â€¢"}
+                          {track.id === nowPlaying.id ? "Ã¢â€”â€°" : "Ã¢â‚¬Â¢"}
                         </span>
                         <span className="music-now-row-copy">
                           <strong>{track.title}</strong>
@@ -280,8 +280,6 @@ export default function MusicPlayer() {
             setCardOpen(true);
           }
         }}
-        onToggle={togglePlayback}
-        paused={!isPlaying}
         playing={isPlaying && !loading}
       />
     </>

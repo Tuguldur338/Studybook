@@ -7488,3 +7488,19 @@ textarea.input:focus {
     transform: translateY(0);
   }
 }
+
+/* Give the popup a calmer entrance, longer stay, and softer exit */
+.music-now-card {
+  animation-duration: 650ms;
+}
+
+.music-now-card.is-leaving {
+  animation-duration: 520ms;
+}
+
+/* Fit the expanded card to its content; no inner scrollbars */
+.music-now-card,
+.music-now-card.is-expanded {
+  max-height: 900px;
+  overflow: hidden;
+}
