@@ -24,7 +24,7 @@ export default function MusicEmbedPlayer() {
       setCardOpen(false);
       setLeaving(false);
       closeTimerRef.current = null;
-    }, 360);
+    }, 420);
   }, []);
 
   useEffect(() => {
@@ -127,7 +127,7 @@ export default function MusicEmbedPlayer() {
 
               <h2 className="music-now-title">{embedTrack.title}</h2>
               <p className="music-now-sub">
-                {embedTrack.source === "youtube" ? "YouTube" : "Spotify"} ·
+                {embedTrack.source === "youtube" ? "YouTube" : "Spotify"} Â·
                 video hidden
               </p>
 
