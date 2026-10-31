@@ -30,6 +30,38 @@ export function coverUrlFor(track: MusicTrack) {
   return id ? `https://img.youtube.com/vi/${encodeURIComponent(id)}/hqdefault.jpg` : null;
 }
 
+/**
+ * Best-effort title lookup for YouTube/Spotify links. Uses noembed because
+ * YouTube's own oEmbed endpoint does not allow browser CORS requests.
+ */
+export async function fetchRemoteTrackTitle(url: string) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const response = await fetch(
+      `https://noembed.com/embed?url=${encodeURIComponent(url)}`,
+      { signal: controller.signal },
+    );
+    if (!response.ok) return null;
+    const payload: unknown = await response.json();
+    if (
+      typeof payload === "object" &&
+      payload !== null &&
+      "title" in payload &&
+      typeof payload.title === "string"
+    ) {
+      return payload.title.trim() || null;
+    }
+  } catch {
+    return null;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+
+  return null;
+}
+
 export function embedUrlFor(track: MusicTrack) {
   if (track.source !== "youtube" && track.source !== "spotify") return null;
 

@@ -64,6 +64,7 @@ import { HOLIDAYS } from "@/lib/holidays";
 import { awardTaskPoints } from "@/lib/leaderboard";
 import { isPlayableSource, type MusicTrack } from "@/lib/music-store";
 import { embedUrlFor } from "@/lib/music-embed";
+import { fetchRemoteTrackTitle } from "@/lib/music-embed";
 import { HALLOWEEN_THEME_TRACK } from "@/lib/music-specials";
 import { borderClass, borderIdFromMonth, borderLabel } from "@/lib/borders";
 
@@ -3276,7 +3277,7 @@ export function MusicView() {
   const personalFileRef = useRef<HTMLInputElement>(null);
   const selectedDay = dayChoice ?? holiday?.key ?? "any";
 
-  const libraryTracks = settings.tracks.filter((track) => !track.playlist);
+  const libraryTracks = settings.tracks;
   const filteredTracks = libraryTracks.filter((track) =>
     track.title.toLowerCase().includes(search.trim().toLowerCase()),
   );
@@ -3298,6 +3299,26 @@ export function MusicView() {
     }
     return [...grouped.entries()].map(([name, tracks]) => ({ name, tracks }));
   }, [settings.tracks]);
+
+  const titleLookupRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    for (const track of settings.tracks) {
+      if (
+        (track.source === "youtube" || track.source === "spotify") &&
+        (track.title === "YouTube track" ||
+          track.title === "Spotify track") &&
+        !titleLookupRef.current.has(track.id)
+      ) {
+        titleLookupRef.current.add(track.id);
+        void fetchRemoteTrackTitle(track.url).then((remoteTitle) => {
+          if (remoteTitle) updateTrack(track.id, { title: remoteTitle });
+          else if (track.playlist) {
+            updateTrack(track.id, { title: track.playlist });
+          }
+        });
+      }
+    }
+  }, [settings.tracks, updateTrack]);
 
   const dayLabel = (key: string) =>
     key === "any" ? "Any day" : (HOLIDAYS[key]?.name ?? key);
@@ -3926,8 +3947,10 @@ export function MusicView() {
                     <div className="music-row-main">
                       <strong>{track.title}</strong>
                       <span>
-                        {dayLabel(track.day)} ·{" "}
-                        {SOURCE_LABELS[track.source] ?? track.source}
+                        {track.playlist
+                          ? `Personal · ${track.playlist}`
+                          : dayLabel(track.day)}{" "}
+                        · {SOURCE_LABELS[track.source] ?? track.source}
                       </span>
                     </div>
                     {current && <span className="music-tag">Now playing</span>}

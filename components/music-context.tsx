@@ -32,6 +32,7 @@ import {
   type MusicSettings,
   type MusicTrack,
 } from "@/lib/music-store";
+import { fetchRemoteTrackTitle } from "@/lib/music-embed";
 import { HALLOWEEN_THEME_TRACK } from "@/lib/music-specials";
 
 type MusicContextValue = {
@@ -500,9 +501,18 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       }
 
       const source = detectTrackSource(trimmed);
+      const typedTitle = title.trim();
+      const remoteTitle =
+        !typedTitle && (source === "youtube" || source === "spotify")
+          ? await fetchRemoteTrackTitle(trimmed)
+          : null;
       const track: MusicTrack = {
         id: newTrackId(source),
-        title: title.trim() || trackTitleFromUrl(trimmed),
+        title:
+          typedTitle ||
+          remoteTitle ||
+          playlist?.trim() ||
+          trackTitleFromUrl(trimmed),
         source,
         url: trimmed,
         day,
