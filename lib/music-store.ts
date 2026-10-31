@@ -78,7 +78,14 @@ export function trackTitleFromUrl(raw: string) {
 }
 
 export function isPlayableSource(source: TrackSource) {
-  return source === "file" || source === "url" || source === "builtin";
+  // "link" links are attempted as audio too; a non-audio page simply reports
+  // a clear error instead of being silently unplayable.
+  return (
+    source === "file" ||
+    source === "url" ||
+    source === "link" ||
+    source === "builtin"
+  );
 }
 
 function isMusicTrack(value: unknown): value is MusicTrack {

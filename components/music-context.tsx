@@ -103,6 +103,27 @@ export function resolveTrack(
   return builtinTrack(holiday);
 }
 
+function playlistFor(holiday: Holiday | null, settings: MusicSettings) {
+  if (holiday) {
+    const holidayTracks = settings.tracks.filter(
+      (track) =>
+        isPlayableSource(track.source) &&
+        (track.day === holiday.key ||
+          settings.activeByDay[holiday.key] === track.id),
+    );
+    if (holidayTracks.length) return holidayTracks;
+  }
+
+  const anyTracks = settings.tracks.filter(
+    (track) =>
+      isPlayableSource(track.source) &&
+      (track.day === "any" || settings.activeByDay.any === track.id),
+  );
+  if (anyTracks.length) return anyTracks;
+
+  return settings.tracks.filter((track) => isPlayableSource(track.source));
+}
+
 export function MusicProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<MusicSettings>(
     DEFAULT_MUSIC_SETTINGS,
@@ -282,6 +303,15 @@ export function MusicProvider({ children }: { children: ReactNode }) {
           setBlocked(true);
           return;
         }
+        if (
+          cause instanceof DOMException &&
+          cause.name === "NotSupportedError"
+        ) {
+          setError(
+            "This link is not a direct audio file. Use a direct MP3/audio link or upload the file.",
+          );
+          return;
+        }
         setError(
           cause instanceof Error
             ? cause.message
@@ -333,9 +363,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   );
 
   const nextTrack = useCallback(async () => {
-    const playable = settingsRef.current.tracks.filter((track) =>
-      isPlayableSource(track.source),
-    );
+    const playable = playlistFor(holiday, settingsRef.current);
     if (!playable.length) return;
 
     const index = currentTrack
@@ -343,12 +371,10 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       : -1;
     const next = playable[(index + 1) % playable.length] ?? playable[0];
     await playTrack(next);
-  }, [currentTrack, playTrack]);
+  }, [currentTrack, holiday, playTrack]);
 
   const previousTrack = useCallback(async () => {
-    const playable = settingsRef.current.tracks.filter((track) =>
-      isPlayableSource(track.source),
-    );
+    const playable = playlistFor(holiday, settingsRef.current);
     if (!playable.length) return;
 
     const index = currentTrack
@@ -357,7 +383,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     const previous =
       playable[(index - 1 + playable.length) % playable.length] ?? playable[0];
     await playTrack(previous);
-  }, [currentTrack, playTrack]);
+  }, [currentTrack, holiday, playTrack]);
 
   const setVolume = useCallback(
     (value: number) => {
@@ -393,7 +419,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
         ...settingsRef.current,
         tracks: [track, ...settingsRef.current.tracks],
       };
-      if (isPlayableSource(source)) {
+      if (source === "url") {
         next.activeByDay = { ...next.activeByDay, [day]: track.id };
       }
       commit(next);

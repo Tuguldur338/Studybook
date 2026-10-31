@@ -101,14 +101,16 @@ function ProfileAvatar({
   name,
   image,
   large = false,
+  borderClass = "",
 }: {
   name: string;
   image: string;
   large?: boolean;
+  borderClass?: string;
 }) {
   return (
     <span
-      className={`avatar${image ? " has-image" : ""}${large ? " profile-avatar" : ""}`}
+      className={`avatar${image ? " has-image" : ""}${large ? " profile-avatar" : ""}${borderClass ? ` ${borderClass}` : ""}`}
       style={image ? { backgroundImage: `url("${image}")` } : undefined}
       aria-label={`${name}'s profile picture`}
       role="img"

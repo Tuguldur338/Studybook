@@ -141,6 +141,10 @@ Apply the migrations in order after the base schema:
 7. [`migrations/halloween.sql`](./migrations/halloween.sql) — the
    `halloween_claims` table and `claim_halloween()` function, so a trick-or-treat
    can only be claimed once per account each year, on any device.
+8. [`migrations/monthly-borders.sql`](./migrations/monthly-borders.sql) — the
+   monthly leaderboard points table, `equipped_border` on profiles,
+   `get_my_borders()`, and the updated `award_points()`, `get_leaderboard()`,
+   and `claim_halloween()` for monthly seasons and champion borders.
 
 These migration files are meant for a **fresh project**. If the base schema,
 messaging, or usernames are already working, do not rerun them. Expected errors
@@ -155,8 +159,34 @@ when rerunning are:
 
 If sign-in and messaging already work, apply only the **missing** newer
 migrations: `chat-customization.sql` (group settings), `leaderboard.sql`
-(points), `sync.sql` (cross-device data), and `halloween.sql` (the Halloween
-claim).
+(points), `sync.sql` (cross-device data), `halloween.sql` (the Halloween
+claim), and `monthly-borders.sql` (monthly seasons and borders).
+
+## Monthly leaderboard and borders
+
+Apply [`migrations/monthly-borders.sql`](./migrations/monthly-borders.sql) after
+`leaderboard.sql` and `halloween.sql`. It:
+
+- adds `leaderboard_monthly` (one row per user per month) and keeps
+  `profiles.points` as the all-time total;
+- updates `award_points()` and `claim_halloween()` so task and Halloween points
+  also count toward the current month;
+- makes `get_leaderboard()` return the current month's points plus the user's
+  equipped border;
+- adds `get_my_borders()`, which lists each past month the signed-in user won
+  (or tied for first);
+- adds `profiles.equipped_border`, which stores the chosen border on the account
+  so it follows the user to other devices.
+
+The leaderboard resets to zero at the start of each month. When a month ends,
+the top scorer earns that month's champion border (the palette changes by
+month), which can be equipped on the Profile tab. Run:
+
+```sql
+notify pgrst, 'reload schema';
+```
+
+after the migration.
 
 ## Halloween claim
 

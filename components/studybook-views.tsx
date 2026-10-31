@@ -62,7 +62,8 @@ import { useSupabaseUser } from "@/components/use-supabase-user";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { HOLIDAYS } from "@/lib/holidays";
 import { awardTaskPoints } from "@/lib/leaderboard";
-import { isPlayableSource } from "@/lib/music-store";
+import { isPlayableSource, type MusicTrack } from "@/lib/music-store";
+import { borderClass, borderIdFromMonth, borderLabel } from "@/lib/borders";
 
 const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const shortWeekdays = ["Mon", "Tue", "Wed", "Thu", "Fri"];
@@ -2839,6 +2840,65 @@ export function ProfileView() {
     };
   }, [ready, user]);
 
+  const [earnedBorders, setEarnedBorders] = useState<string[]>([]);
+  const [equippedBorder, setEquippedBorder] = useState<string | null>(null);
+  const [bordersLoading, setBordersLoading] = useState(true);
+  const [borderError, setBorderError] = useState("");
+
+  useEffect(() => {
+    if (!ready || !user) {
+      const timer = window.setTimeout(() => setBordersLoading(false), 0);
+      return () => window.clearTimeout(timer);
+    }
+
+    let active = true;
+    const timer = window.setTimeout(async () => {
+      const supabase = getSupabaseBrowserClient();
+      const [{ data: profileRow }, { data: borderRows, error: bordersError }] =
+        await Promise.all([
+          supabase
+            .from("profiles")
+            .select("equipped_border")
+            .eq("id", user.id)
+            .maybeSingle(),
+          supabase.rpc("get_my_borders"),
+        ]);
+
+      if (!active) return;
+      if (bordersError) setBorderError(bordersError.message);
+      setEquippedBorder(
+        (profileRow as { equipped_border?: string | null } | null)
+          ?.equipped_border ?? null,
+      );
+      setEarnedBorders(
+        ((borderRows as { month: string }[] | null) ?? []).map((row) =>
+          borderIdFromMonth(row.month),
+        ),
+      );
+      setBordersLoading(false);
+    }, 0);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [ready, user]);
+
+  async function equipBorder(borderId: string) {
+    if (!user) return;
+    setBorderError("");
+    const supabase = getSupabaseBrowserClient();
+    const { error: equipError } = await supabase
+      .from("profiles")
+      .update({ equipped_border: borderId })
+      .eq("id", user.id);
+    if (equipError) {
+      setBorderError(equipError.message);
+      return;
+    }
+    setEquippedBorder(borderId);
+  }
+
   const completed = tasks
     .filter((task) => task.completed)
     .sort((a, b) => {
@@ -2861,7 +2921,12 @@ export function ProfileView() {
       />
       <div className="profile-layout">
         <section className="panel profile-card">
-          <ProfileAvatar image={profile.avatar} large name={profile.name} />
+          <ProfileAvatar
+            borderClass={borderClass(equippedBorder)}
+            image={profile.avatar}
+            large
+            name={profile.name}
+          />
           <h2 className="profile-name">{profile.name}</h2>
           {user && username && (
             <p className="profile-username">@{username}</p>
@@ -2916,6 +2981,54 @@ export function ProfileView() {
           </div>
         </section>
       </div>
+
+      <section className="panel profile-borders">
+        <div className="panel-heading">
+          <h2 className="panel-title">Borders</h2>
+          <span className="panel-link">{earnedBorders.length} earned</span>
+        </div>
+        <div className="panel-body">
+          {bordersLoading ? (
+            <p className="field-hint">Loading borders…</p>
+          ) : earnedBorders.length ? (
+            <div className="border-grid">
+              {earnedBorders.map((borderId) => (
+                <button
+                  aria-pressed={equippedBorder === borderId}
+                  className={`border-card${equippedBorder === borderId ? " equipped" : ""}`}
+                  key={borderId}
+                  onClick={() => void equipBorder(borderId)}
+                  type="button"
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`border-preview avatar ${borderClass(borderId)}`}
+                  >
+                    ★
+                  </span>
+                  <span className="border-card-copy">
+                    <strong>{borderLabel(borderId)}</strong>
+                    <span>
+                      {equippedBorder === borderId ? "Equipped" : "Equip border"}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              copy="Win a month on the leaderboard to earn a champion border."
+              icon={<LuTrophy aria-hidden="true" size={22} />}
+              title="No borders yet"
+            />
+          )}
+          {borderError && <p className="notice">{borderError}</p>}
+          <p className="field-hint">
+            The leaderboard resets on the 1st of every month. The top scorer
+            earns that month&apos;s border, and you can equip it here.
+          </p>
+        </div>
+      </section>
     </>
   );
 }
@@ -3113,6 +3226,46 @@ const SOURCE_LABELS: Record<string, string> = {
   builtin: "Built-in theme",
 };
 
+function embedUrlFor(track: MusicTrack) {
+  if (track.source !== "youtube" && track.source !== "spotify") return null;
+
+  try {
+    const url = new URL(track.url);
+    const host = url.hostname.replace(/^www\./, "").toLowerCase();
+
+    if (track.source === "youtube") {
+      let id = "";
+      if (host === "youtu.be") {
+        id = url.pathname.split("/").filter(Boolean)[0] ?? "";
+      } else if (host.includes("youtube.com")) {
+        if (
+          url.pathname.startsWith("/shorts/") ||
+          url.pathname.startsWith("/embed/")
+        ) {
+          id = url.pathname.split("/")[2] ?? "";
+        } else {
+          id = url.searchParams.get("v") ?? "";
+        }
+      }
+      return id
+        ? `https://www.youtube.com/embed/${encodeURIComponent(id)}?autoplay=1`
+        : null;
+    }
+
+    const parts = url.pathname.split("/").filter(Boolean);
+    if (
+      ["track", "album", "playlist", "episode"].includes(parts[0]) &&
+      parts[1]
+    ) {
+      return `https://open.spotify.com/embed/${parts[0]}/${encodeURIComponent(parts[1])}`;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 export function MusicView() {
   const {
     addFileTrack,
@@ -3141,8 +3294,18 @@ export function MusicView() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDay, setEditDay] = useState("any");
+  const [search, setSearch] = useState("");
+  const [embedTrack, setEmbedTrack] = useState<MusicTrack | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const selectedDay = dayChoice ?? holiday?.key ?? "any";
+
+  const filteredTracks = settings.tracks.filter((track) =>
+    track.title.toLowerCase().includes(search.trim().toLowerCase()),
+  );
+  const visibleTracks = filteredTracks.slice(0, 10);
+  const halloweenTracks = settings.tracks.filter(
+    (track) => track.day === "halloween",
+  );
 
   const dayLabel = (key: string) =>
     key === "any" ? "Any day" : (HOLIDAYS[key]?.name ?? key);
@@ -3207,6 +3370,16 @@ export function MusicView() {
     updateTrack(editingId, { title: editTitle, day: editDay });
     setEditingId(null);
     setNotice("Track updated.");
+  }
+
+  function toggleHalloween(track: MusicTrack) {
+    const adding = track.day !== "halloween";
+    updateTrack(track.id, { day: adding ? "halloween" : "any" });
+    setNotice(
+      adding
+        ? `Added “${track.title}” to the Halloween playlist.`
+        : `Removed “${track.title}” from the Halloween playlist.`,
+    );
   }
 
   return (
@@ -3351,18 +3524,107 @@ export function MusicView() {
 
       <section className="panel">
         <div className="panel-heading">
-          <h2 className="panel-title">Your music</h2>
+          <h2 className="panel-title">Halloween playlist</h2>
+          <span className="panel-link">
+            {halloweenTracks.length} track
+            {halloweenTracks.length === 1 ? "" : "s"}
+          </span>
+        </div>
+        <div className="panel-body">
+          {halloweenTracks.length ? (
+            <div className="music-list">
+              {halloweenTracks.map((track) => {
+                const current = currentTrack?.id === track.id;
+                const playable = isPlayableSource(track.source);
+                const embed = embedUrlFor(track);
+                return (
+                  <div
+                    className={`music-row${current ? " current" : ""}`}
+                    key={track.id}
+                  >
+                    <span aria-hidden="true" className="music-row-icon">
+                      🎃
+                    </span>
+                    <div className="music-row-main">
+                      <strong>{track.title}</strong>
+                      <span>{dayLabel(track.day)}</span>
+                    </div>
+                    {current && <span className="music-tag">Now playing</span>}
+                    {playable ? (
+                      <button
+                        aria-label={`Play ${track.title}`}
+                        className="small-icon-button"
+                        onClick={() => void playTrack(track)}
+                        type="button"
+                      >
+                        <LuPlay size={13} />
+                      </button>
+                    ) : embed ? (
+                      <button
+                        aria-label={`Play ${track.title} in browser`}
+                        className="small-icon-button"
+                        onClick={() => setEmbedTrack(track)}
+                        type="button"
+                      >
+                        <LuPlay size={13} />
+                      </button>
+                    ) : (
+                      <a
+                        aria-label={`Open ${track.title}`}
+                        className="small-icon-button"
+                        href={track.url}
+                        rel="noreferrer noopener"
+                        target="_blank"
+                      >
+                        <LuExternalLink size={13} />
+                      </a>
+                    )}
+                    <button
+                      aria-label={`Remove ${track.title} from Halloween`}
+                      className="small-icon-button danger"
+                      onClick={() => toggleHalloween(track)}
+                      type="button"
+                    >
+                      <LuX size={13} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="field-hint">
+              Use the 🎃 button on a track below to add it to Halloween.
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section className="panel">
+        <div className="panel-heading">
+          <h2 className="panel-title">Library</h2>
           <span className="panel-link">
             {settings.tracks.length} track
             {settings.tracks.length === 1 ? "" : "s"}
           </span>
         </div>
         <div className="panel-body">
-          {settings.tracks.length ? (
+          <div className="music-search">
+            <LuSearch aria-hidden="true" size={15} />
+            <input
+              aria-label="Search your music"
+              className="input"
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search your music by title..."
+              type="search"
+              value={search}
+            />
+          </div>
+          {visibleTracks.length ? (
             <div className="music-list">
-              {settings.tracks.map((track) => {
+              {visibleTracks.map((track) => {
                 const current = currentTrack?.id === track.id;
                 const playable = isPlayableSource(track.source);
+                const embed = embedUrlFor(track);
                 if (editingId === track.id) {
                   return (
                     <div
@@ -3457,6 +3719,15 @@ export function MusicView() {
                       >
                         <LuPlay size={13} />
                       </button>
+                    ) : embed ? (
+                      <button
+                        aria-label={`Play ${track.title} in browser`}
+                        className="small-icon-button"
+                        onClick={() => setEmbedTrack(track)}
+                        type="button"
+                      >
+                        <LuPlay size={13} />
+                      </button>
                     ) : (
                       <a
                         aria-label={`Open ${track.title}`}
@@ -3468,6 +3739,24 @@ export function MusicView() {
                         <LuExternalLink size={13} />
                       </a>
                     )}
+                    <button
+                      aria-label={
+                        track.day === "halloween"
+                          ? `Remove ${track.title} from Halloween`
+                          : `Add ${track.title} to Halloween`
+                      }
+                      aria-pressed={track.day === "halloween"}
+                      className={`small-icon-button${track.day === "halloween" ? " halloween-on" : ""}`}
+                      onClick={() => toggleHalloween(track)}
+                      title={
+                        track.day === "halloween"
+                          ? "Remove from Halloween"
+                          : "Add to Halloween"
+                      }
+                      type="button"
+                    >
+                      🎃
+                    </button>
                     <button
                       aria-label={`Edit ${track.title}`}
                       className="small-icon-button"
@@ -3490,13 +3779,61 @@ export function MusicView() {
             </div>
           ) : (
             <EmptyState
-              copy="Add a song above and choose any day or a celebration."
+              copy={
+                settings.tracks.length
+                  ? "No tracks match that search."
+                  : "Add a song above and choose any day or a celebration."
+              }
               icon={<LuMusic aria-hidden="true" size={22} />}
-              title="No tracks yet"
+              title={settings.tracks.length ? "No matches" : "No tracks yet"}
             />
+          )}
+          {filteredTracks.length > 10 && (
+            <p className="field-hint">
+              Showing 10 of {filteredTracks.length} — search to narrow the
+              list.
+            </p>
           )}
         </div>
       </section>
+
+      {embedTrack && embedUrlFor(embedTrack) && (
+        <div
+          className="music-embed-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setEmbedTrack(null);
+          }}
+          role="presentation"
+        >
+          <div
+            aria-labelledby="music-embed-title"
+            aria-modal="true"
+            className="music-embed-panel"
+            role="dialog"
+          >
+            <div className="music-embed-head">
+              <h2 id="music-embed-title">{embedTrack.title}</h2>
+              <button
+                aria-label="Close player"
+                className="small-icon-button"
+                onClick={() => setEmbedTrack(null)}
+                type="button"
+              >
+                <LuX size={15} />
+              </button>
+            </div>
+            <iframe
+              allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+              allowFullScreen
+              src={embedUrlFor(embedTrack) ?? ""}
+              title={`${embedTrack.title} player`}
+            />
+            <p className="field-hint">
+              Embedded player. Close it to go back to your library.
+            </p>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -3796,14 +4133,28 @@ type LeaderboardRow = {
   display_name: string;
   avatar_url: string | null;
   points: number;
+  equipped_border: string | null;
 };
 
 export function LeaderboardView() {
   const { user, ready } = useSupabaseUser();
   const [rows, setRows] = useState<LeaderboardRow[]>([]);
   const [ownPoints, setOwnPoints] = useState<number | null>(null);
+  const [seasonLabel, setSeasonLabel] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSeasonLabel(
+        new Intl.DateTimeFormat(undefined, {
+          month: "long",
+          year: "numeric",
+        }).format(new Date()),
+      );
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -3818,14 +4169,9 @@ export function LeaderboardView() {
       );
       if (boardError) throw boardError;
 
-      setRows((data as LeaderboardRow[] | null) ?? []);
-
-      const { data: own } = await supabase
-        .from("profiles")
-        .select("points")
-        .eq("id", user.id)
-        .maybeSingle();
-      if (own) setOwnPoints((own as { points: number }).points);
+      const nextRows = (data as LeaderboardRow[] | null) ?? [];
+      setRows(nextRows);
+      setOwnPoints(nextRows.find((row) => row.id === user.id)?.points ?? 0);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -3869,8 +4215,8 @@ export function LeaderboardView() {
           </button>
         ) : null
       }
-      eyebrow="Friends only"
-      subtitle="Points for finishing to-dos — only you and your accepted friends appear here. High +30, medium +20, low +10."
+      eyebrow="Friends only · Monthly"
+      subtitle={`${seasonLabel ? `${seasonLabel} · ` : ""}Points reset on the 1st of every month. The top scorer earns a champion border — high +30, medium +20, low +10.`}
       title="Leaderboard"
     />
   );
@@ -3938,6 +4284,7 @@ export function LeaderboardView() {
                           {row ? (
                             <>
                               <ProfileAvatar
+                                borderClass={borderClass(row.equipped_border)}
                                 image={row.avatar_url ?? ""}
                                 name={
                                   row.display_name ||
@@ -3981,6 +4328,7 @@ export function LeaderboardView() {
                             {index + 4}
                           </span>
                           <ProfileAvatar
+                            borderClass={borderClass(row.equipped_border)}
                             image={row.avatar_url ?? ""}
                             name={
                               row.display_name || row.username || "Student"

@@ -6084,3 +6084,232 @@ button.messenger-row:hover {
     margin-top: 2px;
   }
 }
+
+/* Monthly champion borders */
+.avatar.champion-1 {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 5px #8ec9f2,
+    0 0 18px #8ec9f255;
+}
+
+.avatar.champion-2 {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 5px #f28aa2,
+    0 0 18px #f28aa255;
+}
+
+.avatar.champion-3 {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 5px #73c79d,
+    0 0 18px #73c79d55;
+}
+
+.avatar.champion-4 {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 5px #c4a4f0,
+    0 0 18px #c4a4f055;
+}
+
+.avatar.champion-5 {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 5px #f09b7b,
+    0 0 18px #f09b7b55;
+}
+
+.avatar.champion-6 {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 5px #e3c15c,
+    0 0 18px #e3c15c55;
+}
+
+.avatar.champion-7 {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 5px #54c5c9,
+    0 0 18px #54c5c955;
+}
+
+.avatar.champion-8 {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 5px #f0a24e,
+    0 0 18px #f0a24e55;
+}
+
+.avatar.champion-9 {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 5px #d9a94f,
+    0 0 18px #d9a94f55;
+}
+
+.avatar.champion-10 {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 5px #7c5cff,
+    0 0 0 8px #e8792e,
+    0 0 22px #e8792e66;
+}
+
+.avatar.champion-11 {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 5px #c98b5e,
+    0 0 18px #c98b5e55;
+}
+
+.avatar.champion-12 {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 5px #d95454,
+    0 0 0 8px #4f9e70,
+    0 0 22px #d9545455;
+}
+
+.profile-borders {
+  margin-top: 18px;
+}
+
+.border-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 9px;
+}
+
+.border-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 10px;
+  color: var(--foreground);
+  text-align: left;
+  cursor: pointer;
+}
+
+.border-card:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-muted);
+}
+
+.border-card.equipped {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.border-preview {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border-radius: 50%;
+  background: var(--surface-muted);
+  color: var(--accent-strong);
+  font-size: 17px;
+}
+
+.border-card-copy {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.border-card-copy strong {
+  overflow: hidden;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.border-card-copy span {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.border-card.equipped .border-card-copy span {
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+/* Music library search, Halloween toggle, and embedded players */
+.music-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.music-search svg {
+  flex: 0 0 auto;
+  color: var(--muted);
+}
+
+.music-search .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.small-icon-button.halloween-on {
+  border-color: #e8792e;
+  background: #e8792e;
+  color: #fff;
+}
+
+.music-embed-backdrop {
+  position: fixed;
+  z-index: 96;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(4 2 8 / 72%);
+  backdrop-filter: blur(4px);
+  padding: 20px;
+}
+
+.music-embed-panel {
+  width: min(100%, 580px);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.music-embed-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid var(--border);
+  padding: 11px 13px;
+}
+
+.music-embed-head h2 {
+  margin: 0;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.music-embed-panel iframe {
+  display: block;
+  width: 100%;
+  height: min(52vh, 340px);
+  border: 0;
+  background: #000;
+}
+
+.music-embed-panel .field-hint {
+  margin: 0;
+  padding: 8px 13px 11px;
+}
