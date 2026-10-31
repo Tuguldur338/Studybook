@@ -7561,3 +7561,62 @@ textarea.input:focus {
     max-height: calc(100dvh - 24px);
   }
 }
+
+/* Loop control: 0 = off, 1 = loop all, 2 = loop one */
+.loop-button {
+  display: inline-flex;
+  height: 36px;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  padding: 0 8px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.loop-button:hover {
+  border-color: var(--border-strong);
+  color: var(--foreground);
+}
+
+.loop-button.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.loop-button-count {
+  display: grid;
+  min-width: 16px;
+  height: 16px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.loop-button.is-active .loop-button-count {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.music-now-loop-button {
+  flex: 0 0 auto;
+}
+
+/* Music tab section rhythm */
+.music-page {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}

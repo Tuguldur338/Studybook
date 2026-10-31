@@ -45,10 +45,13 @@ type MusicContextValue = {
   nowPlaying: MusicTrack | null;
   startingTrack: MusicTrack | null;
   embedTrack: MusicTrack | null;
-  playEmbed: (track: MusicTrack) => void;
+  embedUserGesture: boolean;
+  playEmbed: (track: MusicTrack, userGesture?: boolean) => void;
   closeEmbed: () => void;
   blocked: boolean;
   error: string;
+  loopMode: 0 | 1 | 2;
+  cycleLoopMode: () => void;
   play: () => Promise<void>;
   playTrack: (track: MusicTrack) => Promise<void>;
   playPlaylist: (
@@ -160,8 +163,10 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   const [nowPlaying, setNowPlaying] = useState<MusicTrack | null>(null);
   const [startingTrack, setStartingTrack] = useState<MusicTrack | null>(null);
   const [embedTrack, setEmbedTrack] = useState<MusicTrack | null>(null);
+  const [embedUserGesture, setEmbedUserGesture] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [error, setError] = useState("");
+  const [loopMode, setLoopMode] = useState<0 | 1 | 2>(0);
 
   const settingsRef = useRef<MusicSettings>(DEFAULT_MUSIC_SETTINGS);
   const dayKeyRef = useRef("");
@@ -171,6 +176,15 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   const synthGainRef = useRef<GainNode | null>(null);
   const lastStartedRef = useRef<string | null>(null);
   const queueRef = useRef<MusicTrack[]>([]);
+  const loopModeRef = useRef<0 | 1 | 2>(0);
+
+  const cycleLoopMode = useCallback(() => {
+    setLoopMode((current) => {
+      const next = ((current + 1) % 3) as 0 | 1 | 2;
+      loopModeRef.current = next;
+      return next;
+    });
+  }, []);
 
   const currentTrack = useMemo(
     () => resolveTrack(holiday, settings),
@@ -357,11 +371,12 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   );
 
   const openEmbed = useCallback(
-    (track: MusicTrack) => {
+    (track: MusicTrack, userGesture = false) => {
       queueRef.current = [];
       stopPlayback();
       setIsPlaying(false);
       lastStartedRef.current = currentTrack?.id ?? null;
+      setEmbedUserGesture(userGesture);
       setEmbedTrack(track);
     },
     [currentTrack, stopPlayback],
@@ -378,7 +393,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       currentTrack.source === "youtube" ||
       currentTrack.source === "spotify"
     ) {
-      openEmbed(currentTrack);
+      openEmbed(currentTrack, true);
       return;
     }
     await startTrack(currentTrack);
@@ -419,9 +434,9 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   );
 
   const playEmbed = useCallback(
-    (track: MusicTrack) => {
+    (track: MusicTrack, userGesture = false) => {
       if (track.source !== "youtube" && track.source !== "spotify") return;
-      openEmbed(track);
+      openEmbed(track, userGesture);
     },
     [openEmbed],
   );
@@ -433,7 +448,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       );
       if (!playable.length) {
         const first = tracks[startIndex] ?? tracks[0];
-        if (first) playEmbed(first);
+        if (first) playEmbed(first, true);
         return;
       }
 
@@ -449,9 +464,12 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     [playEmbed, playTrack],
   );
 
-  const closeEmbed = useCallback(() => setEmbedTrack(null), []);
+  const closeEmbed = useCallback(() => {
+    setEmbedUserGesture(false);
+    setEmbedTrack(null);
+  }, []);
 
-  const nextTrack = useCallback(async () => {
+  const nextTrack = useCallback(async (wrap = true) => {
     const hasQueue = queueRef.current.length > 0;
     const playable = hasQueue
       ? queueRef.current
@@ -461,9 +479,13 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     const index = nowPlaying
       ? playable.findIndex((track) => track.id === nowPlaying.id)
       : -1;
+    if (!wrap && index >= playable.length - 1) {
+      pause();
+      return;
+    }
     const next = playable[(index + 1) % playable.length] ?? playable[0];
     await playTrack(next, hasQueue);
-  }, [nowPlaying, holiday, playTrack]);
+  }, [nowPlaying, holiday, pause, playTrack]);
 
   const previousTrack = useCallback(async () => {
     const hasQueue = queueRef.current.length > 0;
@@ -649,11 +671,16 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     const audio = audioRef.current;
     if (!audio) return;
     const handleEnded = () => {
-      void nextTrack();
+      const mode = loopModeRef.current;
+      if (mode === 2) {
+        if (nowPlaying) void playTrack(nowPlaying, true);
+        return;
+      }
+      void nextTrack(mode === 1);
     };
     audio.addEventListener("ended", handleEnded);
     return () => audio.removeEventListener("ended", handleEnded);
-  }, [nextTrack]);
+  }, [nextTrack, nowPlaying, playTrack]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -738,6 +765,9 @@ export function MusicProvider({ children }: { children: ReactNode }) {
         playEmbed,
         closeEmbed,
         embedTrack,
+        embedUserGesture,
+        loopMode,
+        cycleLoopMode,
         nextTrack,
         previousTrack,
         pause,

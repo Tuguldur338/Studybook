@@ -11,7 +11,7 @@ export default function MusicEmbedPlayer({
 }: {
   raised?: boolean;
 }) {
-  const { closeEmbed, embedTrack } = useMusic();
+  const { closeEmbed, embedTrack, embedUserGesture } = useMusic();
   const [ready, setReady] = useState(false);
   const [cardOpen, setCardOpen] = useState(true);
   const [hovered, setHovered] = useState(false);
@@ -64,15 +64,22 @@ export default function MusicEmbedPlayer({
       setPaused(false);
       setLeaving(false);
       setExpanded(false);
+      setGestureReady(embedUserGesture);
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [embedTrack]);
+  }, [embedTrack, embedUserGesture]);
 
   useEffect(() => {
     if (!ready || !cardOpen || leaving || expanded || hovered) return;
     const timer = window.setTimeout(closeCard, 3600);
     return () => window.clearTimeout(timer);
   }, [cardOpen, closeCard, expanded, hovered, leaving, ready]);
+
+  useEffect(() => {
+    if (!ready || !gestureReady) return;
+    sendPlayerCommand("playVideo");
+    sendPlayerCommand("unMute");
+  }, [gestureReady, ready, sendPlayerCommand]);
 
   if (!embedTrack) return null;
 

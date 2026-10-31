@@ -7,6 +7,7 @@ import {
   LuListMusic,
   LuPause,
   LuPlay,
+  LuRepeat,
   LuSkipBack,
   LuSkipForward,
   LuVolume2,
@@ -28,8 +29,10 @@ const SOURCE_LABELS: Record<string, string> = {
 
 export default function MusicPlayer({ raised = false }: { raised?: boolean }) {
   const {
+    cycleLoopMode,
     embedTrack,
     isPlaying,
+    loopMode,
     nextTrack,
     nowPlaying,
     pause,
@@ -209,6 +212,28 @@ export default function MusicPlayer({ raised = false }: { raised?: boolean }) {
                   type="button"
                 >
                   <LuListMusic size={15} />
+                </button>
+                <button
+                  className={`loop-button music-now-loop-button${loopMode > 0 ? " is-active" : ""}`}
+                  title={
+                    loopMode === 0
+                      ? "Loop off · press once to loop all songs"
+                      : loopMode === 1
+                        ? "Looping all songs · press again to loop one song"
+                        : "Looping this song · press again to turn loop off"
+                  }
+                  aria-label={
+                    loopMode === 0
+                      ? "Loop off"
+                      : loopMode === 1
+                        ? "Looping all songs"
+                        : "Looping this song"
+                  }
+                  onClick={cycleLoopMode}
+                  type="button"
+                >
+                  <LuRepeat aria-hidden="true" size={14} />
+                  <span className="loop-button-count">{loopMode}</span>
                 </button>
               </div>
 

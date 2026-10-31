@@ -30,6 +30,7 @@ import {
   LuPencil,
   LuPlus,
   LuRefreshCw,
+  LuRepeat,
   LuSearch,
   LuSun,
   LuSunrise,
@@ -3241,10 +3242,12 @@ export function MusicView() {
     addUrlTrack,
     blocked,
     currentTrack,
+    cycleLoopMode,
     embedTrack,
     error,
     holiday,
     isPlaying,
+    loopMode,
     nowPlaying,
     playEmbed,
     playPlaylist,
@@ -3446,7 +3449,7 @@ export function MusicView() {
   function playPersonal(tracks: MusicTrack[], index = 0) {
     const selected = tracks[index] ?? tracks[0];
     if (selected && !isPlayableSource(selected.source)) {
-      playEmbed(selected);
+      playEmbed(selected, true);
       return;
     }
     void playPlaylist(tracks, index);
@@ -3466,7 +3469,7 @@ export function MusicView() {
   }
 
   return (
-    <>
+    <div className="music-page">
       <PageHeading
         eyebrow="Set the mood"
         subtitle="Add your own soundtrack and play it in the browser any day."
@@ -3505,6 +3508,28 @@ export function MusicView() {
           >
             {isPlaying ? <LuPause size={15} /> : <LuPlay size={15} />}
             {isPlaying ? "Pause" : "Play"}
+          </button>
+          <button
+            className={`loop-button${loopMode > 0 ? " is-active" : ""}`}
+            title={
+              loopMode === 0
+                ? "Loop off · press once to loop all songs"
+                : loopMode === 1
+                  ? "Looping all songs · press again to loop one song"
+                  : "Looping this song · press again to turn loop off"
+            }
+            aria-label={
+              loopMode === 0
+                ? "Loop off"
+                : loopMode === 1
+                  ? "Looping all songs"
+                  : "Looping this song"
+            }
+            onClick={cycleLoopMode}
+            type="button"
+          >
+            <LuRepeat aria-hidden="true" size={15} />
+            <span className="loop-button-count">{loopMode}</span>
           </button>
           <label className="music-volume" title="Music volume">
             <LuVolume2 aria-hidden="true" size={15} />
@@ -3703,46 +3728,6 @@ export function MusicView() {
                       <LuTrash2 size={13} />
                     </button>
                   </div>
-                  <div className="personal-list-songs">
-                    {list.tracks.map((track, index) => {
-                      const current =
-                        nowPlaying?.id === track.id ||
-                        embedTrack?.id === track.id;
-                      return (
-                        <div
-                          className={`personal-song${current ? " current" : ""}`}
-                          key={track.id}
-                        >
-                          <button
-                            aria-label={`Play ${track.title}`}
-                            className="personal-song-play"
-                            onClick={() => playPersonal(list.tracks, index)}
-                            type="button"
-                          >
-                            {current && isPlaying ? (
-                              <LuVolume2 size={13} />
-                            ) : (
-                              <LuPlay size={13} />
-                            )}
-                          </button>
-                          <span className="personal-song-copy">
-                            <strong>{track.title}</strong>
-                            <span>
-                              {SOURCE_LABELS[track.source] ?? track.source}
-                            </span>
-                          </span>
-                          <button
-                            aria-label={`Remove ${track.title}`}
-                            className="personal-song-remove"
-                            onClick={() => removeTrack(track.id)}
-                            type="button"
-                          >
-                            <LuX size={12} />
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
                 </div>
               ))}
             </div>
@@ -3794,7 +3779,20 @@ export function MusicView() {
                       <button
                         aria-label={`Play ${track.title}`}
                         className="small-icon-button"
-                        onClick={() => void playTrack(track)}
+                        onClick={() => {
+                          if (track.playlist) {
+                            const list = settings.tracks.filter(
+                              (item) => item.playlist === track.playlist,
+                            );
+                            const index = Math.max(
+                              0,
+                              list.findIndex((item) => item.id === track.id),
+                            );
+                            playPersonal(list, index);
+                          } else {
+                            void playTrack(track);
+                          }
+                        }}
                         type="button"
                       >
                         <LuPlay size={13} />
@@ -3803,7 +3801,7 @@ export function MusicView() {
                       <button
                         aria-label={`Play ${track.title} in browser`}
                         className="small-icon-button"
-                        onClick={() => playEmbed(track)}
+                        onClick={() => playEmbed(track, true)}
                         type="button"
                       >
                         <LuPlay size={13} />
@@ -3958,7 +3956,20 @@ export function MusicView() {
                       <button
                         aria-label={`Play ${track.title}`}
                         className="small-icon-button"
-                        onClick={() => void playTrack(track)}
+                        onClick={() => {
+                          if (track.playlist) {
+                            const list = settings.tracks.filter(
+                              (item) => item.playlist === track.playlist,
+                            );
+                            const index = Math.max(
+                              0,
+                              list.findIndex((item) => item.id === track.id),
+                            );
+                            playPersonal(list, index);
+                          } else {
+                            void playTrack(track);
+                          }
+                        }}
                         type="button"
                       >
                         <LuPlay size={13} />
@@ -3967,7 +3978,7 @@ export function MusicView() {
                       <button
                         aria-label={`Play ${track.title} in browser`}
                         className="small-icon-button"
-                        onClick={() => playEmbed(track)}
+                        onClick={() => playEmbed(track, true)}
                         type="button"
                       >
                         <LuPlay size={13} />
@@ -4040,7 +4051,7 @@ export function MusicView() {
           )}
         </div>
       </section>
-    </>
+    </div>
   );
 }
 
