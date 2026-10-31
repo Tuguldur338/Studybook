@@ -7620,3 +7620,9 @@ textarea.input:focus {
   flex-direction: column;
   gap: 18px;
 }
+
+.panel-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}

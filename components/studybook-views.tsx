@@ -30,7 +30,6 @@ import {
   LuPencil,
   LuPlus,
   LuRefreshCw,
-  LuRepeat,
   LuSearch,
   LuSun,
   LuSunrise,
@@ -67,6 +66,7 @@ import { isPlayableSource, type MusicTrack } from "@/lib/music-store";
 import { embedUrlFor } from "@/lib/music-embed";
 import { fetchRemoteTrackTitle } from "@/lib/music-embed";
 import { HALLOWEEN_THEME_TRACK } from "@/lib/music-specials";
+import LoopButton from "@/components/loop-button";
 import { borderClass, borderIdFromMonth, borderLabel } from "@/lib/borders";
 
 const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
@@ -3242,12 +3242,10 @@ export function MusicView() {
     addUrlTrack,
     blocked,
     currentTrack,
-    cycleLoopMode,
     embedTrack,
     error,
     holiday,
     isPlaying,
-    loopMode,
     nowPlaying,
     playEmbed,
     playPlaylist,
@@ -3292,17 +3290,6 @@ export function MusicView() {
         track.day === "halloween" && track.id !== HALLOWEEN_OPENER.id,
     ),
   ];
-  const personalLists = useMemo(() => {
-    const grouped = new Map<string, MusicTrack[]>();
-    for (const track of settings.tracks) {
-      if (!track.playlist) continue;
-      const list = grouped.get(track.playlist) ?? [];
-      list.push(track);
-      grouped.set(track.playlist, list);
-    }
-    return [...grouped.entries()].map(([name, tracks]) => ({ name, tracks }));
-  }, [settings.tracks]);
-
   const titleLookupRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     for (const track of settings.tracks) {
@@ -3455,19 +3442,6 @@ export function MusicView() {
     void playPlaylist(tracks, index);
   }
 
-  function playPersonalAll(tracks: MusicTrack[]) {
-    void playPlaylist(tracks);
-  }
-
-  function deletePersonal(name: string) {
-    for (const track of settings.tracks.filter(
-      (item) => item.playlist === name,
-    )) {
-      removeTrack(track.id);
-    }
-    setNotice(`Deleted “${name}”.`);
-  }
-
   return (
     <div className="music-page">
       <PageHeading
@@ -3509,28 +3483,7 @@ export function MusicView() {
             {isPlaying ? <LuPause size={15} /> : <LuPlay size={15} />}
             {isPlaying ? "Pause" : "Play"}
           </button>
-          <button
-            className={`loop-button${loopMode > 0 ? " is-active" : ""}`}
-            title={
-              loopMode === 0
-                ? "Loop off · press once to loop all songs"
-                : loopMode === 1
-                  ? "Looping all songs · press again to loop one song"
-                  : "Looping this song · press again to turn loop off"
-            }
-            aria-label={
-              loopMode === 0
-                ? "Loop off"
-                : loopMode === 1
-                  ? "Looping all songs"
-                  : "Looping this song"
-            }
-            onClick={cycleLoopMode}
-            type="button"
-          >
-            <LuRepeat aria-hidden="true" size={15} />
-            <span className="loop-button-count">{loopMode}</span>
-          </button>
+          <LoopButton />
           <label className="music-volume" title="Music volume">
             <LuVolume2 aria-hidden="true" size={15} />
             <input
@@ -3634,11 +3587,8 @@ export function MusicView() {
 
       <section className="panel personal-music-panel">
         <div className="panel-heading">
-          <h2 className="panel-title">Personal playlists</h2>
-          <span className="panel-link">
-            {personalLists.length} list
-            {personalLists.length === 1 ? "" : "s"}
-          </span>
+          <h2 className="panel-title">Personal songs</h2>
+          <LoopButton />
         </div>
         <div className="panel-body">
           <form className="personal-music-form" onSubmit={handleCreatePersonal}>
@@ -3699,45 +3649,10 @@ export function MusicView() {
             </div>
           </form>
 
-          {personalLists.length ? (
-            <div className="personal-lists">
-              {personalLists.map((list) => (
-                <div className="personal-list" key={list.name}>
-                  <div className="personal-list-head">
-                    <div className="personal-list-copy">
-                      <strong>{list.name}</strong>
-                      <span>
-                        {list.tracks.length} song
-                        {list.tracks.length === 1 ? "" : "s"}
-                      </span>
-                    </div>
-                    <button
-                      aria-label={`Play ${list.name}`}
-                      className="small-icon-button"
-                      onClick={() => playPersonalAll(list.tracks)}
-                      type="button"
-                    >
-                      <LuPlay size={13} />
-                    </button>
-                    <button
-                      aria-label={`Delete ${list.name}`}
-                      className="small-icon-button danger"
-                      onClick={() => deletePersonal(list.name)}
-                      type="button"
-                    >
-                      <LuTrash2 size={13} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="field-hint">
-              Personal playlists live here, separate from holiday music. Create
-              one above with links or files, then press Play to use the same
-              bottom player.
-            </p>
-          )}
+          <p className="field-hint">
+            Your personal songs appear in the Library below, grouped by their
+            playlist name.
+          </p>
         </div>
       </section>
 
@@ -3842,10 +3757,13 @@ export function MusicView() {
       <section className="panel">
         <div className="panel-heading">
           <h2 className="panel-title">Library</h2>
-          <span className="panel-link">
-            {libraryTracks.length} track
-            {libraryTracks.length === 1 ? "" : "s"}
-          </span>
+          <div className="panel-heading-actions">
+            <span className="panel-link">
+              {libraryTracks.length} track
+              {libraryTracks.length === 1 ? "" : "s"}
+            </span>
+            <LoopButton />
+          </div>
         </div>
         <div className="panel-body">
           <div className="music-search">

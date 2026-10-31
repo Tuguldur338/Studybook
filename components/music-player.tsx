@@ -7,12 +7,12 @@ import {
   LuListMusic,
   LuPause,
   LuPlay,
-  LuRepeat,
   LuSkipBack,
   LuSkipForward,
   LuVolume2,
 } from "react-icons/lu";
 import MusicOrb from "@/components/music-orb";
+import LoopButton from "@/components/loop-button";
 import { useMusic } from "@/components/music-context";
 import { coverUrlFor } from "@/lib/music-embed";
 import { HOLIDAYS } from "@/lib/holidays";
@@ -29,10 +29,8 @@ const SOURCE_LABELS: Record<string, string> = {
 
 export default function MusicPlayer({ raised = false }: { raised?: boolean }) {
   const {
-    cycleLoopMode,
     embedTrack,
     isPlaying,
-    loopMode,
     nextTrack,
     nowPlaying,
     pause,
@@ -213,28 +211,7 @@ export default function MusicPlayer({ raised = false }: { raised?: boolean }) {
                 >
                   <LuListMusic size={15} />
                 </button>
-                <button
-                  className={`loop-button music-now-loop-button${loopMode > 0 ? " is-active" : ""}`}
-                  title={
-                    loopMode === 0
-                      ? "Loop off · press once to loop all songs"
-                      : loopMode === 1
-                        ? "Looping all songs · press again to loop one song"
-                        : "Looping this song · press again to turn loop off"
-                  }
-                  aria-label={
-                    loopMode === 0
-                      ? "Loop off"
-                      : loopMode === 1
-                        ? "Looping all songs"
-                        : "Looping this song"
-                  }
-                  onClick={cycleLoopMode}
-                  type="button"
-                >
-                  <LuRepeat aria-hidden="true" size={14} />
-                  <span className="loop-button-count">{loopMode}</span>
-                </button>
+                <LoopButton className="music-now-loop-button" />
               </div>
 
               <label className="music-now-volume">
