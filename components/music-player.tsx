@@ -43,6 +43,7 @@ export default function MusicPlayer() {
   const [playlistOpen, setPlaylistOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const closeTimerRef = useRef<number | null>(null);
 
   const closeCard = useCallback(() => {
@@ -71,17 +72,33 @@ export default function MusicPlayer() {
       setCardOpen(true);
       setPlaylistOpen(false);
       setLeaving(false);
+      setExpanded(false);
     }, 0);
     return () => window.clearTimeout(timer);
   }, [nowPlaying]);
 
   useEffect(() => {
-    if (!cardOpen || leaving || !nowPlaying || startingTrack || hovered) {
+    if (
+      !cardOpen ||
+      leaving ||
+      expanded ||
+      !nowPlaying ||
+      startingTrack ||
+      hovered
+    ) {
       return;
     }
     const timer = window.setTimeout(closeCard, 2000);
     return () => window.clearTimeout(timer);
-  }, [cardOpen, closeCard, hovered, leaving, nowPlaying, startingTrack]);
+  }, [
+    cardOpen,
+    closeCard,
+    expanded,
+    hovered,
+    leaving,
+    nowPlaying,
+    startingTrack,
+  ]);
 
   if (embedTrack || (!nowPlaying && !startingTrack)) return null;
 
@@ -108,128 +125,157 @@ export default function MusicPlayer() {
     <>
       {showCard && nowPlaying && (
         <section
-          className={`music-now-card${isPlaying ? " is-playing" : " is-paused"}${leaving ? " is-leaving" : ""}`}
+          className={`music-now-card${isPlaying ? " is-playing" : " is-paused"}${expanded ? " is-expanded" : " is-compact"}${leaving ? " is-leaving" : ""}`}
           aria-label="Now playing"
           key={nowPlaying.id}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
         >
-          <div className="music-now-top">
-            <span className="music-now-kicker">
+          {!expanded ? (
+            <button
+              aria-label="Show music controls"
+              className="music-now-compact"
+              onClick={() => setExpanded(true)}
+              type="button"
+            >
               <span aria-hidden="true" className="music-now-live" />
-              Now playing
+              <span className="music-now-compact-title">
+                {nowPlaying.title}
+              </span>
               <span aria-hidden="true" className="music-now-eq">
                 <i />
                 <i />
                 <i />
               </span>
-            </span>
-            <button
-              aria-label="Collapse music player"
-              className="music-now-collapse"
-              onClick={closeCard}
-              type="button"
-            >
-              <LuChevronDown size={15} />
             </button>
-          </div>
+          ) : (
+            <>
+              <div className="music-now-top">
+                <span className="music-now-kicker">
+                  <span aria-hidden="true" className="music-now-live" />
+                  Now playing
+                  <span aria-hidden="true" className="music-now-eq">
+                    <i />
+                    <i />
+                    <i />
+                  </span>
+                </span>
+                <button
+                  aria-label="Collapse music player"
+                  className="music-now-collapse"
+                  onClick={closeCard}
+                  type="button"
+                >
+                  <LuChevronDown size={15} />
+                </button>
+              </div>
 
-          <h2 className="music-now-title">{nowPlaying.title}</h2>
-          <p className="music-now-sub">
-            {nowPlaying.playlist ?? dayLabel(nowPlaying.day)} ·{" "}
-            {SOURCE_LABELS[nowPlaying.source] ?? nowPlaying.source}
-          </p>
+              <h2 className="music-now-title">{nowPlaying.title}</h2>
+              <p className="music-now-sub">
+                {nowPlaying.playlist ?? dayLabel(nowPlaying.day)} ·{" "}
+                {SOURCE_LABELS[nowPlaying.source] ?? nowPlaying.source}
+              </p>
 
-          <div className="music-now-controls">
-            <button
-              aria-label="Previous track"
-              className="music-now-control"
-              onClick={() => void previousTrack()}
-              type="button"
-            >
-              <LuSkipBack size={15} />
-            </button>
-            <button
-              aria-label={isPlaying ? "Pause music" : "Play music"}
-              className="music-now-play"
-              onClick={togglePlayback}
-              type="button"
-            >
-              {isPlaying ? <LuPause size={17} /> : <LuPlay size={17} />}
-            </button>
-            <button
-              aria-label="Next track"
-              className="music-now-control"
-              onClick={() => void nextTrack()}
-              type="button"
-            >
-              <LuSkipForward size={15} />
-            </button>
-            <button
-              aria-expanded={playlistOpen}
-              aria-label="Open playlist"
-              className="music-now-control"
-              onClick={() => setPlaylistOpen((value) => !value)}
-              type="button"
-            >
-              <LuListMusic size={15} />
-            </button>
-          </div>
+              <div className="music-now-controls">
+                <button
+                  aria-label="Previous track"
+                  className="music-now-control"
+                  onClick={() => void previousTrack()}
+                  type="button"
+                >
+                  <LuSkipBack size={15} />
+                </button>
+                <button
+                  aria-label={isPlaying ? "Pause music" : "Play music"}
+                  className="music-now-play"
+                  onClick={togglePlayback}
+                  type="button"
+                >
+                  {isPlaying ? <LuPause size={17} /> : <LuPlay size={17} />}
+                </button>
+                <button
+                  aria-label="Next track"
+                  className="music-now-control"
+                  onClick={() => void nextTrack()}
+                  type="button"
+                >
+                  <LuSkipForward size={15} />
+                </button>
+                <button
+                  aria-expanded={playlistOpen}
+                  aria-label="Open playlist"
+                  className="music-now-control"
+                  onClick={() => setPlaylistOpen((value) => !value)}
+                  type="button"
+                >
+                  <LuListMusic size={15} />
+                </button>
+              </div>
 
-          <label className="music-now-volume">
-            <LuVolume2 aria-hidden="true" size={13} />
-            <input
-              aria-label="Music volume"
-              max={1}
-              min={0}
-              onChange={(event) => setVolume(Number(event.target.value))}
-              step={0.05}
-              type="range"
-              value={settings.volume}
-            />
-          </label>
+              <label className="music-now-volume">
+                <LuVolume2 aria-hidden="true" size={13} />
+                <input
+                  aria-label="Music volume"
+                  max={1}
+                  min={0}
+                  onChange={(event) => setVolume(Number(event.target.value))}
+                  step={0.05}
+                  type="range"
+                  value={settings.volume}
+                />
+              </label>
 
-          {playlistOpen && (
-            <div className="music-now-playlist">
-              {playableTracks.length ? (
-                playableTracks.map((track) => (
-                  <button
-                    className={`music-now-row${track.id === nowPlaying.id ? " is-current" : ""}`}
-                    key={track.id}
-                    onClick={() => void playTrack(track)}
-                    type="button"
-                  >
-                    <span aria-hidden="true" className="music-now-row-icon">
-                      {track.id === nowPlaying.id ? "◉" : "•"}
-                    </span>
-                    <span className="music-now-row-copy">
-                      <strong>{track.title}</strong>
-                      <span>{dayLabel(track.day)}</span>
-                    </span>
-                  </button>
-                ))
-              ) : (
-                <p className="music-now-empty">
-                  Add a playable track in the Music tab.
-                </p>
+              {playlistOpen && (
+                <div className="music-now-playlist">
+                  {playableTracks.length ? (
+                    playableTracks.map((track) => (
+                      <button
+                        className={`music-now-row${track.id === nowPlaying.id ? " is-current" : ""}`}
+                        key={track.id}
+                        onClick={() => void playTrack(track)}
+                        type="button"
+                      >
+                        <span aria-hidden="true" className="music-now-row-icon">
+                          {track.id === nowPlaying.id ? "◉" : "•"}
+                        </span>
+                        <span className="music-now-row-copy">
+                          <strong>{track.title}</strong>
+                          <span>{dayLabel(track.day)}</span>
+                        </span>
+                      </button>
+                    ))
+                  ) : (
+                    <p className="music-now-empty">
+                      Add a playable track in the Music tab.
+                    </p>
+                  )}
+                </div>
               )}
-            </div>
-          )}
 
-          <Link className="music-now-library" href="/music">
-            Open music library
-          </Link>
+              <Link className="music-now-library" href="/music">
+                Open music library
+              </Link>
+            </>
+          )}
         </section>
       )}
 
       <MusicOrb
         cover={cover}
-        label={cardOpen ? "Collapse music player" : "Open music player"}
+        label={
+          cardOpen
+            ? expanded
+              ? "Collapse music player"
+              : "Show music controls"
+            : "Open music player"
+        }
         loading={loading}
         onClick={() => {
           if (cardOpen) {
-            closeCard();
+            if (expanded) closeCard();
+            else setExpanded(true);
           } else {
+            setExpanded(true);
             setLeaving(false);
             setCardOpen(true);
           }

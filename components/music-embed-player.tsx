@@ -13,6 +13,7 @@ export default function MusicEmbedPlayer() {
   const [hovered, setHovered] = useState(false);
   const [paused, setPaused] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const closeTimerRef = useRef<number | null>(null);
 
@@ -43,15 +44,16 @@ export default function MusicEmbedPlayer() {
       setCardOpen(true);
       setPaused(false);
       setLeaving(false);
+      setExpanded(false);
     }, 0);
     return () => window.clearTimeout(timer);
   }, [embedTrack]);
 
   useEffect(() => {
-    if (!ready || !cardOpen || leaving || hovered) return;
+    if (!ready || !cardOpen || leaving || expanded || hovered) return;
     const timer = window.setTimeout(closeCard, 2000);
     return () => window.clearTimeout(timer);
-  }, [cardOpen, closeCard, hovered, leaving, ready]);
+  }, [cardOpen, closeCard, expanded, hovered, leaving, ready]);
 
   if (!embedTrack) return null;
 
@@ -79,67 +81,89 @@ export default function MusicEmbedPlayer() {
       {ready && cardOpen && (
         <section
           aria-label="Embedded music"
-          className={`music-now-card${paused ? " is-paused" : " is-playing"}${leaving ? " is-leaving" : ""}`}
+          className={`music-now-card${paused ? " is-paused" : " is-playing"}${expanded ? " is-expanded" : " is-compact"}${leaving ? " is-leaving" : ""}`}
           key={embedTrack.id}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
         >
-          <div className="music-now-top">
-            <span className="music-now-kicker">
+          {!expanded ? (
+            <button
+              aria-label="Show embedded music controls"
+              className="music-now-compact"
+              onClick={() => setExpanded(true)}
+              type="button"
+            >
               <span aria-hidden="true" className="music-now-live" />
-              Audio only
+              <span className="music-now-compact-title">
+                {embedTrack.title}
+              </span>
               <span aria-hidden="true" className="music-now-eq">
                 <i />
                 <i />
                 <i />
               </span>
-            </span>
-            <button
-              aria-label="Collapse embedded player"
-              className="music-now-collapse"
-              onClick={closeCard}
-              type="button"
-            >
-              <LuChevronDown size={15} />
             </button>
-          </div>
+          ) : (
+            <>
+              <div className="music-now-top">
+                <span className="music-now-kicker">
+                  <span aria-hidden="true" className="music-now-live" />
+                  Audio only
+                  <span aria-hidden="true" className="music-now-eq">
+                    <i />
+                    <i />
+                    <i />
+                  </span>
+                </span>
+                <button
+                  aria-label="Collapse embedded player"
+                  className="music-now-collapse"
+                  onClick={closeCard}
+                  type="button"
+                >
+                  <LuChevronDown size={15} />
+                </button>
+              </div>
 
-          <h2 className="music-now-title">{embedTrack.title}</h2>
-          <p className="music-now-sub">
-            {embedTrack.source === "youtube" ? "YouTube" : "Spotify"} · video
-            hidden
-          </p>
+              <h2 className="music-now-title">{embedTrack.title}</h2>
+              <p className="music-now-sub">
+                {embedTrack.source === "youtube" ? "YouTube" : "Spotify"} ·
+                video hidden
+              </p>
 
-          <div className="music-now-actions">
-            {embedTrack.source === "youtube" && (
-              <button
-                className="music-now-control"
-                onClick={toggleEmbed}
-                type="button"
-              >
-                {paused ? <LuPlay size={14} /> : <LuPause size={14} />}{" "}
-                {paused ? "Resume" : "Pause"}
-              </button>
-            )}
-            <button
-              className="music-now-control"
-              onClick={closeEmbed}
-              type="button"
-            >
-              <LuX size={14} /> Stop audio
-            </button>
-            <button
-              className="music-now-control"
-              onClick={closeCard}
-              type="button"
-            >
-              Hide card
-            </button>
-          </div>
+              <div className="music-now-actions">
+                {embedTrack.source === "youtube" && (
+                  <button
+                    className="music-now-control"
+                    onClick={toggleEmbed}
+                    type="button"
+                  >
+                    {paused ? <LuPlay size={14} /> : <LuPause size={14} />}{" "}
+                    {paused ? "Resume" : "Pause"}
+                  </button>
+                )}
+                <button
+                  className="music-now-control"
+                  onClick={closeEmbed}
+                  type="button"
+                >
+                  <LuX size={14} /> Stop audio
+                </button>
+                <button
+                  className="music-now-control"
+                  onClick={closeCard}
+                  type="button"
+                >
+                  Hide card
+                </button>
+              </div>
 
-          <p className="music-now-empty">
-            The player is running invisibly so it keeps playing while you study.
-          </p>
+              <p className="music-now-empty">
+                The player is running invisibly so it keeps playing while you
+                study.
+              </p>
+            </>
+          )}
         </section>
       )}
 
@@ -156,12 +180,20 @@ export default function MusicEmbedPlayer() {
 
       <MusicOrb
         cover={cover}
-        label={cardOpen ? "Collapse embedded player" : "Open embedded player"}
+        label={
+          cardOpen
+            ? expanded
+              ? "Collapse embedded player"
+              : "Show embedded music controls"
+            : "Open embedded player"
+        }
         loading={loading}
         onClick={() => {
           if (cardOpen) {
-            closeCard();
+            if (expanded) closeCard();
+            else setExpanded(true);
           } else {
+            setExpanded(true);
             setLeaving(false);
             setCardOpen(true);
           }
