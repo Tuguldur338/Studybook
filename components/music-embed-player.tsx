@@ -56,7 +56,7 @@ export default function MusicEmbedPlayer() {
       {ready && cardOpen && (
         <section
           aria-label="Embedded music"
-          className="music-now-card"
+          className={`music-now-card${paused ? " is-paused" : " is-playing"}`}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
         >
@@ -64,6 +64,11 @@ export default function MusicEmbedPlayer() {
             <span className="music-now-kicker">
               <span aria-hidden="true" className="music-now-live" />
               Audio only
+              <span aria-hidden="true" className="music-now-eq">
+                <i />
+                <i />
+                <i />
+              </span>
             </span>
             <button
               aria-label="Collapse embedded player"

@@ -83,7 +83,7 @@ export default function MusicPlayer() {
     <>
       {showCard && nowPlaying && (
         <section
-          className="music-now-card"
+          className={`music-now-card${isPlaying ? " is-playing" : " is-paused"}`}
           aria-label="Now playing"
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
@@ -92,6 +92,11 @@ export default function MusicPlayer() {
             <span className="music-now-kicker">
               <span aria-hidden="true" className="music-now-live" />
               Now playing
+              <span aria-hidden="true" className="music-now-eq">
+                <i />
+                <i />
+                <i />
+              </span>
             </span>
             <button
               aria-label="Collapse music player"
