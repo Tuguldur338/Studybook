@@ -30,7 +30,6 @@ export default function MusicEmbedPlayer({
   const [leaving, setLeaving] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [gestureReady, setGestureReady] = useState(false);
-  const [showProgress, setShowProgress] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -79,7 +78,6 @@ export default function MusicEmbedPlayer({
       setLeaving(false);
       setExpanded(false);
       setGestureReady(embedUserGesture);
-      setShowProgress(false);
       setCurrentTime(0);
       setDuration(0);
     }, 0);
@@ -87,20 +85,10 @@ export default function MusicEmbedPlayer({
   }, [embedTrack, embedUserGesture]);
 
   useEffect(() => {
-    if (!ready || !cardOpen || leaving || expanded || showProgress || hovered) {
-      return;
-    }
+    if (!ready || !cardOpen || leaving || expanded || hovered) return;
     const timer = window.setTimeout(closeCard, 3600);
     return () => window.clearTimeout(timer);
-  }, [
-    cardOpen,
-    closeCard,
-    expanded,
-    hovered,
-    leaving,
-    ready,
-    showProgress,
-  ]);
+  }, [cardOpen, closeCard, expanded, hovered, leaving, ready]);
 
   useEffect(() => {
     if (!ready || !gestureReady) return;
@@ -177,7 +165,7 @@ export default function MusicEmbedPlayer({
       {ready && cardOpen && (
         <section
           aria-label="Embedded music"
-          className={`music-now-card${audible ? " is-playing" : " is-paused"}${expanded ? " is-expanded" : " is-compact"}${showProgress ? " has-progress" : ""}${leaving ? " is-leaving" : ""}${raised ? " is-raised" : ""}`}
+          className={`music-now-card${audible ? " is-playing" : " is-paused"}${expanded ? " is-expanded" : " is-compact"}${leaving ? " is-leaving" : ""}${raised ? " is-raised" : ""}`}
           key={embedTrack.id}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
@@ -209,24 +197,6 @@ export default function MusicEmbedPlayer({
                   <i />
                 </span>
               </span>
-              {showProgress && (
-                <span className="music-now-progress">
-                  <span className="music-now-progress-bar">
-                    <span
-                      className="music-now-progress-fill"
-                      style={{
-                        width: `${duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0}%`,
-                      }}
-                    />
-                  </span>
-                  <span className="music-now-progress-times">
-                    <span>{formatClock(currentTime)}</span>
-                    <span>
-                      -{formatClock(Math.max(0, duration - currentTime))}
-                    </span>
-                  </span>
-                </span>
-              )}
             </button>
           ) : (
             <>
@@ -252,9 +222,28 @@ export default function MusicEmbedPlayer({
 
               <h2 className="music-now-title">{embedTrack.title}</h2>
               <p className="music-now-sub">
-                {embedTrack.source === "youtube" ? "YouTube" : "Spotify"} Ã‚Â·
+                {embedTrack.source === "youtube" ? "YouTube" : "Spotify"} ·{" "}
                 video hidden
               </p>
+
+              {embedTrack.source === "youtube" && (
+                <div className="music-now-progress music-now-progress-full">
+                  <div className="music-now-progress-bar">
+                    <div
+                      className="music-now-progress-fill"
+                      style={{
+                        width: `${duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0}%`,
+                      }}
+                    />
+                  </div>
+                  <div className="music-now-progress-times">
+                    <span>{formatClock(currentTime)}</span>
+                    <span>
+                      -{formatClock(Math.max(0, duration - currentTime))}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               <div className="music-now-actions">
                 {embedTrack.source === "youtube" && (
@@ -326,15 +315,10 @@ export default function MusicEmbedPlayer({
         loading={loading}
         onClick={() => {
           if (cardOpen) {
-            if (expanded) {
-              closeCard();
-            } else if (showProgress) {
-              closeCard();
-            } else {
-              setShowProgress(true);
-            }
+            if (expanded) closeCard();
+            else setExpanded(true);
           } else {
-            setShowProgress(true);
+            setExpanded(true);
             setLeaving(false);
             setCardOpen(true);
           }

@@ -7681,3 +7681,7 @@ textarea.input:focus {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
 }
+
+.music-now-progress-full {
+  margin: 2px 0 14px;
+}
