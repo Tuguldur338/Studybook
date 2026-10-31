@@ -114,7 +114,7 @@ function createExamId() {
 }
 
 export default function ExamReminder() {
-  const { exams, isLoaded, setExams } = useStudybook();
+  const { deleteExam, exams, isLoaded, setExams } = useStudybook();
   const [now, setNow] = useState<Date | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -198,7 +198,7 @@ export default function ExamReminder() {
   }
 
   function handleDelete(id: string) {
-    setExams((current) => current.filter((exam) => exam.id !== id));
+    deleteExam(id);
     setSelectedId((current) => (current === id ? null : current));
   }
 

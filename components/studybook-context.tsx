@@ -71,6 +71,8 @@ type StudybookSnapshot = {
   profileAvatar: string;
   /** Tombstones for tasks deleted here, so a cloud merge cannot resurrect them. */
   deletedTasks: Record<string, string>;
+  /** Tombstones for exams deleted here. */
+  deletedExams: Record<string, string>;
 };
 
 export const NOTE_COLORS = [
@@ -147,6 +149,7 @@ type StudybookContextValue = {
   deleteTasks: (ids: string[]) => void;
   exams: Exam[];
   setExams: Dispatch<SetStateAction<Exam[]>>;
+  deleteExam: (id: string) => void;
   routine: RoutineItem[];
   setRoutine: Dispatch<SetStateAction<RoutineItem[]>>;
   routineChecks: RoutineChecks;
@@ -371,6 +374,7 @@ function mergeSnapshots(
     ? source.routine.filter(isRoutineItem)
     : [];
   const deletedTasks = mergeDeletedTasks(source.deletedTasks, local.deletedTasks);
+  const deletedExams = mergeDeletedTasks(source.deletedExams, local.deletedExams);
 
   const notes = new Map<string, StudyNote>();
   for (const note of cloudNotes) notes.set(note.id, note);
@@ -396,7 +400,9 @@ function mergeSnapshots(
       (task) => !deletedTasks[task.id],
     ),
     notes: [...notes.values()],
-    exams: mergeById(cloudExams, local.exams),
+    exams: mergeById(cloudExams, local.exams).filter(
+      (exam) => !deletedExams[exam.id],
+    ),
     routine: mergeById(cloudRoutine, local.routine),
     routineChecks: {
       ...(isRoutineChecks(source.routineChecks) ? source.routineChecks : {}),
@@ -406,6 +412,7 @@ function mergeSnapshots(
       local.profileAvatar ||
       (typeof source.profileAvatar === "string" ? source.profileAvatar : ""),
     deletedTasks,
+    deletedExams,
   };
 }
 
@@ -470,6 +477,9 @@ function readStudybookData(key = STORAGE_KEY) {
       ? parsed.deletedTasks
       : {},
     exams: Array.isArray(parsed.exams) ? parsed.exams.filter(isExam) : [],
+    deletedExams: isDeletedTasks(parsed.deletedExams)
+      ? parsed.deletedExams
+      : {},
     routine: Array.isArray(parsed.routine)
       ? parsed.routine.filter(isRoutineItem)
       : [],
@@ -493,6 +503,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
   const [savedClasses, setSavedClasses] = useState<SavedClass[]>([]);
   const [tasks, setTasks] = useState<StudyTask[]>([]);
   const [deletedTasks, setDeletedTasks] = useState<Record<string, string>>({});
+  const [deletedExams, setDeletedExams] = useState<Record<string, string>>({});
   const [exams, setExams] = useState<Exam[]>([]);
   const [routine, setRoutine] = useState<RoutineItem[]>([]);
   const [routineChecks, setRoutineChecks] = useState<RoutineChecks>({});
@@ -525,6 +536,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     routineChecks: {},
     profileAvatar: "",
     deletedTasks: {},
+    deletedExams: {},
   });
 
   const dismissToast = useCallback((id: string) => {
@@ -560,6 +572,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     );
     setTasks(Array.isArray(raw.tasks) ? raw.tasks.filter(isStudyTask) : []);
     setDeletedTasks(isDeletedTasks(raw.deletedTasks) ? raw.deletedTasks : {});
+    setDeletedExams(isDeletedTasks(raw.deletedExams) ? raw.deletedExams : {});
     setNotes(Array.isArray(raw.notes) ? raw.notes.filter(isStudyNote) : []);
     setExams(Array.isArray(raw.exams) ? raw.exams.filter(isExam) : []);
     setRoutine(
@@ -587,12 +600,19 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const deleteExam = useCallback((id: string) => {
+    const deletedAt = new Date().toISOString();
+    setExams((current) => current.filter((exam) => exam.id !== id));
+    setDeletedExams((current) => ({ ...current, [id]: deletedAt }));
+  }, []);
+
   const resetLocalSnapshot = useCallback(() => {
     setClasses([]);
     setClassChecks({});
     setSavedClasses([]);
     setTasks([]);
     setDeletedTasks({});
+    setDeletedExams({});
     setNotes([]);
     setExams([]);
     setRoutine([]);
@@ -652,6 +672,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
           setSavedClasses(saved.savedClasses);
           setTasks(saved.tasks);
           setDeletedTasks(saved.deletedTasks);
+          setDeletedExams(saved.deletedExams);
           setExams(saved.exams);
           setRoutine(saved.routine);
           setRoutineChecks(saved.routineChecks);
@@ -692,6 +713,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
       routineChecks,
       profileAvatar: profile.avatar,
       deletedTasks,
+      deletedExams,
     };
 
     try {
@@ -703,6 +725,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
           savedClasses,
           tasks,
           deletedTasks,
+          deletedExams,
           exams,
           routine,
           routineChecks,
@@ -725,6 +748,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
   }, [
     classChecks,
     classes,
+    deletedExams,
     deletedTasks,
     exams,
     routine,
@@ -921,6 +945,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
       routineChecks,
       profileAvatar: profile.avatar,
       deletedTasks,
+      deletedExams,
     };
 
     const timer = window.setTimeout(async () => {
@@ -965,6 +990,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     authUserId,
     classChecks,
     classes,
+    deletedExams,
     deletedTasks,
     exams,
     isLoaded,
@@ -993,6 +1019,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
         deleteTasks,
         exams,
         setExams,
+        deleteExam,
         routine,
         setRoutine,
         routineChecks,
