@@ -41,6 +41,7 @@ type MusicContextValue = {
   currentTrack: MusicTrack | null;
   isPlaying: boolean;
   nowPlaying: MusicTrack | null;
+  startingTrack: MusicTrack | null;
   embedTrack: MusicTrack | null;
   playEmbed: (track: MusicTrack) => void;
   closeEmbed: () => void;
@@ -48,13 +49,27 @@ type MusicContextValue = {
   error: string;
   play: () => Promise<void>;
   playTrack: (track: MusicTrack) => Promise<void>;
+  playPlaylist: (
+    tracks: MusicTrack[],
+    startIndex?: number,
+  ) => Promise<void>;
   nextTrack: () => Promise<void>;
   previousTrack: () => Promise<void>;
   pause: () => void;
   toggle: () => void;
   setVolume: (value: number) => void;
-  addUrlTrack: (url: string, day: string, title: string) => Promise<MusicTrack>;
-  addFileTrack: (file: File, day: string, title: string) => Promise<MusicTrack>;
+  addUrlTrack: (
+    url: string,
+    day: string,
+    title: string,
+    playlist?: string,
+  ) => Promise<MusicTrack>;
+  addFileTrack: (
+    file: File,
+    day: string,
+    title: string,
+    playlist?: string,
+  ) => Promise<MusicTrack>;
   updateTrack: (
     id: string,
     changes: { title?: string; day?: string },
@@ -139,6 +154,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [nowPlaying, setNowPlaying] = useState<MusicTrack | null>(null);
+  const [startingTrack, setStartingTrack] = useState<MusicTrack | null>(null);
   const [embedTrack, setEmbedTrack] = useState<MusicTrack | null>(null);
   const [blocked, setBlocked] = useState(false);
   const [error, setError] = useState("");
@@ -150,6 +166,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   const synthStopRef = useRef<(() => void) | null>(null);
   const synthGainRef = useRef<GainNode | null>(null);
   const lastStartedRef = useRef<string | null>(null);
+  const queueRef = useRef<MusicTrack[]>([]);
 
   const currentTrack = useMemo(
     () => resolveTrack(holiday, settings),
@@ -291,6 +308,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     async (track: MusicTrack) => {
       setError("");
       setBlocked(false);
+      setStartingTrack(track);
       try {
         if (track.source === "builtin") {
           stopPlayback();
@@ -327,6 +345,8 @@ export function MusicProvider({ children }: { children: ReactNode }) {
             ? cause.message
             : "Could not play this track.",
         );
+      } finally {
+        setStartingTrack(null);
       }
     },
     [startAudio, startSynth, stopPlayback],
@@ -334,6 +354,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
 
   const play = useCallback(async () => {
     if (!currentTrack) return;
+    queueRef.current = [];
     if (!settingsRef.current.enabled) {
       commit({ ...settingsRef.current, enabled: true });
     }
@@ -357,10 +378,13 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   }, [isPlaying, pause, play]);
 
   const playTrack = useCallback(
-    async (track: MusicTrack) => {
+    async (track: MusicTrack, keepQueue = false) => {
       if (!isPlayableSource(track.source)) return;
+      if (!keepQueue) queueRef.current = [];
 
-      const dayKey = holiday?.key ?? "any";
+      const dayKey = track.playlist
+        ? "personal"
+        : (holiday?.key ?? "any");
       const activeByDay = {
         ...settingsRef.current.activeByDay,
         [dayKey]: track.id,
@@ -375,6 +399,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   const playEmbed = useCallback(
     (track: MusicTrack) => {
       if (track.source !== "youtube" && track.source !== "spotify") return;
+      queueRef.current = [];
       stopPlayback();
       setIsPlaying(false);
       lastStartedRef.current = currentTrack?.id ?? null;
@@ -383,21 +408,50 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     [currentTrack, stopPlayback],
   );
 
+  const playPlaylist = useCallback(
+    async (tracks: MusicTrack[], startIndex = 0) => {
+      const playable = tracks.filter((track) =>
+        isPlayableSource(track.source),
+      );
+      if (!playable.length) {
+        const first = tracks[startIndex] ?? tracks[0];
+        if (first) playEmbed(first);
+        return;
+      }
+
+      queueRef.current = playable;
+      const selectedId = tracks[startIndex]?.id;
+      const playableIndex = selectedId
+        ? playable.findIndex((track) => track.id === selectedId)
+        : -1;
+      const selected =
+        playableIndex >= 0 ? playable[playableIndex] : playable[0];
+      await playTrack(selected, true);
+    },
+    [playEmbed, playTrack],
+  );
+
   const closeEmbed = useCallback(() => setEmbedTrack(null), []);
 
   const nextTrack = useCallback(async () => {
-    const playable = playlistFor(holiday, settingsRef.current);
+    const hasQueue = queueRef.current.length > 0;
+    const playable = hasQueue
+      ? queueRef.current
+      : playlistFor(holiday, settingsRef.current);
     if (!playable.length) return;
 
     const index = nowPlaying
       ? playable.findIndex((track) => track.id === nowPlaying.id)
       : -1;
     const next = playable[(index + 1) % playable.length] ?? playable[0];
-    await playTrack(next);
+    await playTrack(next, hasQueue);
   }, [nowPlaying, holiday, playTrack]);
 
   const previousTrack = useCallback(async () => {
-    const playable = playlistFor(holiday, settingsRef.current);
+    const hasQueue = queueRef.current.length > 0;
+    const playable = hasQueue
+      ? queueRef.current
+      : playlistFor(holiday, settingsRef.current);
     if (!playable.length) return;
 
     const index = nowPlaying
@@ -405,7 +459,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       : 0;
     const previous =
       playable[(index - 1 + playable.length) % playable.length] ?? playable[0];
-    await playTrack(previous);
+    await playTrack(previous, hasQueue);
   }, [nowPlaying, holiday, playTrack]);
 
   const setVolume = useCallback(
@@ -419,7 +473,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   );
 
   const addUrlTrack = useCallback(
-    async (url: string, day: string, title: string) => {
+    async (url: string, day: string, title: string, playlist?: string) => {
       const trimmed = url.trim();
       if (!trimmed) throw new Error("Paste a link first.");
       try {
@@ -435,6 +489,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
         source,
         url: trimmed,
         day,
+        playlist: playlist?.trim() || undefined,
         createdAt: new Date().toISOString(),
       };
 
@@ -452,7 +507,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   );
 
   const addFileTrack = useCallback(
-    async (file: File, day: string, title: string) => {
+    async (file: File, day: string, title: string, playlist?: string) => {
       const isAudio =
         file.type.startsWith("audio/") ||
         file.type === "video/mp4" ||
@@ -473,6 +528,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
         source: "file",
         url: "",
         day,
+        playlist: playlist?.trim() || undefined,
         createdAt: new Date().toISOString(),
       };
 
@@ -488,6 +544,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
 
   const removeTrack = useCallback(
     (id: string) => {
+      queueRef.current = queueRef.current.filter((track) => track.id !== id);
       const track = settingsRef.current.tracks.find((item) => item.id === id);
       if (track?.source === "file") void deleteMusicFile(id);
 
@@ -627,10 +684,12 @@ export function MusicProvider({ children }: { children: ReactNode }) {
         currentTrack,
         isPlaying,
         nowPlaying,
+        startingTrack,
         blocked,
         error,
         play,
         playTrack,
+        playPlaylist,
         playEmbed,
         closeEmbed,
         embedTrack,

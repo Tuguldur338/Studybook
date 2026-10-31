@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   LuChevronDown,
   LuListMusic,
@@ -10,16 +10,25 @@ import {
   LuSkipBack,
   LuSkipForward,
   LuVolume2,
-  LuX,
 } from "react-icons/lu";
+import MusicOrb from "@/components/music-orb";
 import { useMusic } from "@/components/music-context";
+import { coverUrlFor } from "@/lib/music-embed";
 import { HOLIDAYS } from "@/lib/holidays";
 import { isPlayableSource } from "@/lib/music-store";
+
+const SOURCE_LABELS: Record<string, string> = {
+  file: "Audio file",
+  url: "Audio link",
+  link: "Audio link",
+  youtube: "YouTube",
+  spotify: "Spotify",
+  builtin: "Holiday theme",
+};
 
 export default function MusicPlayer() {
   const {
     embedTrack,
-    holiday,
     isPlaying,
     nextTrack,
     nowPlaying,
@@ -28,51 +37,70 @@ export default function MusicPlayer() {
     previousTrack,
     setVolume,
     settings,
+    startingTrack,
   } = useMusic();
-  const [open, setOpen] = useState(false);
+  const [cardOpen, setCardOpen] = useState(true);
+  const [playlistOpen, setPlaylistOpen] = useState(false);
 
-  if (embedTrack || !nowPlaying) return null;
+  useEffect(() => {
+    if (!nowPlaying) return;
+    const timer = window.setTimeout(() => {
+      setCardOpen(true);
+      setPlaylistOpen(false);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [nowPlaying]);
 
-  function toggleNowPlaying() {
-    if (isPlaying) pause();
-    else void playTrack(nowPlaying!);
-  }
+  if (embedTrack || (!nowPlaying && !startingTrack)) return null;
 
+  const loading = Boolean(startingTrack);
+  const cover = startingTrack ? coverUrlFor(startingTrack) : null;
+  const showCard = Boolean(cardOpen && nowPlaying && !loading);
   const playableTracks = settings.tracks.filter((track) =>
     isPlayableSource(track.source),
   );
 
   function dayLabel(day: string) {
     if (day === "any") return "Any day";
+    if (day === "personal") return "Personal playlist";
     return HOLIDAYS[day]?.name ?? "Celebration";
   }
 
+  function togglePlayback() {
+    if (!nowPlaying) return;
+    if (isPlaying) pause();
+    else void playTrack(nowPlaying);
+  }
+
   return (
-    <div aria-label="Music player" className={`music-bubble${open ? " is-open" : ""}`}>
-      {open && (
-        <div className="music-bubble-panel">
-          <div className="music-bubble-panel-head">
-            <span aria-hidden="true" className="music-bubble-panel-emoji">
-              {holiday?.emoji ?? "🎵"}
+    <>
+      {showCard && nowPlaying && (
+        <section className="music-now-card" aria-label="Now playing">
+          <div className="music-now-top">
+            <span className="music-now-kicker">
+              <span aria-hidden="true" className="music-now-live" />
+              Now playing
             </span>
-            <div className="music-bubble-panel-copy">
-              <strong>{nowPlaying.title}</strong>
-              <span>{holiday?.name ?? "Any day"}</span>
-            </div>
             <button
-              aria-label="Close music player"
-              className="music-bubble-close"
-              onClick={() => setOpen(false)}
+              aria-label="Collapse music player"
+              className="music-now-collapse"
+              onClick={() => setCardOpen(false)}
               type="button"
             >
-              <LuX size={14} />
+              <LuChevronDown size={15} />
             </button>
           </div>
 
-          <div className="music-bubble-controls">
+          <h2 className="music-now-title">{nowPlaying.title}</h2>
+          <p className="music-now-sub">
+            {nowPlaying.playlist ?? dayLabel(nowPlaying.day)} ·{" "}
+            {SOURCE_LABELS[nowPlaying.source] ?? nowPlaying.source}
+          </p>
+
+          <div className="music-now-controls">
             <button
               aria-label="Previous track"
-              className="music-bubble-control"
+              className="music-now-control"
               onClick={() => void previousTrack()}
               type="button"
             >
@@ -80,117 +108,84 @@ export default function MusicPlayer() {
             </button>
             <button
               aria-label={isPlaying ? "Pause music" : "Play music"}
-              className="music-bubble-control music-bubble-play"
-              onClick={toggleNowPlaying}
+              className="music-now-play"
+              onClick={togglePlayback}
               type="button"
             >
-              {isPlaying ? <LuPause size={16} /> : <LuPlay size={16} />}
+              {isPlaying ? <LuPause size={17} /> : <LuPlay size={17} />}
             </button>
             <button
               aria-label="Next track"
-              className="music-bubble-control"
+              className="music-now-control"
               onClick={() => void nextTrack()}
               type="button"
             >
               <LuSkipForward size={15} />
             </button>
-            <label className="music-bubble-volume" title="Music volume">
-              <LuVolume2 aria-hidden="true" size={13} />
-              <input
-                aria-label="Music volume"
-                max={1}
-                min={0}
-                onChange={(event) => setVolume(Number(event.target.value))}
-                step={0.05}
-                type="range"
-                value={settings.volume}
-              />
-            </label>
+            <button
+              aria-expanded={playlistOpen}
+              aria-label="Open playlist"
+              className="music-now-control"
+              onClick={() => setPlaylistOpen((value) => !value)}
+              type="button"
+            >
+              <LuListMusic size={15} />
+            </button>
           </div>
 
-          <div className="music-bubble-list">
-            {playableTracks.length ? (
-              playableTracks.map((track) => {
-                const current = track.id === nowPlaying.id;
-                return (
+          <label className="music-now-volume">
+            <LuVolume2 aria-hidden="true" size={13} />
+            <input
+              aria-label="Music volume"
+              max={1}
+              min={0}
+              onChange={(event) => setVolume(Number(event.target.value))}
+              step={0.05}
+              type="range"
+              value={settings.volume}
+            />
+          </label>
+
+          {playlistOpen && (
+            <div className="music-now-playlist">
+              {playableTracks.length ? (
+                playableTracks.map((track) => (
                   <button
-                    className={`music-bubble-track-row${current ? " current" : ""}`}
+                    className={`music-now-row${track.id === nowPlaying.id ? " is-current" : ""}`}
                     key={track.id}
                     onClick={() => void playTrack(track)}
                     type="button"
                   >
-                    <span aria-hidden="true" className="music-bubble-track-emoji">
-                      {track.source === "file" ? "🎧" : "🎵"}
+                    <span aria-hidden="true" className="music-now-row-icon">
+                      {track.id === nowPlaying.id ? "◉" : "•"}
                     </span>
-                    <span className="music-bubble-track-copy">
+                    <span className="music-now-row-copy">
                       <strong>{track.title}</strong>
                       <span>{dayLabel(track.day)}</span>
                     </span>
-                    {current && isPlaying && (
-                      <span aria-hidden="true" className="music-bubble-eq">
-                        <i />
-                        <i />
-                        <i />
-                      </span>
-                    )}
                   </button>
-                );
-              })
-            ) : (
-              <p className="music-bubble-empty">
-                Add a playable track in the Music tab.
-              </p>
-            )}
-          </div>
+                ))
+              ) : (
+                <p className="music-now-empty">
+                  Add a playable track in the Music tab.
+                </p>
+              )}
+            </div>
+          )}
 
-          <Link className="music-bubble-link" href="/music">
-            <LuListMusic size={14} /> Open music library
+          <Link className="music-now-library" href="/music">
+            Open music library
           </Link>
-        </div>
+        </section>
       )}
 
-      <div className="music-bubble-bar">
-        <button
-          aria-label="Open music player"
-          className="music-bubble-art"
-          onClick={() => setOpen((value) => !value)}
-          type="button"
-        >
-          {holiday?.emoji ?? "🎵"}
-        </button>
-        <button
-          className="music-bubble-title"
-          onClick={() => setOpen((value) => !value)}
-          type="button"
-        >
-          <strong>{nowPlaying.title}</strong>
-          <span>{holiday?.name ?? "Any day"}</span>
-        </button>
-        <button
-          aria-label={isPlaying ? "Pause music" : "Play music"}
-          className="music-bubble-control"
-          onClick={toggleNowPlaying}
-          type="button"
-        >
-          {isPlaying ? <LuPause size={15} /> : <LuPlay size={15} />}
-        </button>
-        <button
-          aria-label="Next track"
-          className="music-bubble-control"
-          onClick={() => void nextTrack()}
-          type="button"
-        >
-          <LuSkipForward size={15} />
-        </button>
-        <button
-          aria-label={open ? "Close music player" : "Open music player"}
-          className="music-bubble-expand"
-          onClick={() => setOpen((value) => !value)}
-          type="button"
-        >
-          {open ? <LuChevronDown size={15} /> : <LuListMusic size={15} />}
-        </button>
-      </div>
-    </div>
+      <MusicOrb
+        cover={cover}
+        label={cardOpen ? "Collapse music player" : "Open music player"}
+        loading={loading}
+        onClick={() => setCardOpen((value) => !value)}
+        playing={isPlaying && !loading}
+      />
+    </>
   );
 }

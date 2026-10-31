@@ -3229,17 +3229,28 @@ const SOURCE_LABELS: Record<string, string> = {
   builtin: "Built-in theme",
 };
 
+const HALLOWEEN_OPENER: MusicTrack = {
+  id: "halloween-opener-thriller",
+  title: "Thriller — Michael Jackson",
+  source: "youtube",
+  url: "https://www.youtube.com/watch?v=sOnqjkJTMaA",
+  day: "halloween",
+  createdAt: "",
+};
+
 export function MusicView() {
   const {
     addFileTrack,
     addUrlTrack,
     blocked,
     currentTrack,
+    embedTrack,
     error,
     holiday,
     isPlaying,
     nowPlaying,
     playEmbed,
+    playPlaylist,
     playTrack,
     removeTrack,
     setVolume,
@@ -3260,16 +3271,37 @@ export function MusicView() {
   const [editTitle, setEditTitle] = useState("");
   const [editDay, setEditDay] = useState("any");
   const [search, setSearch] = useState("");
+  const [personalName, setPersonalName] = useState("");
+  const [personalLinks, setPersonalLinks] = useState("");
+  const [personalFiles, setPersonalFiles] = useState<File[]>([]);
+  const [personalError, setPersonalError] = useState("");
+  const [personalBusy, setPersonalBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const personalFileRef = useRef<HTMLInputElement>(null);
   const selectedDay = dayChoice ?? holiday?.key ?? "any";
 
-  const filteredTracks = settings.tracks.filter((track) =>
+  const libraryTracks = settings.tracks.filter((track) => !track.playlist);
+  const filteredTracks = libraryTracks.filter((track) =>
     track.title.toLowerCase().includes(search.trim().toLowerCase()),
   );
   const visibleTracks = filteredTracks.slice(0, 10);
-  const halloweenTracks = settings.tracks.filter(
-    (track) => track.day === "halloween",
-  );
+  const halloweenTracks = [
+    HALLOWEEN_OPENER,
+    ...settings.tracks.filter(
+      (track) =>
+        track.day === "halloween" && track.id !== HALLOWEEN_OPENER.id,
+    ),
+  ];
+  const personalLists = useMemo(() => {
+    const grouped = new Map<string, MusicTrack[]>();
+    for (const track of settings.tracks) {
+      if (!track.playlist) continue;
+      const list = grouped.get(track.playlist) ?? [];
+      list.push(track);
+      grouped.set(track.playlist, list);
+    }
+    return [...grouped.entries()].map(([name, tracks]) => ({ name, tracks }));
+  }, [settings.tracks]);
 
   const dayLabel = (key: string) =>
     key === "any" ? "Any day" : (HOLIDAYS[key]?.name ?? key);
@@ -3344,6 +3376,76 @@ export function MusicView() {
         ? `Added “${track.title}” to the Halloween playlist.`
         : `Removed “${track.title}” from the Halloween playlist.`,
     );
+  }
+
+  async function handleCreatePersonal(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPersonalError("");
+    setNotice("");
+
+    const name = personalName.trim();
+    if (!name) {
+      setPersonalError("Give the playlist a name first.");
+      return;
+    }
+
+    const lines = personalLinks
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (lines.length === 0 && personalFiles.length === 0) {
+      setPersonalError("Add at least one song link or audio file.");
+      return;
+    }
+
+    setPersonalBusy(true);
+    try {
+      for (const line of lines) {
+        const parts = line.split("|").map((part) => part.trim());
+        const songUrl = parts.length > 1 ? parts[1] : parts[0];
+        const songTitle = parts.length > 1 ? parts[0] : "";
+        await addUrlTrack(songUrl, "personal", songTitle, name);
+      }
+      for (const personalFile of personalFiles) {
+        await addFileTrack(personalFile, "personal", "", name);
+      }
+
+      setPersonalName("");
+      setPersonalLinks("");
+      setPersonalFiles([]);
+      if (personalFileRef.current) personalFileRef.current.value = "";
+      setNotice(`Created “${name}”.`);
+    } catch (cause) {
+      setPersonalError(
+        cause instanceof Error
+          ? cause.message
+          : "Could not create that playlist.",
+      );
+    } finally {
+      setPersonalBusy(false);
+    }
+  }
+
+  function playPersonal(tracks: MusicTrack[], index = 0) {
+    const selected = tracks[index] ?? tracks[0];
+    if (selected && !isPlayableSource(selected.source)) {
+      playEmbed(selected);
+      return;
+    }
+    void playPlaylist(tracks, index);
+  }
+
+  function playPersonalAll(tracks: MusicTrack[]) {
+    void playPlaylist(tracks);
+  }
+
+  function deletePersonal(name: string) {
+    for (const track of settings.tracks.filter(
+      (item) => item.playlist === name,
+    )) {
+      removeTrack(track.id);
+    }
+    setNotice(`Deleted “${name}”.`);
   }
 
   return (
@@ -3488,6 +3590,155 @@ export function MusicView() {
         </div>
       </form>
 
+      <section className="panel personal-music-panel">
+        <div className="panel-heading">
+          <h2 className="panel-title">Personal playlists</h2>
+          <span className="panel-link">
+            {personalLists.length} list
+            {personalLists.length === 1 ? "" : "s"}
+          </span>
+        </div>
+        <div className="panel-body">
+          <form className="personal-music-form" onSubmit={handleCreatePersonal}>
+            <div className="field">
+              <label htmlFor="personal-playlist-name">Playlist name</label>
+              <input
+                className="input"
+                id="personal-playlist-name"
+                maxLength={60}
+                onChange={(event) => setPersonalName(event.target.value)}
+                placeholder="e.g. Rainy day mix"
+                required
+                value={personalName}
+              />
+            </div>
+            <div className="field full-width">
+              <label htmlFor="personal-playlist-links">
+                Song links · one per line
+              </label>
+              <textarea
+                className="input personal-music-textarea"
+                id="personal-playlist-links"
+                onChange={(event) => setPersonalLinks(event.target.value)}
+                placeholder={"Title | https://example.com/song.mp3\nhttps://youtu.be/…"}
+                rows={4}
+                value={personalLinks}
+              />
+              <p className="field-hint">
+                Use “Title | URL” or just paste a URL. Direct audio, YouTube and
+                Spotify links all work.
+              </p>
+            </div>
+            <div className="field full-width">
+              <label htmlFor="personal-playlist-files">
+                …or add audio files to this playlist
+              </label>
+              <input
+                accept="audio/*,video/mp4,video/webm"
+                className="input personal-music-file"
+                id="personal-playlist-files"
+                multiple
+                onChange={(event) =>
+                  setPersonalFiles(Array.from(event.target.files ?? []))
+                }
+                ref={personalFileRef}
+                type="file"
+              />
+            </div>
+            {personalError && <p className="notice">{personalError}</p>}
+            <div className="form-actions">
+              <button
+                className="primary-button"
+                disabled={personalBusy}
+                type="submit"
+              >
+                <LuPlus size={15} /> Create playlist
+              </button>
+            </div>
+          </form>
+
+          {personalLists.length ? (
+            <div className="personal-lists">
+              {personalLists.map((list) => (
+                <div className="personal-list" key={list.name}>
+                  <div className="personal-list-head">
+                    <div className="personal-list-copy">
+                      <strong>{list.name}</strong>
+                      <span>
+                        {list.tracks.length} song
+                        {list.tracks.length === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    <button
+                      aria-label={`Play ${list.name}`}
+                      className="small-icon-button"
+                      onClick={() => playPersonalAll(list.tracks)}
+                      type="button"
+                    >
+                      <LuPlay size={13} />
+                    </button>
+                    <button
+                      aria-label={`Delete ${list.name}`}
+                      className="small-icon-button danger"
+                      onClick={() => deletePersonal(list.name)}
+                      type="button"
+                    >
+                      <LuTrash2 size={13} />
+                    </button>
+                  </div>
+                  <div className="personal-list-songs">
+                    {list.tracks.map((track, index) => {
+                      const current =
+                        nowPlaying?.id === track.id ||
+                        embedTrack?.id === track.id;
+                      return (
+                        <div
+                          className={`personal-song${current ? " current" : ""}`}
+                          key={track.id}
+                        >
+                          <button
+                            aria-label={`Play ${track.title}`}
+                            className="personal-song-play"
+                            onClick={() => playPersonal(list.tracks, index)}
+                            type="button"
+                          >
+                            {current && isPlaying ? (
+                              <LuVolume2 size={13} />
+                            ) : (
+                              <LuPlay size={13} />
+                            )}
+                          </button>
+                          <span className="personal-song-copy">
+                            <strong>{track.title}</strong>
+                            <span>
+                              {SOURCE_LABELS[track.source] ?? track.source}
+                            </span>
+                          </span>
+                          <button
+                            aria-label={`Remove ${track.title}`}
+                            className="personal-song-remove"
+                            onClick={() => removeTrack(track.id)}
+                            type="button"
+                          >
+                            <LuX size={12} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="field-hint">
+              Personal playlists live here, separate from holiday music. Create
+              one above with links or files, then press Play to use the same
+              bottom player.
+            </p>
+          )}
+        </div>
+      </section>
+
       <section className="panel">
         <div className="panel-heading">
           <h2 className="panel-title">Halloween playlist</h2>
@@ -3500,7 +3751,9 @@ export function MusicView() {
           {halloweenTracks.length ? (
             <div className="music-list">
               {halloweenTracks.map((track) => {
-                const current = nowPlaying?.id === track.id;
+                const current =
+                  nowPlaying?.id === track.id ||
+                  embedTrack?.id === track.id;
                 const playable = isPlayableSource(track.source);
                 const embed = embedUrlFor(track);
                 return (
@@ -3513,7 +3766,11 @@ export function MusicView() {
                     </span>
                     <div className="music-row-main">
                       <strong>{track.title}</strong>
-                      <span>{dayLabel(track.day)}</span>
+                      <span>
+                        {track.id === HALLOWEEN_OPENER.id
+                          ? "Halloween opener · YouTube"
+                          : dayLabel(track.day)}
+                      </span>
                     </div>
                     {current && <span className="music-tag">Now playing</span>}
                     {playable ? (
@@ -3545,14 +3802,16 @@ export function MusicView() {
                         <LuExternalLink size={13} />
                       </a>
                     )}
-                    <button
-                      aria-label={`Remove ${track.title} from Halloween`}
-                      className="small-icon-button danger"
-                      onClick={() => toggleHalloween(track)}
-                      type="button"
-                    >
-                      <LuX size={13} />
-                    </button>
+                    {track.id !== HALLOWEEN_OPENER.id && (
+                      <button
+                        aria-label={`Remove ${track.title} from Halloween`}
+                        className="small-icon-button danger"
+                        onClick={() => toggleHalloween(track)}
+                        type="button"
+                      >
+                        <LuX size={13} />
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -3569,8 +3828,8 @@ export function MusicView() {
         <div className="panel-heading">
           <h2 className="panel-title">Library</h2>
           <span className="panel-link">
-            {settings.tracks.length} track
-            {settings.tracks.length === 1 ? "" : "s"}
+            {libraryTracks.length} track
+            {libraryTracks.length === 1 ? "" : "s"}
           </span>
         </div>
         <div className="panel-body">
@@ -3746,12 +4005,12 @@ export function MusicView() {
           ) : (
             <EmptyState
               copy={
-                settings.tracks.length
+                libraryTracks.length
                   ? "No tracks match that search."
                   : "Add a song above and choose any day or a celebration."
               }
               icon={<LuMusic aria-hidden="true" size={22} />}
-              title={settings.tracks.length ? "No matches" : "No tracks yet"}
+              title={libraryTracks.length ? "No matches" : "No tracks yet"}
             />
           )}
           {filteredTracks.length > 10 && (

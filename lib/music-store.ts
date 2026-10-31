@@ -14,6 +14,8 @@ export type MusicTrack = {
   url: string;
   /** Holiday key, or "any" for everyday music. */
   day: string;
+  /** Personal playlist name, when the track belongs to a personal list. */
+  playlist?: string;
   createdAt: string;
 };
 
@@ -99,7 +101,8 @@ function isMusicTrack(value: unknown): value is MusicTrack {
     typeof track.createdAt === "string" &&
     ["file", "url", "youtube", "spotify", "link", "builtin"].includes(
       String(track.source),
-    )
+    ) &&
+    (track.playlist === undefined || typeof track.playlist === "string")
   );
 }
 

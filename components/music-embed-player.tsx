@@ -1,18 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LuX } from "react-icons/lu";
+import { LuChevronDown, LuX } from "react-icons/lu";
+import MusicOrb from "@/components/music-orb";
 import { useMusic } from "@/components/music-context";
-import { embedUrlFor } from "@/lib/music-embed";
+import { coverUrlFor, embedUrlFor } from "@/lib/music-embed";
 
 export default function MusicEmbedPlayer() {
   const { closeEmbed, embedTrack } = useMusic();
-  const [audioOnly, setAudioOnly] = useState(true);
+  const [ready, setReady] = useState(false);
+  const [cardOpen, setCardOpen] = useState(true);
 
   useEffect(() => {
     if (!embedTrack) return;
     const timer = window.setTimeout(() => {
-      setAudioOnly(embedTrack.source === "youtube");
+      setReady(false);
+      setCardOpen(true);
     }, 0);
     return () => window.clearTimeout(timer);
   }, [embedTrack]);
@@ -22,42 +25,74 @@ export default function MusicEmbedPlayer() {
   const url = embedUrlFor(embedTrack);
   if (!url) return null;
 
+  const cover = ready ? null : coverUrlFor(embedTrack);
+  const loading = !ready;
+
   return (
-    <div
-      className={`music-embed-dock${audioOnly ? " is-audio-only" : ""}`}
-    >
-      <div className="music-embed-dock-head">
-        <span aria-hidden="true" className="music-embed-dock-emoji">
-          {embedTrack.source === "youtube" ? "📺" : "🎧"}
-        </span>
-        <span className="music-embed-dock-copy">
-          <strong>{embedTrack.title}</strong>
-          <span>{audioOnly ? "Audio only" : "Embedded player"}</span>
-        </span>
-        <button
-          className="music-embed-dock-toggle"
-          onClick={() => setAudioOnly((value) => !value)}
-          type="button"
-        >
-          {audioOnly ? "Show video" : "Audio only"}
-        </button>
-        <button
-          aria-label="Close embedded player"
-          className="music-embed-dock-close"
-          onClick={closeEmbed}
-          type="button"
-        >
-          <LuX size={14} />
-        </button>
-      </div>
-      <div className="music-embed-dock-frame">
+    <>
+      {ready && cardOpen && (
+        <section className="music-now-card" aria-label="Embedded music">
+          <div className="music-now-top">
+            <span className="music-now-kicker">
+              <span aria-hidden="true" className="music-now-live" />
+              Audio only
+            </span>
+            <button
+              aria-label="Collapse embedded player"
+              className="music-now-collapse"
+              onClick={() => setCardOpen(false)}
+              type="button"
+            >
+              <LuChevronDown size={15} />
+            </button>
+          </div>
+
+          <h2 className="music-now-title">{embedTrack.title}</h2>
+          <p className="music-now-sub">
+            {embedTrack.source === "youtube" ? "YouTube" : "Spotify"} · video
+            hidden
+          </p>
+
+          <div className="music-now-actions">
+            <button
+              className="music-now-control"
+              onClick={closeEmbed}
+              type="button"
+            >
+              <LuX size={14} /> Stop audio
+            </button>
+            <button
+              className="music-now-control"
+              onClick={() => setCardOpen(false)}
+              type="button"
+            >
+              Hide card
+            </button>
+          </div>
+
+          <p className="music-now-empty">
+            The player is running invisibly so it keeps playing while you study.
+          </p>
+        </section>
+      )}
+
+      <div aria-hidden="true" className="music-embed-media">
         <iframe
           allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
           allowFullScreen
+          onLoad={() => setReady(true)}
           src={url}
           title={`${embedTrack.title} player`}
         />
       </div>
-    </div>
+
+      <MusicOrb
+        cover={cover}
+        label={cardOpen ? "Collapse embedded player" : "Open embedded player"}
+        loading={loading}
+        onClick={() => setCardOpen((value) => !value)}
+        playing={ready}
+      />
+    </>
   );
 }
