@@ -7626,3 +7626,58 @@ textarea.input:focus {
   align-items: center;
   gap: 10px;
 }
+
+/* Compact YouTube progress card (shown only after pressing the music bubble) */
+.music-now-compact {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.music-now-compact-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+}
+
+.music-now-compact-row .music-now-compact-title {
+  flex: 1;
+}
+
+.music-now-card.is-compact.has-progress {
+  max-height: 88px;
+}
+
+.music-now-progress {
+  display: grid;
+  width: 100%;
+  gap: 4px;
+}
+
+.music-now-progress-bar {
+  display: block;
+  width: 100%;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 14%);
+}
+
+.music-now-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #8b6cff, #5cc79a 58%, #ffd2a3);
+  transition: width 260ms linear;
+}
+
+.music-now-progress-times {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #b9a6d6;
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}

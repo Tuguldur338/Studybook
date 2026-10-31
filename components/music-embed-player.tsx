@@ -6,6 +6,17 @@ import MusicOrb from "@/components/music-orb";
 import { useMusic } from "@/components/music-context";
 import { coverUrlFor, embedUrlFor } from "@/lib/music-embed";
 
+function formatClock(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return "0:00";
+  const total = Math.floor(value);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  return hours
+    ? `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+    : `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
 export default function MusicEmbedPlayer({
   raised = false,
 }: {
@@ -19,6 +30,9 @@ export default function MusicEmbedPlayer({
   const [leaving, setLeaving] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [gestureReady, setGestureReady] = useState(false);
+  const [showProgress, setShowProgress] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const closeTimerRef = useRef<number | null>(null);
 
@@ -65,21 +79,75 @@ export default function MusicEmbedPlayer({
       setLeaving(false);
       setExpanded(false);
       setGestureReady(embedUserGesture);
+      setShowProgress(false);
+      setCurrentTime(0);
+      setDuration(0);
     }, 0);
     return () => window.clearTimeout(timer);
   }, [embedTrack, embedUserGesture]);
 
   useEffect(() => {
-    if (!ready || !cardOpen || leaving || expanded || hovered) return;
+    if (!ready || !cardOpen || leaving || expanded || showProgress || hovered) {
+      return;
+    }
     const timer = window.setTimeout(closeCard, 3600);
     return () => window.clearTimeout(timer);
-  }, [cardOpen, closeCard, expanded, hovered, leaving, ready]);
+  }, [
+    cardOpen,
+    closeCard,
+    expanded,
+    hovered,
+    leaving,
+    ready,
+    showProgress,
+  ]);
 
   useEffect(() => {
     if (!ready || !gestureReady) return;
     sendPlayerCommand("playVideo");
     sendPlayerCommand("unMute");
   }, [gestureReady, ready, sendPlayerCommand]);
+
+  useEffect(() => {
+    if (!ready || !embedTrack || embedTrack.source !== "youtube") return;
+    const frame = iframeRef.current;
+    if (!frame) return;
+
+    const handleMessage = (event: MessageEvent) => {
+      if (event.source !== frame.contentWindow) return;
+      let payload: unknown = event.data;
+      if (typeof payload === "string") {
+        try {
+          payload = JSON.parse(payload);
+        } catch {
+          return;
+        }
+      }
+      if (typeof payload !== "object" || payload === null) return;
+      const message = payload as { event?: unknown; info?: unknown };
+      if (
+        message.event !== "infoDelivery" ||
+        typeof message.info !== "object" ||
+        message.info === null
+      ) {
+        return;
+      }
+      const info = message.info as Record<string, unknown>;
+      if (typeof info.currentTime === "number") {
+        setCurrentTime(info.currentTime);
+      }
+      if (typeof info.duration === "number" && info.duration > 0) {
+        setDuration(info.duration);
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    frame.contentWindow?.postMessage(
+      JSON.stringify({ event: "listening", id: "studybook-youtube" }),
+      "*",
+    );
+    return () => window.removeEventListener("message", handleMessage);
+  }, [embedTrack, ready]);
 
   if (!embedTrack) return null;
 
@@ -109,7 +177,7 @@ export default function MusicEmbedPlayer({
       {ready && cardOpen && (
         <section
           aria-label="Embedded music"
-          className={`music-now-card${audible ? " is-playing" : " is-paused"}${expanded ? " is-expanded" : " is-compact"}${leaving ? " is-leaving" : ""}${raised ? " is-raised" : ""}`}
+          className={`music-now-card${audible ? " is-playing" : " is-paused"}${expanded ? " is-expanded" : " is-compact"}${showProgress ? " has-progress" : ""}${leaving ? " is-leaving" : ""}${raised ? " is-raised" : ""}`}
           key={embedTrack.id}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => setHovered(false)}
@@ -127,18 +195,38 @@ export default function MusicEmbedPlayer({
               }}
               type="button"
             >
-              <span aria-hidden="true" className="music-now-live" />
-              <span className="music-now-compact-title">
-                {embedTrack.title}
+              <span className="music-now-compact-row">
+                <span aria-hidden="true" className="music-now-live" />
+                <span className="music-now-compact-title">
+                  {embedTrack.title}
+                </span>
+                {!gestureReady && (
+                  <span className="music-now-compact-hint">Tap for sound</span>
+                )}
+                <span aria-hidden="true" className="music-now-eq">
+                  <i />
+                  <i />
+                  <i />
+                </span>
               </span>
-              {!gestureReady && (
-                <span className="music-now-compact-hint">Tap for sound</span>
+              {showProgress && (
+                <span className="music-now-progress">
+                  <span className="music-now-progress-bar">
+                    <span
+                      className="music-now-progress-fill"
+                      style={{
+                        width: `${duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0}%`,
+                      }}
+                    />
+                  </span>
+                  <span className="music-now-progress-times">
+                    <span>{formatClock(currentTime)}</span>
+                    <span>
+                      -{formatClock(Math.max(0, duration - currentTime))}
+                    </span>
+                  </span>
+                </span>
               )}
-              <span aria-hidden="true" className="music-now-eq">
-                <i />
-                <i />
-                <i />
-              </span>
             </button>
           ) : (
             <>
@@ -238,10 +326,15 @@ export default function MusicEmbedPlayer({
         loading={loading}
         onClick={() => {
           if (cardOpen) {
-            if (expanded) closeCard();
-            else setExpanded(true);
+            if (expanded) {
+              closeCard();
+            } else if (showProgress) {
+              closeCard();
+            } else {
+              setShowProgress(true);
+            }
           } else {
-            setExpanded(true);
+            setShowProgress(true);
             setLeaving(false);
             setCardOpen(true);
           }
