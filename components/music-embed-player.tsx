@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { LuChevronDown, LuX } from "react-icons/lu";
+import { LuChevronDown, LuPause, LuPlay, LuX } from "react-icons/lu";
 import MusicOrb from "@/components/music-orb";
 import { useMusic } from "@/components/music-context";
 import { coverUrlFor, embedUrlFor } from "@/lib/music-embed";
@@ -82,6 +82,16 @@ export default function MusicEmbedPlayer() {
           </p>
 
           <div className="music-now-actions">
+            {embedTrack.source === "youtube" && (
+              <button
+                className="music-now-control"
+                onClick={toggleEmbed}
+                type="button"
+              >
+                {paused ? <LuPlay size={14} /> : <LuPause size={14} />}{" "}
+                {paused ? "Resume" : "Pause"}
+              </button>
+            )}
             <button
               className="music-now-control"
               onClick={closeEmbed}
