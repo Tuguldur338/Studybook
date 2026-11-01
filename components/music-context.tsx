@@ -48,6 +48,7 @@ type MusicContextValue = {
   startingTrack: MusicTrack | null;
   embedTrack: MusicTrack | null;
   embedUserGesture: boolean;
+  embedPlayNonce: number;
   playEmbed: (
     track: MusicTrack,
     userGesture?: boolean,
@@ -173,6 +174,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   const [startingTrack, setStartingTrack] = useState<MusicTrack | null>(null);
   const [embedTrack, setEmbedTrack] = useState<MusicTrack | null>(null);
   const [embedUserGesture, setEmbedUserGesture] = useState(false);
+  const [embedPlayNonce, setEmbedPlayNonce] = useState(0);
   const [blocked, setBlocked] = useState(false);
   const [error, setError] = useState("");
   const [loopMode, setLoopMode] = useState<0 | 1 | 2>(0);
@@ -388,6 +390,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       setIsPlaying(false);
       lastStartedRef.current = currentTrack?.id ?? null;
       setEmbedUserGesture(userGesture);
+      setEmbedPlayNonce((value) => value + 1);
       setEmbedTrack(track);
     },
     [currentTrack, stopPlayback],
@@ -461,7 +464,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       if (isPlayableSource(selected.source)) {
         await playTrack(selected, true);
       } else {
-        playEmbed(selected, false, true);
+        playEmbed(selected, true, true);
       }
     },
     [playEmbed, playTrack],
@@ -816,6 +819,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
         closeEmbed,
         embedTrack,
         embedUserGesture,
+        embedPlayNonce,
         loopMode,
         cycleLoopMode,
         nextTrack,

@@ -22,8 +22,15 @@ export default function MusicEmbedPlayer({
 }: {
   raised?: boolean;
 }) {
-  const { closeEmbed, embedTrack, embedUserGesture, loopMode, nextTrack, settings } =
-    useMusic();
+  const {
+    closeEmbed,
+    embedPlayNonce,
+    embedTrack,
+    embedUserGesture,
+    loopMode,
+    nextTrack,
+    settings,
+  } = useMusic();
   const [ready, setReady] = useState(false);
   const [cardOpen, setCardOpen] = useState(true);
   const [paused, setPaused] = useState(false);
@@ -129,10 +136,42 @@ export default function MusicEmbedPlayer({
         }
       }
       const nextSrc = `${embedUrlFor(embedTrack) ?? ""}${loopSuffix}`;
-      if (playerSrcRef.current !== nextSrc) {
+      const sameSrc = playerSrcRef.current === nextSrc;
+      if (!sameSrc) {
         playerSrcRef.current = nextSrc;
         setPlayerSrc(nextSrc);
         setReady(false);
+      } else if (embedTrack.source === "youtube") {
+        const frame = iframeRef.current;
+        [0, 300, 900].forEach((delay) => {
+          window.setTimeout(() => {
+            frame?.contentWindow?.postMessage(
+              JSON.stringify({
+                event: "command",
+                func: "seekTo",
+                args: [0, true],
+              }),
+              "*",
+            );
+            frame?.contentWindow?.postMessage(
+              JSON.stringify({
+                event: "command",
+                func: "playVideo",
+                args: [],
+              }),
+              "*",
+            );
+            frame?.contentWindow?.postMessage(
+              JSON.stringify({
+                event: "command",
+                func: "unMute",
+                args: [],
+              }),
+              "*",
+            );
+          }, delay);
+        });
+        setReady(true);
       }
       setLiveTitle(embedTrack.title);
       setLiveVideoId(currentVideoId ?? "");
@@ -140,13 +179,19 @@ export default function MusicEmbedPlayer({
       setPaused(false);
       setLeaving(false);
       setExpanded(false);
-      setGestureReady(embedUserGesture);
+      setGestureReady(sameSrc ? true : embedUserGesture);
       setCurrentTime(0);
       setDuration(0);
       endedHandledRef.current = false;
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [embedTrack, embedUserGesture, loopMode, settings.tracks]);
+  }, [
+    embedPlayNonce,
+    embedTrack,
+    embedUserGesture,
+    loopMode,
+    settings.tracks,
+  ]);
 
   useEffect(() => {
     if (!ready || !cardOpen || leaving || expanded) return;
