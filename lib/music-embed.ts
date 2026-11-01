@@ -25,8 +25,11 @@ function youtubeIdFor(track: MusicTrack) {
   return null;
 }
 
-export function coverUrlFor(track: MusicTrack) {
-  const id = youtubeIdFor(track);
+export function youtubeVideoId(track: MusicTrack) {
+  return youtubeIdFor(track);
+}
+
+export function coverUrlFor(track: MusicTrack) {  const id = youtubeIdFor(track);
   return id ? `https://img.youtube.com/vi/${encodeURIComponent(id)}/hqdefault.jpg` : null;
 }
 

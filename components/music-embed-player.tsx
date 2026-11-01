@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from "re
 import { LuChevronDown, LuPause, LuPlay, LuX } from "react-icons/lu";
 import MusicOrb from "@/components/music-orb";
 import { useMusic } from "@/components/music-context";
-import { coverUrlFor, embedUrlFor } from "@/lib/music-embed";
+import { coverUrlFor, embedUrlFor, youtubeVideoId } from "@/lib/music-embed";
 
 function formatClock(value: number) {
   if (!Number.isFinite(value) || value <= 0) return "0:00";
@@ -32,10 +32,13 @@ export default function MusicEmbedPlayer({
   const [gestureReady, setGestureReady] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [playerSrc, setPlayerSrc] = useState("");
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const closeTimerRef = useRef<number | null>(null);
   const endedHandledRef = useRef(false);
   const seekingRef = useRef(false);
+  const playerSrcRef = useRef("");
+  const lastTrackRef = useRef<{ id: string; source: string } | null>(null);
 
   const sendPlayerCommand = useCallback((func: string) => {
     iframeRef.current?.contentWindow?.postMessage(
@@ -92,16 +95,64 @@ export default function MusicEmbedPlayer({
       window.clearTimeout(closeTimerRef.current);
       closeTimerRef.current = null;
     }
+
+    const previous = lastTrackRef.current;
+    const sameYouTubePlayer =
+      previous?.source === "youtube" &&
+      embedTrack.source === "youtube" &&
+      playerSrcRef.current.length > 0;
+    lastTrackRef.current = { id: embedTrack.id, source: embedTrack.source };
+
     const timer = window.setTimeout(() => {
-      setReady(false);
       setCardOpen(true);
-      setPaused(false);
       setLeaving(false);
       setExpanded(false);
-      setGestureReady(embedUserGesture);
+      setGestureReady(sameYouTubePlayer || embedUserGesture);
       setCurrentTime(0);
       setDuration(0);
       endedHandledRef.current = false;
+
+      if (sameYouTubePlayer) {
+        const videoId = youtubeVideoId(embedTrack);
+        if (videoId) {
+          iframeRef.current?.contentWindow?.postMessage(
+            JSON.stringify({
+              event: "command",
+              func: "loadVideoById",
+              args: [videoId],
+            }),
+            "*",
+          );
+          [0, 350, 900, 1800].forEach((delay) => {
+            window.setTimeout(() => {
+              iframeRef.current?.contentWindow?.postMessage(
+                JSON.stringify({
+                  event: "command",
+                  func: "playVideo",
+                  args: [],
+                }),
+                "*",
+              );
+              iframeRef.current?.contentWindow?.postMessage(
+                JSON.stringify({
+                  event: "command",
+                  func: "unMute",
+                  args: [],
+                }),
+                "*",
+              );
+            }, delay);
+          });
+        }
+        setPaused(false);
+        setReady(true);
+      } else {
+        const nextSrc = embedUrlFor(embedTrack) ?? "";
+        playerSrcRef.current = nextSrc;
+        setPlayerSrc(nextSrc);
+        setPaused(false);
+        setReady(false);
+      }
     }, 0);
     return () => window.clearTimeout(timer);
   }, [embedTrack, embedUserGesture]);
@@ -384,15 +435,16 @@ export default function MusicEmbedPlayer({
       )}
 
       <div aria-hidden="true" className="music-embed-media">
-        <iframe
-          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-          allowFullScreen
-          key={embedTrack.id}
-          onLoad={() => setReady(true)}
-          ref={iframeRef}
-          src={url}
-          title={`${embedTrack.title} player`}
-        />
+        {playerSrc && (
+          <iframe
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+            allowFullScreen
+            onLoad={() => setReady(true)}
+            ref={iframeRef}
+            src={playerSrc}
+            title={`${embedTrack.title} player`}
+          />
+        )}
       </div>
 
       <MusicOrb
