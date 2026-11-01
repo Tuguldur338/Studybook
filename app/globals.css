@@ -5628,7 +5628,7 @@ button.messenger-row:hover {
   }
 }
 
-/* Halloween â€” immersive night theme */
+/* Halloween ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â immersive night theme */
 .halloween-trigger {
   border: 1px solid rgb(232 121 46 / 65%);
   background:
@@ -5642,7 +5642,7 @@ button.messenger-row:hover {
 }
 
 .halloween-trigger::after {
-  content: "ðŸ¦‡";
+  content: "ÃƒÂ°Ã…Â¸Ã‚Â¦Ã¢â‚¬Â¡";
   position: absolute;
   top: -12px;
   right: 12px;
@@ -6086,92 +6086,133 @@ button.messenger-row:hover {
 }
 
 /* Monthly champion borders */
-.avatar.champion-1 {
-  box-shadow:
-    0 0 0 2px var(--surface),
-    0 0 0 5px #8ec9f2,
-    0 0 18px #8ec9f255;
+.champion-1 {
+  --champion: #8ec9f2;
+  --champion-2: #dcf1ff;
 }
 
-.avatar.champion-2 {
-  box-shadow:
-    0 0 0 2px var(--surface),
-    0 0 0 5px #f28aa2,
-    0 0 18px #f28aa255;
+.champion-2 {
+  --champion: #f28aa2;
+  --champion-2: #ffd9e2;
 }
 
-.avatar.champion-3 {
-  box-shadow:
-    0 0 0 2px var(--surface),
-    0 0 0 5px #73c79d,
-    0 0 18px #73c79d55;
+.champion-3 {
+  --champion: #73c79d;
+  --champion-2: #d7f5e5;
 }
 
-.avatar.champion-4 {
-  box-shadow:
-    0 0 0 2px var(--surface),
-    0 0 0 5px #c4a4f0,
-    0 0 18px #c4a4f055;
+.champion-4 {
+  --champion: #c4a4f0;
+  --champion-2: #ecdcff;
 }
 
-.avatar.champion-5 {
-  box-shadow:
-    0 0 0 2px var(--surface),
-    0 0 0 5px #f09b7b,
-    0 0 18px #f09b7b55;
+.champion-5 {
+  --champion: #f09b7b;
+  --champion-2: #ffe0d3;
 }
 
-.avatar.champion-6 {
-  box-shadow:
-    0 0 0 2px var(--surface),
-    0 0 0 5px #e3c15c,
-    0 0 18px #e3c15c55;
+.champion-6 {
+  --champion: #e3c15c;
+  --champion-2: #fff0b8;
 }
 
-.avatar.champion-7 {
-  box-shadow:
-    0 0 0 2px var(--surface),
-    0 0 0 5px #54c5c9,
-    0 0 18px #54c5c955;
+.champion-7 {
+  --champion: #54c5c9;
+  --champion-2: #c9f5f5;
 }
 
-.avatar.champion-8 {
-  box-shadow:
-    0 0 0 2px var(--surface),
-    0 0 0 5px #f0a24e,
-    0 0 18px #f0a24e55;
+.champion-8 {
+  --champion: #f0a24e;
+  --champion-2: #ffd9a8;
 }
 
-.avatar.champion-9 {
-  box-shadow:
-    0 0 0 2px var(--surface),
-    0 0 0 5px #d9a94f,
-    0 0 18px #d9a94f55;
+.champion-9 {
+  --champion: #d9a94f;
+  --champion-2: #f6e3b0;
 }
 
-.avatar.champion-10 {
-  box-shadow:
-    0 0 0 2px var(--surface),
-    0 0 0 5px #7c5cff,
-    0 0 0 8px #e8792e,
-    0 0 22px #e8792e66;
+.champion-10 {
+  --champion: #7c5cff;
+  --champion-2: #e8792e;
 }
 
-.avatar.champion-11 {
-  box-shadow:
-    0 0 0 2px var(--surface),
-    0 0 0 5px #c98b5e,
-    0 0 18px #c98b5e55;
+.champion-11 {
+  --champion: #c98b5e;
+  --champion-2: #f2d7c1;
 }
 
-.avatar.champion-12 {
-  box-shadow:
-    0 0 0 2px var(--surface),
-    0 0 0 5px #d95454,
-    0 0 0 8px #4f9e70,
-    0 0 22px #d9545455;
+.champion-12 {
+  --champion: #d95454;
+  --champion-2: #4f9e70;
 }
 
+.avatar[class*="champion-"] {
+  position: relative;
+  border-color: var(--surface);
+  outline: 2px solid var(--champion);
+  outline-offset: 1px;
+  box-shadow:
+    0 0 0 5px color-mix(in srgb, var(--champion) 20%, transparent),
+    0 7px 20px color-mix(in srgb, var(--champion) 35%, transparent);
+  animation: champion-glow 4.6s ease-in-out infinite;
+}
+
+.avatar[class*="champion-"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: 50%;
+  padding: 2px;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0 10%,
+    var(--champion) 18%,
+    var(--champion-2) 30%,
+    transparent 40% 72%,
+    var(--champion) 81%,
+    transparent 91%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  animation: champion-spin 9s linear infinite;
+}
+
+@keyframes champion-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 5px color-mix(in srgb, var(--champion) 18%, transparent),
+      0 7px 18px color-mix(in srgb, var(--champion) 30%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 7px color-mix(in srgb, var(--champion) 26%, transparent),
+      0 9px 24px color-mix(in srgb, var(--champion) 44%, transparent);
+  }
+}
+
+@keyframes champion-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar[class*="champion-"] {
+    animation: none;
+  }
+  .avatar[class*="champion-"]::after {
+    animation: none;
+  }
+}
 .profile-borders {
   margin-top: 18px;
 }
@@ -7865,7 +7906,7 @@ textarea.input:focus {
   }
 }
 /* --------------------------------------------------------------------------
-   Color moods (Settings → Color mood)
+   Color moods (Settings Ã¢â€ â€™ Color mood)
    Each palette overrides the core surface/text/accent tokens for both
    light and dark mode; semantic colors and note colors stay unchanged.
    -------------------------------------------------------------------------- */
@@ -8147,4 +8188,48 @@ textarea.input:focus {
   color: var(--muted);
   font-size: 0.74rem;
   line-height: 1.3;
+}
+/* Champion border cards */
+.border-card[class*="champion-"] {
+  border-color: color-mix(in srgb, var(--champion) 45%, var(--border));
+  background:
+    radial-gradient(
+      130% 150% at 0% 0%,
+      color-mix(in srgb, var(--champion) 13%, transparent),
+      transparent 62%
+    ),
+    var(--surface);
+}
+
+.border-card[class*="champion-"]:hover {
+  border-color: color-mix(in srgb, var(--champion) 65%, var(--border));
+  background:
+    radial-gradient(
+      130% 150% at 0% 0%,
+      color-mix(in srgb, var(--champion) 20%, transparent),
+      transparent 65%
+    ),
+    var(--surface-muted);
+}
+
+.border-card[class*="champion-"].equipped {
+  border-color: color-mix(in srgb, var(--champion) 70%, var(--accent));
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--champion) 24%, transparent),
+      transparent 60%
+    ),
+    var(--accent-soft);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--champion) 55%, transparent),
+    var(--shadow-sm);
+}
+
+.border-card[class*="champion-"] .border-unequip {
+  border-color: color-mix(in srgb, var(--champion) 40%, var(--border));
+}
+
+.border-card[class*="champion-"] .border-unequip:hover {
+  border-color: var(--danger);
 }

@@ -3014,7 +3014,7 @@ export function ProfileView() {
                 const equipped = equippedBorder === borderId;
                 return (
                   <div
-                    className={`border-card${equipped ? " equipped" : ""}`}
+                    className={`border-card ${borderClass(borderId)}${equipped ? " equipped" : ""}`}
                     key={borderId}
                   >
                     <button
