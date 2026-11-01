@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { LuChevronDown, LuPause, LuPlay, LuX } from "react-icons/lu";
 import MusicOrb from "@/components/music-orb";
 import { useMusic } from "@/components/music-context";
@@ -36,6 +36,7 @@ export default function MusicEmbedPlayer({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const closeTimerRef = useRef<number | null>(null);
   const endedHandledRef = useRef(false);
+  const seekingRef = useRef(false);
 
   const sendPlayerCommand = useCallback((func: string) => {
     iframeRef.current?.contentWindow?.postMessage(
@@ -124,7 +125,7 @@ export default function MusicEmbedPlayer({
         return;
       }
       const info = message.info as Record<string, unknown>;
-      if (typeof info.currentTime === "number") {
+      if (typeof info.currentTime === "number" && !seekingRef.current) {
         setCurrentTime(info.currentTime);
       }
       if (typeof info.duration === "number" && info.duration > 0) {
@@ -177,9 +178,13 @@ export default function MusicEmbedPlayer({
   const url = embedUrlFor(embedTrack);
   if (!url) return null;
 
-  const cover = ready ? null : coverUrlFor(embedTrack);
+  const cover = coverUrlFor(embedTrack);
   const loading = !ready;
   const audible = ready && !paused && gestureReady;
+  const progressPercent =
+    duration > 0
+      ? Math.min(100, Math.max(0, (currentTime / duration) * 100))
+      : 0;
 
   function toggleEmbed() {
     if (!ready || !embedTrack || embedTrack.source !== "youtube") return;
@@ -263,14 +268,37 @@ export default function MusicEmbedPlayer({
 
               {embedTrack.source === "youtube" && (
                 <div className="music-now-progress music-now-progress-full">
-                  <div className="music-now-progress-bar">
-                    <div
-                      className="music-now-progress-fill"
-                      style={{
-                        width: `${duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0}%`,
-                      }}
-                    />
-                  </div>
+                  <input
+                    aria-label="Seek in the song"
+                    className="music-now-progress-range"
+                    disabled={duration <= 0}
+                    max={duration || 0}
+                    min={0}
+                    onChange={(event) => {
+                      const next = Number(event.target.value);
+                      seekingRef.current = true;
+                      setCurrentTime(next);
+                      iframeRef.current?.contentWindow?.postMessage(
+                        JSON.stringify({
+                          event: "command",
+                          func: "seekTo",
+                          args: [next, true],
+                        }),
+                        "*",
+                      );
+                      window.setTimeout(() => {
+                        seekingRef.current = false;
+                      }, 700);
+                    }}
+                    step="any"
+                    style={
+                      {
+                        "--progress": `${progressPercent}%`,
+                      } as CSSProperties
+                    }
+                    type="range"
+                    value={Math.min(currentTime, duration || 0)}
+                  />
                   <div className="music-now-progress-times">
                     <span>{formatClock(currentTime)}</span>
                     <span>
