@@ -114,8 +114,13 @@ export default function MusicEmbedPlayer({
 
   useEffect(() => {
     if (!ready || !gestureReady) return;
-    sendPlayerCommand("playVideo");
-    sendPlayerCommand("unMute");
+    const timers = [0, 350, 900, 1800].map((delay) =>
+      window.setTimeout(() => {
+        sendPlayerCommand("unMute");
+        sendPlayerCommand("playVideo");
+      }, delay),
+    );
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
   }, [gestureReady, ready, sendPlayerCommand]);
 
   useEffect(() => {
@@ -382,6 +387,7 @@ export default function MusicEmbedPlayer({
         <iframe
           allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
           allowFullScreen
+          key={embedTrack.id}
           onLoad={() => setReady(true)}
           ref={iframeRef}
           src={url}

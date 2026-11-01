@@ -479,7 +479,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       : playlistFor(holiday, settingsRef.current);
     if (!list.length) return;
 
-    const current = nowPlaying ?? embedTrack;
+    const current = embedTrack ?? nowPlaying;
     const index = current
       ? list.findIndex((track) => track.id === current.id)
       : -1;
@@ -512,7 +512,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       : playlistFor(holiday, settingsRef.current);
     if (!list.length) return;
 
-    const current = nowPlaying ?? embedTrack;
+    const current = embedTrack ?? nowPlaying;
     const index = current
       ? list.findIndex((track) => track.id === current.id)
       : 0;
