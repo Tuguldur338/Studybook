@@ -18,6 +18,7 @@ import {
   mergeMusicSettings,
   type MusicSettings,
 } from "@/lib/music-store";
+import { PALETTES, type PaletteId } from "@/lib/palettes";
 
 export type ClassSession = {
   id: string;
@@ -173,6 +174,8 @@ type StudybookContextValue = {
   setTheme: Dispatch<SetStateAction<"light" | "dark">>;
   font: FontFamily;
   setFont: Dispatch<SetStateAction<FontFamily>>;
+  palette: PaletteId;
+  setPalette: Dispatch<SetStateAction<PaletteId>>;
   holidayEffects: boolean;
   setHolidayEffects: Dispatch<SetStateAction<boolean>>;
   syncStatus: "local" | "syncing" | "synced" | "error";
@@ -483,6 +486,11 @@ function readStudybookData(key = STORAGE_KEY) {
   const font: FontFamily = FONT_OPTIONS.includes(parsed.font as FontFamily)
     ? (parsed.font as FontFamily)
     : "geist";
+  const palette: PaletteId = PALETTES.some(
+    (option) => option.id === parsed.palette,
+  )
+    ? (parsed.palette as PaletteId)
+    : "sage";
   const holidayEffects = parsed.holidayEffects !== false;
 
   return {
@@ -516,6 +524,7 @@ function readStudybookData(key = STORAGE_KEY) {
     },
     theme,
     font,
+    palette,
     holidayEffects,
   };
 }
@@ -534,6 +543,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState(defaultProfile);
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [font, setFont] = useState<FontFamily>("geist");
+  const [palette, setPalette] = useState<PaletteId>("sage");
   const [holidayEffects, setHolidayEffects] = useState(true);
   const [syncStatus, setSyncStatus] = useState<
     "local" | "syncing" | "synced" | "error"
@@ -650,6 +660,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
         : "light",
     );
     setFont("geist");
+    setPalette("sage");
     setHolidayEffects(true);
   }, []);
 
@@ -707,6 +718,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
           setProfile(saved.profile);
           setTheme(saved.theme);
           setFont(saved.font);
+          setPalette(saved.palette);
           setHolidayEffects(saved.holidayEffects);
         } else {
           resetLocalSnapshot();
@@ -728,6 +740,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     if (!isLoaded || loadedKey !== storageKey) return;
     document.documentElement.dataset.theme = theme;
     document.documentElement.dataset.font = font;
+    document.documentElement.dataset.palette = palette;
 
     snapshotRef.current = {
       classes,
@@ -762,6 +775,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
           profile,
           theme,
           font,
+          palette,
           holidayEffects,
         }),
       );
@@ -783,6 +797,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     routine,
     routineChecks,
     font,
+    palette,
     holidayEffects,
     isLoaded,
     loadedKey,
@@ -1066,6 +1081,8 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
         setTheme,
         font,
         setFont,
+        palette,
+        setPalette,
         holidayEffects,
         setHolidayEffects,
         syncStatus,

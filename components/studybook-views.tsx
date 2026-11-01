@@ -66,6 +66,7 @@ import { isPlayableSource, type MusicTrack } from "@/lib/music-store";
 import { embedUrlFor } from "@/lib/music-embed";
 import { fetchRemoteTrackTitle } from "@/lib/music-embed";
 import { HALLOWEEN_THEME_TRACK } from "@/lib/music-specials";
+import { PALETTES } from "@/lib/palettes";
 import LoopButton from "@/components/loop-button";
 import { borderClass, borderIdFromMonth, borderLabel } from "@/lib/borders";
 
@@ -3099,8 +3100,10 @@ export function SettingsView() {
   const {
     font,
     holidayEffects,
+    palette,
     setFont,
     setHolidayEffects,
+    setPalette,
     setTheme,
     theme,
   } = useStudybook();
@@ -3110,7 +3113,7 @@ export function SettingsView() {
     <>
       <PageHeading
         eyebrow="Make yourself comfortable"
-        subtitle="Choose a theme and a font family. Changes apply across Studybook and are saved on this device."
+        subtitle="Choose a color mood, light or dark theme, and a font family. Changes apply across Studybook and are saved on this device."
         title="Settings"
       />
 
@@ -3149,6 +3152,49 @@ export function SettingsView() {
                   <span>Dim background, light text</span>
                 </span>
               </button>
+            </div>
+          </div>
+        </section>
+
+        <section className="panel settings-wide">
+          <div className="panel-heading">
+            <h2 className="panel-title">Color mood</h2>
+          </div>
+          <div className="panel-body">
+            <p className="panel-hint">
+              Pick a background and accent palette. Text, cards, buttons, and
+              tab colors are adjusted together so everything stays readable.
+            </p>
+            <div className="palette-choices">
+              {PALETTES.map((option) => {
+                const preview = theme === "dark" ? option.dark : option.light;
+                return (
+                  <button
+                    aria-pressed={palette === option.id}
+                    className={`palette-choice${palette === option.id ? " selected" : ""}`}
+                    key={option.id}
+                    onClick={() => setPalette(option.id)}
+                    type="button"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="palette-swatch"
+                      style={{
+                        background: `linear-gradient(135deg, ${preview.background} 0%, ${preview.background} 46%, ${preview.accent} 54%, ${preview.accent} 100%)`,
+                      }}
+                    >
+                      <span
+                        className="palette-swatch-dot"
+                        style={{ background: preview.accent }}
+                      />
+                    </span>
+                    <span className="palette-choice-copy">
+                      <strong>{option.label}</strong>
+                      <span>{option.description}</span>
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </section>
