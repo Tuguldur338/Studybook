@@ -5628,7 +5628,7 @@ button.messenger-row:hover {
   }
 }
 
-/* Halloween — immersive night theme */
+/* Halloween â€” immersive night theme */
 .halloween-trigger {
   border: 1px solid rgb(232 121 46 / 65%);
   background:
@@ -5642,7 +5642,7 @@ button.messenger-row:hover {
 }
 
 .halloween-trigger::after {
-  content: "🦇";
+  content: "ðŸ¦‡";
   position: absolute;
   top: -12px;
   right: 12px;
@@ -7795,7 +7795,7 @@ textarea.input:focus {
 }
 
 .music-orb.is-playing .music-orb-art {
-  animation: music-orb-cover-spin 18s linear infinite;
+  animation: music-orb-cover-spin 6s linear infinite;
 }
 
 .music-orb.is-playing .music-orb-cover,
