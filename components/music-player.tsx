@@ -78,7 +78,7 @@ export default function MusicPlayer({ raised = false }: { raised?: boolean }) {
   }, [nowPlaying]);
 
   useEffect(() => {
-    if (!cardOpen || leaving || !nowPlaying || startingTrack) {
+    if (!cardOpen || leaving || expanded || !nowPlaying || startingTrack) {
       return;
     }
     const timer = window.setTimeout(closeCard, 6000);
