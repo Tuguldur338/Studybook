@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from "re
 import { LuChevronDown, LuPause, LuPlay, LuX } from "react-icons/lu";
 import MusicOrb from "@/components/music-orb";
 import { useMusic } from "@/components/music-context";
-import { coverUrlFor, embedUrlFor } from "@/lib/music-embed";
+import { coverUrlFor, embedUrlFor, youtubeVideoId } from "@/lib/music-embed";
 
 function formatClock(value: number) {
   if (!Number.isFinite(value) || value <= 0) return "0:00";
@@ -22,7 +22,7 @@ export default function MusicEmbedPlayer({
 }: {
   raised?: boolean;
 }) {
-  const { closeEmbed, embedTrack, embedUserGesture, loopMode, nextTrack } =
+  const { closeEmbed, embedTrack, embedUserGesture, loopMode, nextTrack, settings } =
     useMusic();
   const [ready, setReady] = useState(false);
   const [cardOpen, setCardOpen] = useState(true);
@@ -33,10 +33,13 @@ export default function MusicEmbedPlayer({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [playerSrc, setPlayerSrc] = useState("");
+  const [liveTitle, setLiveTitle] = useState("");
+  const [liveVideoId, setLiveVideoId] = useState("");
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const closeTimerRef = useRef<number | null>(null);
   const endedHandledRef = useRef(false);
   const seekingRef = useRef(false);
+  const playerSrcRef = useRef("");
 
   const sendPlayerCommand = useCallback((func: string) => {
     iframeRef.current?.contentWindow?.postMessage(
@@ -55,6 +58,10 @@ export default function MusicEmbedPlayer({
   const finishEmbed = useCallback(() => {
     if (endedHandledRef.current) return;
     endedHandledRef.current = true;
+    if (embedTrack?.source === "youtube" && loopMode !== 0) {
+      // The native YouTube playlist loop handles this in the same player.
+      return;
+    }
     if (loopMode === 2) {
       iframeRef.current?.contentWindow?.postMessage(
         JSON.stringify({ event: "command", func: "seekTo", args: [0, true] }),
@@ -69,7 +76,7 @@ export default function MusicEmbedPlayer({
     } else {
       void nextTrack(loopMode === 1);
     }
-  }, [loopMode, nextTrack]);
+  }, [embedTrack, loopMode, nextTrack]);
 
   const closeCard = useCallback(() => {
     if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
@@ -95,11 +102,43 @@ export default function MusicEmbedPlayer({
     }
 
     const timer = window.setTimeout(() => {
-      const nextSrc = embedUrlFor(embedTrack) ?? "";
-      setPlayerSrc(nextSrc);
+      const currentVideoId = youtubeVideoId(embedTrack);
+      let loopSuffix = "";
+      if (
+        currentVideoId &&
+        embedTrack.source === "youtube" &&
+        loopMode !== 0
+      ) {
+        if (loopMode === 2) {
+          loopSuffix = `&loop=1&playlist=${encodeURIComponent(currentVideoId)}`;
+        } else {
+          const nextIds = settings.tracks
+            .filter(
+              (track) =>
+                track.source === "youtube" &&
+                track.playlist === embedTrack.playlist &&
+                track.id !== embedTrack.id,
+            )
+            .map((track) => youtubeVideoId(track))
+            .filter((id): id is string => Boolean(id));
+          const playlist = nextIds.length
+            ? [...nextIds, currentVideoId]
+            : [currentVideoId];
+          loopSuffix = `&loop=1&playlist=${playlist
+            .map((id) => encodeURIComponent(id))
+            .join(",")}`;
+        }
+      }
+      const nextSrc = `${embedUrlFor(embedTrack) ?? ""}${loopSuffix}`;
+      if (playerSrcRef.current !== nextSrc) {
+        playerSrcRef.current = nextSrc;
+        setPlayerSrc(nextSrc);
+        setReady(false);
+      }
+      setLiveTitle(embedTrack.title);
+      setLiveVideoId(currentVideoId ?? "");
       setCardOpen(true);
       setPaused(false);
-      setReady(false);
       setLeaving(false);
       setExpanded(false);
       setGestureReady(embedUserGesture);
@@ -108,7 +147,7 @@ export default function MusicEmbedPlayer({
       endedHandledRef.current = false;
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [embedTrack, embedUserGesture]);
+  }, [embedTrack, embedUserGesture, loopMode, settings.tracks]);
 
   useEffect(() => {
     if (!ready || !cardOpen || leaving) return;
@@ -162,6 +201,15 @@ export default function MusicEmbedPlayer({
       if (reportedDuration > 0) {
         setDuration(reportedDuration);
       }
+      if (typeof info.videoData === "object" && info.videoData !== null) {
+        const videoData = info.videoData as Record<string, unknown>;
+        if (typeof videoData.title === "string" && videoData.title) {
+          setLiveTitle(videoData.title);
+        }
+        if (typeof videoData.video_id === "string" && videoData.video_id) {
+          setLiveVideoId(videoData.video_id);
+        }
+      }
 
       const finish = finishEmbed;
 
@@ -214,7 +262,10 @@ export default function MusicEmbedPlayer({
   const url = embedUrlFor(embedTrack);
   if (!url) return null;
 
-  const cover = coverUrlFor(embedTrack);
+  const cover = liveVideoId
+    ? `https://img.youtube.com/vi/${encodeURIComponent(liveVideoId)}/hqdefault.jpg`
+    : coverUrlFor(embedTrack);
+  const displayTitle = liveTitle || embedTrack.title;
   const loading = !ready;
   const active = ready && !(paused && gestureReady);
   const isPlaying = ready && !paused;
@@ -261,7 +312,7 @@ export default function MusicEmbedPlayer({
               <span className="music-now-compact-row">
                 <span aria-hidden="true" className="music-now-live" />
                 <span className="music-now-compact-title">
-                  {embedTrack.title}
+                  {displayTitle}
                 </span>
                 {!gestureReady && (
                   <span className="music-now-compact-hint">Tap for sound</span>
@@ -295,9 +346,9 @@ export default function MusicEmbedPlayer({
                 </button>
               </div>
 
-              <h2 className="music-now-title">{embedTrack.title}</h2>
+              <h2 className="music-now-title">{displayTitle}</h2>
               <p className="music-now-sub">
-                {embedTrack.source === "youtube" ? "YouTube" : "Spotify"} ·{" "}
+                {embedTrack.source === "youtube" ? "YouTube" : "Spotify"} Â·{" "}
                 video hidden
               </p>
 
@@ -396,7 +447,7 @@ export default function MusicEmbedPlayer({
             onLoad={() => setReady(true)}
             ref={iframeRef}
             src={playerSrc}
-            title={`${embedTrack.title} player`}
+            title={`${displayTitle} player`}
           />
         )}
       </div>
