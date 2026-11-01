@@ -3,6 +3,7 @@
 -- Tasks live in the browser, so the client awards points when a task is
 -- checked off. The allowlist below ties an amount to a priority:
 --   high +30, medium +20, low +10 (and the matching negatives when un-checked).
+--   Completing after the due date awards half: 5, 10, or 15.
 --
 -- The profiles table only lets a user read their own row, so the leaderboard
 -- is exposed through a security-definer function that returns just the public
@@ -29,7 +30,7 @@ begin
     raise exception 'Not signed in' using errcode = '28000';
   end if;
 
-  if amount is null or amount not in (-30, -20, -10, 10, 20, 30) then
+  if amount is null or amount not in (-30, -20, -15, -10, -5, 5, 10, 15, 20, 30) then
     raise exception 'Invalid points amount' using errcode = '22023';
   end if;
 
@@ -51,6 +52,8 @@ $$;
 
 revoke all on function public.award_points(integer) from public, anon;
 grant execute on function public.award_points(integer) to authenticated;
+
+drop function if exists public.get_leaderboard(integer);
 
 create or replace function public.get_leaderboard(max_rows integer default 20)
 returns table (

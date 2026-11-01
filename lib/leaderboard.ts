@@ -15,7 +15,8 @@ export type AwardTaskPointsResult = {
 
 /**
  * Award (or reverse) leaderboard points. The server validates the amount, so
- * callers may only pass the amounts allowed by award_points (10, 20, or 30).
+ * callers may only pass the amounts allowed by award_points (5, 10, 15, 20, 30
+ * and their negatives).
  */
 export async function awardPoints(
   amount: number,
@@ -75,6 +76,8 @@ export async function awardPoints(
 export async function awardTaskPoints(
   priority: "low" | "medium" | "high",
   direction: 1 | -1,
+  late = false,
 ): Promise<AwardTaskPointsResult> {
-  return awardPoints(TASK_POINTS[priority] * direction);
+  const amount = TASK_POINTS[priority] * direction;
+  return awardPoints(late ? amount / 2 : amount);
 }

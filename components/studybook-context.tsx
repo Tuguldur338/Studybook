@@ -36,6 +36,8 @@ export type StudyTask = {
   dueDate: string;
   priority: "low" | "medium" | "high";
   completed: boolean;
+  /** Whether the last completion happened after the due date. */
+  completedLate?: boolean;
   /** ISO timestamp of the last local change, used to merge devices. */
   updatedAt?: string;
 };
@@ -226,6 +228,8 @@ function isStudyTask(value: unknown): value is StudyTask {
       value.priority === "medium" ||
       value.priority === "high") &&
     typeof value.completed === "boolean" &&
+    (value.completedLate === undefined ||
+      typeof value.completedLate === "boolean") &&
     (value.updatedAt === undefined || typeof value.updatedAt === "string")
   );
 }

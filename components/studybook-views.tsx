@@ -355,14 +355,20 @@ export default function DashboardView() {
 
   function completeTask(task: StudyTask) {
     const changedAt = new Date().toISOString();
+    const late = isOverdue(task, todayStr);
     setTasks((current) =>
       current.map((item) =>
         item.id === task.id
-          ? { ...item, completed: true, updatedAt: changedAt }
+          ? {
+              ...item,
+              completed: true,
+              completedLate: late,
+              updatedAt: changedAt,
+            }
           : item,
       ),
     );
-    void awardTaskPoints(task.priority, 1).then((result) =>
+    void awardTaskPoints(task.priority, 1, late).then((result) =>
       notifyPointsResult(result, notify),
     );
   }
@@ -1706,7 +1712,6 @@ type TaskSort = "due" | "priority" | "newest";
 export function ToDoListView() {
   const { deleteTasks, notify, setTasks, tasks } = useStudybook();
   const [formOpen, setFormOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyTaskForm);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<TaskFilter>("active");
@@ -1721,43 +1726,24 @@ export function ToDoListView() {
     return () => window.cancelAnimationFrame(frame);
   }, []);
 
-  function startEditing(task: StudyTask) {
-    setEditingId(task.id);
-    setForm({
-      title: task.title,
-      course: task.course,
-      dueDate: task.dueDate,
-      priority: task.priority,
-    });
-    setFormOpen(true);
-  }
-
   function closeForm() {
     setFormOpen(false);
-    setEditingId(null);
     setForm(emptyTaskForm);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const existing = editingId
-      ? tasks.find((task) => task.id === editingId)
-      : undefined;
     const task: StudyTask = {
       title: form.title.trim(),
       course: form.course.trim(),
       dueDate: form.dueDate,
       priority: form.priority,
-      id: editingId ?? createId(),
-      completed: existing?.completed ?? false,
+      id: createId(),
+      completed: false,
       updatedAt: new Date().toISOString(),
     };
-    setTasks((current) =>
-      editingId
-        ? current.map((item) => (item.id === editingId ? task : item))
-        : [task, ...current],
-    );
-    notify(editingId ? "Task updated." : "Task added.");
+    setTasks((current) => [task, ...current]);
+    notify("Task added.");
     closeForm();
   }
 
@@ -1810,14 +1796,20 @@ export function ToDoListView() {
   function handleToggleTask(task: StudyTask) {
     const nextCompleted = !task.completed;
     const changedAt = new Date().toISOString();
+    const late = nextCompleted ? isOverdue(task, todayStr) : Boolean(task.completedLate);
     setTasks((current) =>
       current.map((item) =>
         item.id === task.id
-          ? { ...item, completed: nextCompleted, updatedAt: changedAt }
+          ? {
+              ...item,
+              completed: nextCompleted,
+              completedLate: nextCompleted ? late : task.completedLate,
+              updatedAt: changedAt,
+            }
           : item,
       ),
     );
-    void awardTaskPoints(task.priority, nextCompleted ? 1 : -1).then(
+    void awardTaskPoints(task.priority, nextCompleted ? 1 : -1, late).then(
       (result) => notifyPointsResult(result, notify),
     );
   }
@@ -1857,14 +1849,6 @@ export function ToDoListView() {
         </span>
         <div className="inline-actions">
           <button
-            aria-label={`Edit ${task.title}`}
-            className="small-icon-button"
-            onClick={() => startEditing(task)}
-            type="button"
-          >
-            <LuPencil size={13} />
-          </button>
-          <button
             aria-label={`Delete ${task.title}`}
             className="small-icon-button danger"
             onClick={() => setDeleteId(task.id)}
@@ -1893,13 +1877,13 @@ export function ToDoListView() {
           </button>
         }
         eyebrow="One thing at a time"
-        subtitle="Keep track of homework, projects, and the little things you don't want to forget."
+        subtitle="Keep track of homework, projects, and the little things you don't want to forget. Tasks can't be edited after adding, and late completions earn half points."
         title="To-do list"
       />
       {formOpen && (
         <form className="panel form-panel" onSubmit={handleSubmit}>
           <h2 className="panel-title" style={{ marginBottom: 16 }}>
-            {editingId ? "Edit task" : "Add a task"}
+            Add a task
           </h2>
           <div className="form-grid">
             <div className="field full-width">
@@ -1973,7 +1957,7 @@ export function ToDoListView() {
               Cancel
             </button>
             <button className="primary-button" type="submit">
-              {editingId ? "Save changes" : "Add task"}
+              Add task
             </button>
           </div>
         </form>

@@ -55,7 +55,7 @@ begin
     raise exception 'Not signed in' using errcode = '28000';
   end if;
 
-  if amount is null or amount not in (-30, -20, -10, 10, 20, 30) then
+  if amount is null or amount not in (-30, -20, -15, -10, -5, 5, 10, 15, 20, 30) then
     raise exception 'Invalid points amount' using errcode = '22023';
   end if;
 
