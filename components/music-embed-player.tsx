@@ -198,7 +198,7 @@ export default function MusicEmbedPlayer({
       }
     }, 500);
     return () => window.clearInterval(timer);
-  }, [currentTime, duration, finishEmbed, paused, ready]);
+  }, [currentTime, duration, embedTrack?.id, finishEmbed, paused, ready]);
 
   if (!embedTrack) return null;
 
@@ -287,7 +287,7 @@ export default function MusicEmbedPlayer({
 
               <h2 className="music-now-title">{embedTrack.title}</h2>
               <p className="music-now-sub">
-                {embedTrack.source === "youtube" ? "YouTube" : "Spotify"} Â·{" "}
+                {embedTrack.source === "youtube" ? "YouTube" : "Spotify"} Ã‚Â·{" "}
                 video hidden
               </p>
 
