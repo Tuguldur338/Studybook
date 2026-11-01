@@ -55,6 +55,7 @@ import {
   getSupabaseBrowserClient,
   isSupabaseConfigured,
 } from "@/lib/supabase/client";
+import { borderClass } from "@/lib/borders";
 
 const navigation = [
   { label: "Overview", href: "/", icon: LuHouse },
@@ -420,6 +421,20 @@ function StudybookFrame({ children }: { children: ReactNode }) {
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [authError, setAuthError] = useState("");
   const [username, setUsername] = useState("");
+  const [equippedBorder, setEquippedBorder] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleBorderUpdate = (event: Event) => {
+      const detail = (event as CustomEvent<string | null>).detail;
+      setEquippedBorder(detail ?? null);
+    };
+    window.addEventListener("studybook:border-updated", handleBorderUpdate);
+    return () =>
+      window.removeEventListener(
+        "studybook:border-updated",
+        handleBorderUpdate,
+      );
+  }, []);
 
   const messaging = useMessaging(authUser);
   const messagesBadge = authUser
@@ -469,18 +484,23 @@ function StudybookFrame({ children }: { children: ReactNode }) {
     const supabase = getSupabaseBrowserClient();
     supabase
       .from("profiles")
-      .select("display_name, avatar_url")
+      .select("display_name, avatar_url, equipped_border")
       .eq("id", authUser.id)
       .single()
       .then(
         ({
           data,
         }: {
-          data: { display_name: string | null; avatar_url: string | null } | null;
+          data: {
+            display_name: string | null;
+            avatar_url: string | null;
+            equipped_border: string | null;
+          } | null;
         }) => {
           if (!active) return;
           const profileName = data?.display_name?.trim() ?? "";
           const profileAvatar = data?.avatar_url ?? "";
+          setEquippedBorder(data?.equipped_border ?? null);
 
           setProfile((current) => ({
             ...current,
@@ -682,7 +702,11 @@ function StudybookFrame({ children }: { children: ReactNode }) {
               onClick={() => setMobileMenuOpen(false)}
               title="View profile"
             >
-              <ProfileAvatar image={profile.avatar} name={profile.name} />
+              <ProfileAvatar
+                borderClass={borderClass(equippedBorder)}
+                image={profile.avatar}
+                name={profile.name}
+              />
               <span className="sidebar-profile-copy">
                 <span className="sidebar-profile-name">{profile.name}</span>
                 <span

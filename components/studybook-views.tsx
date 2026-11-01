@@ -2320,6 +2320,7 @@ export function AccountView() {
   const currentProfile = draft ?? profile;
 
   const [currentUsername, setCurrentUsername] = useState("");
+  const [equippedBorder, setEquippedBorder] = useState<string | null>(null);
   const [username, setUsername] = useState("");
   const [usernameError, setUsernameError] = useState("");
   const [usernameStatus, setUsernameStatus] = useState("");
@@ -2341,15 +2342,22 @@ export function AccountView() {
     const supabase = getSupabaseBrowserClient();
     supabase
       .from("profiles")
-      .select("username")
+      .select("username, equipped_border")
       .eq("id", user.id)
       .single()
-      .then(({ data }: { data: { username: string | null } | null }) => {
-        if (!active) return;
-        const saved = typeof data?.username === "string" ? data.username : "";
-        setCurrentUsername(saved);
-        setUsername(saved);
-      });
+      .then(
+        ({
+          data,
+        }: {
+          data: { username: string | null; equipped_border: string | null } | null;
+        }) => {
+          if (!active) return;
+          const saved = typeof data?.username === "string" ? data.username : "";
+          setCurrentUsername(saved);
+          setUsername(saved);
+          setEquippedBorder(data?.equipped_border ?? null);
+        },
+      );
 
     return () => {
       active = false;
@@ -2592,6 +2600,7 @@ export function AccountView() {
       <div className="profile-layout">
         <section className="panel profile-card">
           <ProfileAvatar
+            borderClass={borderClass(equippedBorder)}
             image={currentProfile.avatar}
             large
             name={currentProfile.name}
@@ -2915,6 +2924,11 @@ export function ProfileView() {
       return;
     }
     setEquippedBorder(borderId);
+    window.dispatchEvent(
+      new CustomEvent<string | null>("studybook:border-updated", {
+        detail: borderId,
+      }),
+    );
   }
 
   const completed = tasks

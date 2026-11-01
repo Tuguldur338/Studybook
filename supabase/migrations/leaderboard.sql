@@ -61,7 +61,8 @@ returns table (
   username text,
   display_name text,
   avatar_url text,
-  points integer
+  points integer,
+  equipped_border text
 )
 language sql
 stable
@@ -73,7 +74,8 @@ as $$
     p.username,
     p.display_name,
     p.avatar_url,
-    p.points
+    p.points,
+    p.equipped_border
   from public.profiles p
   where p.points > 0
     and (
