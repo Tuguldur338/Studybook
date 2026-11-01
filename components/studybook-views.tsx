@@ -18,6 +18,7 @@ import {
   LuCalendarDays,
   LuCalendarPlus,
   LuChevronDown,
+  LuCheck,
   LuChevronLeft,
   LuChevronRight,
   LuCircleAlert,
@@ -2901,7 +2902,7 @@ export function ProfileView() {
     };
   }, [ready, user]);
 
-  async function equipBorder(borderId: string) {
+  async function equipBorder(borderId: string | null) {
     if (!user) return;
     setBorderError("");
     const supabase = getSupabaseBrowserClient();
@@ -3009,28 +3010,54 @@ export function ProfileView() {
             <p className="field-hint">Loading borders…</p>
           ) : earnedBorders.length ? (
             <div className="border-grid">
-              {earnedBorders.map((borderId) => (
-                <button
-                  aria-pressed={equippedBorder === borderId}
-                  className={`border-card${equippedBorder === borderId ? " equipped" : ""}`}
-                  key={borderId}
-                  onClick={() => void equipBorder(borderId)}
-                  type="button"
-                >
-                  <span
-                    aria-hidden="true"
-                    className={`border-preview avatar ${borderClass(borderId)}`}
+              {earnedBorders.map((borderId) => {
+                const equipped = equippedBorder === borderId;
+                return (
+                  <div
+                    className={`border-card${equipped ? " equipped" : ""}`}
+                    key={borderId}
                   >
-                    â˜…
-                  </span>
-                  <span className="border-card-copy">
-                    <strong>{borderLabel(borderId)}</strong>
-                    <span>
-                      {equippedBorder === borderId ? "Equipped" : "Equip border"}
-                    </span>
-                  </span>
-                </button>
-              ))}
+                    <button
+                      aria-label={
+                        equipped
+                          ? `Unequip ${borderLabel(borderId)} border`
+                          : `Equip ${borderLabel(borderId)} border`
+                      }
+                      aria-pressed={equipped}
+                      className="border-card-main"
+                      onClick={() =>
+                        void equipBorder(equipped ? null : borderId)
+                      }
+                      type="button"
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={`border-preview avatar ${borderClass(borderId)}`}
+                      >
+                        {"\u2605"}
+                      </span>
+                      <span className="border-card-copy">
+                        <strong>{borderLabel(borderId)}</strong>
+                        <span className="border-card-status">
+                          <LuCheck aria-hidden="true" size={12} />
+                          {equipped ? "Equipped" : "Equip border"}
+                        </span>
+                      </span>
+                    </button>
+                    {equipped && (
+                      <button
+                        aria-label={`Unequip ${borderLabel(borderId)} border`}
+                        className="border-unequip"
+                        onClick={() => void equipBorder(null)}
+                        title="Unequip border"
+                        type="button"
+                      >
+                        <LuX aria-hidden="true" size={13} />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <EmptyState

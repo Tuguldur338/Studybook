@@ -6185,12 +6185,25 @@ button.messenger-row:hover {
 .border-card {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--surface);
   padding: 10px;
   color: var(--foreground);
+  text-align: left;
+}
+
+.border-card-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
   text-align: left;
   cursor: pointer;
 }
@@ -6203,6 +6216,35 @@ button.messenger-row:hover {
 .border-card.equipped {
   border-color: var(--accent);
   background: var(--accent-soft);
+}
+
+.border-unequip {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    color 150ms ease,
+    background 150ms ease;
+}
+
+.border-unequip:hover {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.border-card-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .border-preview {
