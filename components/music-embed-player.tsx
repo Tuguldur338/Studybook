@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from "re
 import { LuChevronDown, LuPause, LuPlay, LuX } from "react-icons/lu";
 import MusicOrb from "@/components/music-orb";
 import { useMusic } from "@/components/music-context";
-import { coverUrlFor, embedUrlFor, youtubeVideoId } from "@/lib/music-embed";
+import { coverUrlFor, embedUrlFor } from "@/lib/music-embed";
 
 function formatClock(value: number) {
   if (!Number.isFinite(value) || value <= 0) return "0:00";
@@ -37,8 +37,6 @@ export default function MusicEmbedPlayer({
   const closeTimerRef = useRef<number | null>(null);
   const endedHandledRef = useRef(false);
   const seekingRef = useRef(false);
-  const playerSrcRef = useRef("");
-  const lastTrackRef = useRef<{ id: string; source: string } | null>(null);
 
   const sendPlayerCommand = useCallback((func: string) => {
     iframeRef.current?.contentWindow?.postMessage(
@@ -96,63 +94,18 @@ export default function MusicEmbedPlayer({
       closeTimerRef.current = null;
     }
 
-    const previous = lastTrackRef.current;
-    const sameYouTubePlayer =
-      previous?.source === "youtube" &&
-      embedTrack.source === "youtube" &&
-      playerSrcRef.current.length > 0;
-    lastTrackRef.current = { id: embedTrack.id, source: embedTrack.source };
-
     const timer = window.setTimeout(() => {
+      const nextSrc = embedUrlFor(embedTrack) ?? "";
+      setPlayerSrc(nextSrc);
       setCardOpen(true);
+      setPaused(false);
+      setReady(false);
       setLeaving(false);
       setExpanded(false);
-      setGestureReady(sameYouTubePlayer || embedUserGesture);
+      setGestureReady(embedUserGesture);
       setCurrentTime(0);
       setDuration(0);
       endedHandledRef.current = false;
-
-      if (sameYouTubePlayer) {
-        const videoId = youtubeVideoId(embedTrack);
-        if (videoId) {
-          iframeRef.current?.contentWindow?.postMessage(
-            JSON.stringify({
-              event: "command",
-              func: "loadVideoById",
-              args: [videoId],
-            }),
-            "*",
-          );
-          [0, 350, 900, 1800].forEach((delay) => {
-            window.setTimeout(() => {
-              iframeRef.current?.contentWindow?.postMessage(
-                JSON.stringify({
-                  event: "command",
-                  func: "playVideo",
-                  args: [],
-                }),
-                "*",
-              );
-              iframeRef.current?.contentWindow?.postMessage(
-                JSON.stringify({
-                  event: "command",
-                  func: "unMute",
-                  args: [],
-                }),
-                "*",
-              );
-            }, delay);
-          });
-        }
-        setPaused(false);
-        setReady(true);
-      } else {
-        const nextSrc = embedUrlFor(embedTrack) ?? "";
-        playerSrcRef.current = nextSrc;
-        setPlayerSrc(nextSrc);
-        setPaused(false);
-        setReady(false);
-      }
     }, 0);
     return () => window.clearTimeout(timer);
   }, [embedTrack, embedUserGesture]);
@@ -439,6 +392,7 @@ export default function MusicEmbedPlayer({
           <iframe
             allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
             allowFullScreen
+            key={playerSrc}
             onLoad={() => setReady(true)}
             ref={iframeRef}
             src={playerSrc}
