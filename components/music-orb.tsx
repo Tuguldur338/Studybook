@@ -25,17 +25,19 @@ export default function MusicOrb({
         onClick={onClick}
         type="button"
       >
-        {cover ? (
-          <span
-            aria-hidden="true"
-            className="music-orb-cover"
-            style={{ backgroundImage: `url("${cover}")` }}
-          />
-        ) : (
-          <span aria-hidden="true" className="music-orb-vinyl">
-            <LuMusic size={17} />
-          </span>
-        )}
+        <span className="music-orb-art">
+          {cover ? (
+            <span
+              aria-hidden="true"
+              className="music-orb-cover"
+              style={{ backgroundImage: `url("${cover}")` }}
+            />
+          ) : (
+            <span aria-hidden="true" className="music-orb-vinyl">
+              <LuMusic size={17} />
+            </span>
+          )}
+        </span>
         {loading && <span aria-hidden="true" className="music-orb-spinner" />}
         {playing && !loading && (
           <span aria-hidden="true" className="music-orb-eq">

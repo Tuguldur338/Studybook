@@ -42,7 +42,6 @@ export default function MusicPlayer({ raised = false }: { raised?: boolean }) {
   } = useMusic();
   const [cardOpen, setCardOpen] = useState(true);
   const [playlistOpen, setPlaylistOpen] = useState(false);
-  const [hovered, setHovered] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const closeTimerRef = useRef<number | null>(null);
@@ -82,20 +81,17 @@ export default function MusicPlayer({ raised = false }: { raised?: boolean }) {
     if (
       !cardOpen ||
       leaving ||
-      expanded ||
       !nowPlaying ||
-      startingTrack ||
-      hovered
+      startingTrack
     ) {
       return;
     }
-    const timer = window.setTimeout(closeCard, 3600);
+    const timer = window.setTimeout(closeCard, 2000);
     return () => window.clearTimeout(timer);
   }, [
     cardOpen,
     closeCard,
     expanded,
-    hovered,
     leaving,
     nowPlaying,
     startingTrack,
@@ -129,8 +125,6 @@ export default function MusicPlayer({ raised = false }: { raised?: boolean }) {
           className={`music-now-card${isPlaying ? " is-playing" : " is-paused"}${expanded ? " is-expanded" : " is-compact"}${leaving ? " is-leaving" : ""}${raised ? " is-raised" : ""}`}
           aria-label="Now playing"
           key={nowPlaying.id}
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
         >
           {!expanded ? (
             <button

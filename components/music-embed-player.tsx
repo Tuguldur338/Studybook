@@ -26,7 +26,6 @@ export default function MusicEmbedPlayer({
     useMusic();
   const [ready, setReady] = useState(false);
   const [cardOpen, setCardOpen] = useState(true);
-  const [hovered, setHovered] = useState(false);
   const [paused, setPaused] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -51,6 +50,25 @@ export default function MusicEmbedPlayer({
     setPaused(false);
     setGestureReady(true);
   }, [sendPlayerCommand]);
+
+  const finishEmbed = useCallback(() => {
+    if (endedHandledRef.current) return;
+    endedHandledRef.current = true;
+    if (loopMode === 2) {
+      iframeRef.current?.contentWindow?.postMessage(
+        JSON.stringify({ event: "command", func: "seekTo", args: [0, true] }),
+        "*",
+      );
+      iframeRef.current?.contentWindow?.postMessage(
+        JSON.stringify({ event: "command", func: "playVideo", args: [] }),
+        "*",
+      );
+      setCurrentTime(0);
+      setPaused(false);
+    } else {
+      void nextTrack(loopMode === 1);
+    }
+  }, [loopMode, nextTrack]);
 
   const closeCard = useCallback(() => {
     if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
@@ -89,10 +107,10 @@ export default function MusicEmbedPlayer({
   }, [embedTrack, embedUserGesture]);
 
   useEffect(() => {
-    if (!ready || !cardOpen || leaving || expanded || hovered) return;
-    const timer = window.setTimeout(closeCard, 3600);
+    if (!ready || !cardOpen || leaving) return;
+    const timer = window.setTimeout(closeCard, 2000);
     return () => window.clearTimeout(timer);
-  }, [cardOpen, closeCard, expanded, hovered, leaving, ready]);
+  }, [cardOpen, closeCard, expanded, leaving, ready]);
 
   useEffect(() => {
     if (!ready || !gestureReady) return;
@@ -125,43 +143,39 @@ export default function MusicEmbedPlayer({
         return;
       }
       const info = message.info as Record<string, unknown>;
-      if (typeof info.currentTime === "number" && !seekingRef.current) {
-        setCurrentTime(info.currentTime);
+      const reportedTime =
+        typeof info.currentTime === "number" ? info.currentTime : null;
+      const reportedDuration =
+        typeof info.duration === "number" ? info.duration : duration;
+      if (reportedTime !== null && !seekingRef.current) {
+        setCurrentTime(reportedTime);
       }
-      if (typeof info.duration === "number" && info.duration > 0) {
-        setDuration(info.duration);
+      if (reportedDuration > 0) {
+        setDuration(reportedDuration);
       }
+
+      const finish = finishEmbed;
+
       if (typeof info.playerState === "number") {
         if (info.playerState === 1) {
           endedHandledRef.current = false;
           setPaused(false);
         } else if (info.playerState === 2) {
           setPaused(true);
-        } else if (info.playerState === 0 && !endedHandledRef.current) {
-          endedHandledRef.current = true;
-          if (loopMode === 2) {
-            iframeRef.current?.contentWindow?.postMessage(
-              JSON.stringify({
-                event: "command",
-                func: "seekTo",
-                args: [0, true],
-              }),
-              "*",
-            );
-            iframeRef.current?.contentWindow?.postMessage(
-              JSON.stringify({
-                event: "command",
-                func: "playVideo",
-                args: [],
-              }),
-              "*",
-            );
-            setCurrentTime(0);
-            setPaused(false);
-          } else {
-            void nextTrack(loopMode === 1);
-          }
+        } else if (info.playerState === 0) {
+          finish();
         }
+      }
+
+      // Some mobile browsers stop sending playerState at the very end; use
+      // the final timestamps to advance/loop just in time.
+      if (
+        !seekingRef.current &&
+        reportedTime !== null &&
+        reportedDuration > 1 &&
+        reportedDuration - reportedTime <= 0.7
+      ) {
+        finish();
       }
     };
 
@@ -171,7 +185,20 @@ export default function MusicEmbedPlayer({
       "*",
     );
     return () => window.removeEventListener("message", handleMessage);
-  }, [embedTrack, loopMode, nextTrack, ready]);
+  }, [duration, embedTrack, finishEmbed, ready]);
+
+  useEffect(() => {
+    if (!ready || paused || duration <= 1) return;
+    const timer = window.setInterval(() => {
+      if (
+        !endedHandledRef.current &&
+        duration - currentTime <= 0.8
+      ) {
+        finishEmbed();
+      }
+    }, 500);
+    return () => window.clearInterval(timer);
+  }, [currentTime, duration, finishEmbed, paused, ready]);
 
   if (!embedTrack) return null;
 
@@ -180,7 +207,7 @@ export default function MusicEmbedPlayer({
 
   const cover = coverUrlFor(embedTrack);
   const loading = !ready;
-  const audible = ready && !paused && gestureReady;
+  const active = ready && !(paused && gestureReady);
   const progressPercent =
     duration > 0
       ? Math.min(100, Math.max(0, (currentTime / duration) * 100))
@@ -205,10 +232,8 @@ export default function MusicEmbedPlayer({
       {ready && cardOpen && (
         <section
           aria-label="Embedded music"
-          className={`music-now-card${audible ? " is-playing" : " is-paused"}${expanded ? " is-expanded" : " is-compact"}${leaving ? " is-leaving" : ""}${raised ? " is-raised" : ""}`}
+          className={`music-now-card${active ? " is-playing" : " is-paused"}${expanded ? " is-expanded" : " is-compact"}${leaving ? " is-leaving" : ""}${raised ? " is-raised" : ""}`}
           key={embedTrack.id}
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
         >
           {!expanded ? (
             <button
@@ -386,7 +411,7 @@ export default function MusicEmbedPlayer({
             setCardOpen(true);
           }
         }}
-        playing={audible}
+        playing={active}
         raised={raised}
       />
     </>

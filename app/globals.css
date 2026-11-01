@@ -7784,3 +7784,21 @@ textarea.input:focus {
 .music-orb.is-playing .music-orb-vinyl {
   animation: music-orb-cover-spin 16s linear infinite;
 }
+
+.music-orb-art {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+}
+
+.music-orb.is-playing .music-orb-art {
+  animation: music-orb-cover-spin 18s linear infinite;
+}
+
+.music-orb.is-playing .music-orb-cover,
+.music-orb.is-playing .music-orb-vinyl {
+  animation: none;
+}
