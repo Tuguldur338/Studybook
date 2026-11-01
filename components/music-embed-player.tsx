@@ -116,7 +116,6 @@ export default function MusicEmbedPlayer({
             .filter(
               (track) =>
                 track.source === "youtube" &&
-                track.playlist === embedTrack.playlist &&
                 track.id !== embedTrack.id,
             )
             .map((track) => youtubeVideoId(track))
