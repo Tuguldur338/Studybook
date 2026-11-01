@@ -7802,3 +7802,23 @@ textarea.input:focus {
 .music-orb.is-playing .music-orb-vinyl {
   animation: none;
 }
+
+/* Continuous, seamless card gradient while playing */
+.music-now-card.is-playing::after {
+  inset: -45%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgb(139 108 255 / 16%) 70deg,
+    transparent 150deg,
+    rgb(92 199 154 / 12%) 230deg,
+    transparent 310deg
+  );
+  animation: music-card-rotate 12s linear infinite;
+}
+
+@keyframes music-card-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
