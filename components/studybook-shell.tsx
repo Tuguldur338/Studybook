@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   useEffect,
+  useRef,
   useState,
   type FormEvent,
   type ReactNode,
@@ -422,6 +423,17 @@ function StudybookFrame({ children }: { children: ReactNode }) {
   const [authError, setAuthError] = useState("");
   const [username, setUsername] = useState("");
   const [equippedBorder, setEquippedBorder] = useState<string | null>(null);
+  const avatarSyncedRef = useRef(false);
+
+  useEffect(() => {
+    if (!authUser || !profile.avatar || avatarSyncedRef.current) return;
+    avatarSyncedRef.current = true;
+    const supabase = getSupabaseBrowserClient();
+    void supabase
+      .from("profiles")
+      .update({ avatar_url: profile.avatar })
+      .eq("id", authUser.id);
+  }, [authUser, profile.avatar]);
 
   useEffect(() => {
     const handleBorderUpdate = (event: Event) => {

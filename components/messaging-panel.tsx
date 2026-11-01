@@ -20,6 +20,7 @@ import {
   LuMessageCircle,
   LuMinus,
   LuPencil,
+  LuSearch,
   LuSend,
   LuSettings2,
   LuSmile,
@@ -206,6 +207,10 @@ export default function MessagingPanel({
   const [groupTitle, setGroupTitle] = useState("");
   const [groupMemberIds, setGroupMemberIds] = useState<string[]>([]);
   const [login, setLogin] = useState("");
+  const [friendQuery, setFriendQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<PersonInfo[]>([]);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const [hideSuggestions, setHideSuggestions] = useState(false);
   const [draft, setDraft] = useState("");
   const [image, setImage] = useState<File | null>(null);
   const [notice, setNotice] = useState("");
@@ -237,6 +242,52 @@ export default function MessagingPanel({
             ),
         )
       : [];
+  const apiFriends = api.friends;
+  const searchPeople = api.searchPeople;
+  const friendMatches = friendQuery.trim()
+    ? apiFriends.filter((friend) =>
+        friend.name
+          .toLowerCase()
+          .includes(friendQuery.trim().toLowerCase()),
+      )
+    : [];
+
+  useEffect(() => {
+    if (hideSuggestions) {
+      const timer = window.setTimeout(() => {
+        setSuggestions([]);
+        setSuggestLoading(false);
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
+    const term = login.trim().replace(/^@/, "");
+    if (!term) {
+      const timer = window.setTimeout(() => {
+        setSuggestions([]);
+        setSuggestLoading(false);
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
+
+    let active = true;
+    const timer = window.setTimeout(() => {
+      setSuggestLoading(true);
+      void searchPeople(term)
+        .then((results) => {
+          if (!active) return;
+          const friendIds = new Set(apiFriends.map((friend) => friend.id));
+          setSuggestions(results.filter((person) => !friendIds.has(person.id)));
+        })
+        .finally(() => {
+          if (active) setSuggestLoading(false);
+        });
+    }, 220);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [apiFriends, hideSuggestions, login, searchPeople]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -952,6 +1003,50 @@ export default function MessagingPanel({
           {error && <p className="notice">{error}</p>}
           {api.error && <p className="notice">{api.error}</p>}
 
+          <label className="messenger-search">
+            <LuSearch aria-hidden="true" size={16} />
+            <input
+              aria-label="Search friends by name"
+              className="input"
+              onChange={(event) => setFriendQuery(event.target.value)}
+              placeholder="Search friends by name…"
+              type="search"
+              value={friendQuery}
+            />
+          </label>
+
+          {friendQuery.trim() && (
+            <section className="messenger-section">
+              <div className="messenger-section-head">
+                <h3>Friends</h3>
+                <span className="messenger-hint">
+                  {friendMatches.length} found
+                </span>
+              </div>
+              {friendMatches.length ? (
+                friendMatches.map((friend) => (
+                  <button
+                    className="messenger-row"
+                    disabled={busy}
+                    key={friend.id}
+                    onClick={() => void handleOpenFriend(friend.id)}
+                    type="button"
+                  >
+                    <PersonAvatar person={friend} />
+                    <div className="messenger-row-main">
+                      <strong>{friend.name}</strong>
+                      <span>Message</span>
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <p className="messenger-hint">
+                  No friends match “{friendQuery.trim()}”. Add them below.
+                </p>
+              )}
+            </section>
+          )}
+
           {api.incomingRequests.length > 0 && (
             <section className="messenger-section">
               <h3>Friend requests</h3>
@@ -1005,7 +1100,7 @@ export default function MessagingPanel({
             {api.loading && <p className="messenger-hint">Loading…</p>}
             {!api.loading && api.conversations.length === 0 && (
               <p className="messenger-hint">
-                No chats yet. Start one from your friends below.
+                No chats yet. Search a friend above or add one below.
               </p>
             )}
             {api.conversations.map((conversation) => (
@@ -1042,44 +1137,67 @@ export default function MessagingPanel({
             ))}
           </section>
 
-          <section className="messenger-section">
-            <h3>Friends</h3>
-            {api.friends.length === 0 && (
-              <p className="messenger-hint">
-                No friends yet. Send a request below.
-              </p>
-            )}
-            {api.friends.map((friend) => (
-              <button
-                className="messenger-row"
-                disabled={busy}
-                key={friend.id}
-                onClick={() => handleOpenFriend(friend.id)}
-                type="button"
-              >
-                <PersonAvatar person={friend} />
-                <div className="messenger-row-main">
-                  <strong>{friend.name}</strong>
-                  <span>Message</span>
-                </div>
-              </button>
-            ))}
-          </section>
-
           <form className="messenger-add" onSubmit={handleAddFriend}>
             <label htmlFor="friend-login">
               Add a friend by email or username
             </label>
             <div className="messenger-add-row">
-              <input
-                className="input"
-                id="friend-login"
-                onChange={(event) => setLogin(event.target.value)}
-                placeholder="friend@example.com or alex_student"
-                required
-                type="text"
-                value={login}
-              />
+              <div className="friend-search-field">
+                <input
+                  autoComplete="off"
+                  className="input"
+                  id="friend-login"
+                  onChange={(event) => {
+                    setHideSuggestions(false);
+                    setLogin(event.target.value);
+                  }}
+                  placeholder="friend@example.com or alex_student"
+                  required
+                  type="text"
+                  value={login}
+                />
+                {(suggestLoading || suggestions.length > 0) && (
+                  <div
+                    aria-label="People suggestions"
+                    className="friend-suggestions"
+                    role="listbox"
+                  >
+                    {suggestLoading && suggestions.length === 0 ? (
+                      <span className="friend-suggestions-empty">
+                        Searching people…
+                      </span>
+                    ) : (
+                      suggestions.map((person) => (
+                        <button
+                          aria-selected={false}
+                          className="friend-suggestion"
+                          key={person.id}
+                          onClick={() => {
+                            setLogin(
+                              person.username
+                                ? `@${person.username}`
+                                : person.name,
+                            );
+                            setSuggestions([]);
+                            setHideSuggestions(true);
+                          }}
+                          role="option"
+                          type="button"
+                        >
+                          <PersonAvatar person={person} />
+                          <span className="friend-suggestion-copy">
+                            <strong>{person.name}</strong>
+                            {person.username && (
+                              <small>@{person.username}</small>
+                            )}
+                          </span>
+                          <LuUserPlus aria-hidden="true" size={14} />
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
               <button className="primary-button" disabled={busy} type="submit">
                 <LuUserPlus size={15} /> Request
               </button>

@@ -2417,6 +2417,104 @@ button.messenger-row:hover {
   margin: 0;
 }
 
+.messenger-search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 0 12px;
+  color: var(--muted);
+}
+
+.messenger-search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.messenger-search .input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 11px 0;
+  box-shadow: none;
+}
+
+.messenger-search .input:focus {
+  box-shadow: none;
+}
+
+.friend-search-field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.friend-search-field .input {
+  width: 100%;
+}
+
+.friend-suggestions {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  left: 0;
+  z-index: 20;
+  display: grid;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  padding: 5px;
+}
+
+.friend-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  padding: 7px;
+  color: var(--foreground);
+  cursor: pointer;
+  text-align: left;
+}
+
+.friend-suggestion:hover {
+  background: var(--accent-soft);
+}
+
+.friend-suggestion-copy {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 1px;
+}
+
+.friend-suggestion-copy strong {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.friend-suggestion-copy small {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.friend-suggestions-empty {
+  padding: 9px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .group-avatar {
   background: var(--accent-soft);
   color: var(--accent-strong);

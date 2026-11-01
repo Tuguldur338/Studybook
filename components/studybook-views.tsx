@@ -4388,6 +4388,7 @@ type LeaderboardRow = {
 };
 
 export function LeaderboardView() {
+  const { profile } = useStudybook();
   const { user, ready } = useSupabaseUser();
   const [rows, setRows] = useState<LeaderboardRow[]>([]);
   const [ownPoints, setOwnPoints] = useState<number | null>(null);
@@ -4536,7 +4537,11 @@ export function LeaderboardView() {
                             <>
                               <ProfileAvatar
                                 borderClass={borderClass(row.equipped_border)}
-                                image={row.avatar_url ?? ""}
+                                image={
+                                  row.id === user.id && !row.avatar_url
+                                    ? profile.avatar
+                                    : row.avatar_url ?? ""
+                                }
                                 name={
                                   row.display_name ||
                                   row.username ||
@@ -4580,7 +4585,11 @@ export function LeaderboardView() {
                           </span>
                           <ProfileAvatar
                             borderClass={borderClass(row.equipped_border)}
-                            image={row.avatar_url ?? ""}
+                            image={
+                              row.id === user.id && !row.avatar_url
+                                ? profile.avatar
+                                : row.avatar_url ?? ""
+                            }
                             name={
                               row.display_name || row.username || "Student"
                             }

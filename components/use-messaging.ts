@@ -52,6 +52,7 @@ export type PersonInfo = {
   id: string;
   name: string;
   avatar: string;
+  username?: string;
 };
 
 export type ConversationSummary = {
@@ -79,6 +80,7 @@ export type MessagingApi = {
   messagesFor: (conversationId: string | null) => ChatMessage[];
   refresh: () => Promise<void>;
   sendFriendRequest: (login: string) => Promise<string>;
+  searchPeople: (query: string) => Promise<PersonInfo[]>;
   respondToRequest: (request: Friendship, accept: boolean) => Promise<void>;
   startDirectChat: (friendId: string) => Promise<string>;
   createGroup: (title: string, memberIds: string[]) => Promise<string>;
@@ -414,6 +416,41 @@ export function useMessaging(user: User | null): MessagingApi {
     [configured, refresh, userId],
   );
 
+  const searchPeople = useCallback(
+    async (query: string): Promise<PersonInfo[]> => {
+      if (!configured || !userId) return [];
+      const term = query.trim();
+      if (!term) return [];
+
+      const supabase = getSupabaseBrowserClient();
+      const { data, error: searchError } = await supabase.rpc(
+        "search_users",
+        { term, max_rows: 6 },
+      );
+      if (searchError) {
+        if (!/search_users|schema cache/i.test(searchError.message)) {
+          console.warn("Could not search people:", searchError.message);
+        }
+        return [];
+      }
+
+      return (
+        (data as Array<{
+          id: string;
+          display_name: string | null;
+          username: string | null;
+          avatar_url: string | null;
+        }> | null) ?? []
+      ).map((row) => ({
+        id: row.id,
+        name: row.display_name?.trim() || row.username || "Studybook student",
+        avatar: row.avatar_url ?? "",
+        username: row.username ?? "",
+      }));
+    },
+    [configured, userId],
+  );
+
   const respondToRequest = useCallback(
     async (request: Friendship, accept: boolean) => {
       if (!configured || !userId) return;
@@ -619,6 +656,7 @@ export function useMessaging(user: User | null): MessagingApi {
     messagesFor,
     refresh,
     sendFriendRequest,
+    searchPeople,
     respondToRequest,
     startDirectChat,
     createGroup,
