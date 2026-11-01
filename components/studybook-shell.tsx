@@ -452,6 +452,45 @@ function StudybookFrame({ children }: { children: ReactNode }) {
   const messagesBadge = authUser
     ? messaging.totalUnread + messaging.incomingRequests.length
     : 0;
+  const [titleUnread, setTitleUnread] = useState(0);
+
+  useEffect(() => {
+    function markSeen() {
+      setTitleUnread(0);
+    }
+
+    function handleVisibility() {
+      if (document.visibilityState === "visible") {
+        markSeen();
+      } else {
+        setTitleUnread(messaging.totalUnread);
+      }
+    }
+
+    const timer = window.setTimeout(() => {
+      setTitleUnread(
+        document.visibilityState === "visible" && document.hasFocus()
+          ? 0
+          : messaging.totalUnread,
+      );
+    }, 0);
+
+    window.addEventListener("focus", markSeen);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("focus", markSeen);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [messaging.totalUnread]);
+
+  useEffect(() => {
+    document.title =
+      titleUnread > 0 ? `(${titleUnread}) Studybook` : "Studybook";
+    return () => {
+      document.title = "Studybook";
+    };
+  }, [titleUnread]);
 
   const pendingCount = tasks.filter((task) => !task.completed).length;
 

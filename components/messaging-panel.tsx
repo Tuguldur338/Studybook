@@ -246,9 +246,7 @@ export default function MessagingPanel({
   const searchPeople = api.searchPeople;
   const friendMatches = friendQuery.trim()
     ? apiFriends.filter((friend) =>
-        friend.name
-          .toLowerCase()
-          .includes(friendQuery.trim().toLowerCase()),
+        friend.name.toLowerCase().includes(friendQuery.trim().toLowerCase()),
       )
     : [];
 
