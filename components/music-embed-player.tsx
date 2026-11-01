@@ -22,7 +22,8 @@ export default function MusicEmbedPlayer({
 }: {
   raised?: boolean;
 }) {
-  const { closeEmbed, embedTrack, embedUserGesture } = useMusic();
+  const { closeEmbed, embedTrack, embedUserGesture, loopMode, nextTrack } =
+    useMusic();
   const [ready, setReady] = useState(false);
   const [cardOpen, setCardOpen] = useState(true);
   const [hovered, setHovered] = useState(false);
@@ -34,6 +35,7 @@ export default function MusicEmbedPlayer({
   const [duration, setDuration] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const closeTimerRef = useRef<number | null>(null);
+  const endedHandledRef = useRef(false);
 
   const sendPlayerCommand = useCallback((func: string) => {
     iframeRef.current?.contentWindow?.postMessage(
@@ -80,6 +82,7 @@ export default function MusicEmbedPlayer({
       setGestureReady(embedUserGesture);
       setCurrentTime(0);
       setDuration(0);
+      endedHandledRef.current = false;
     }, 0);
     return () => window.clearTimeout(timer);
   }, [embedTrack, embedUserGesture]);
@@ -127,6 +130,38 @@ export default function MusicEmbedPlayer({
       if (typeof info.duration === "number" && info.duration > 0) {
         setDuration(info.duration);
       }
+      if (typeof info.playerState === "number") {
+        if (info.playerState === 1) {
+          endedHandledRef.current = false;
+          setPaused(false);
+        } else if (info.playerState === 2) {
+          setPaused(true);
+        } else if (info.playerState === 0 && !endedHandledRef.current) {
+          endedHandledRef.current = true;
+          if (loopMode === 2) {
+            iframeRef.current?.contentWindow?.postMessage(
+              JSON.stringify({
+                event: "command",
+                func: "seekTo",
+                args: [0, true],
+              }),
+              "*",
+            );
+            iframeRef.current?.contentWindow?.postMessage(
+              JSON.stringify({
+                event: "command",
+                func: "playVideo",
+                args: [],
+              }),
+              "*",
+            );
+            setCurrentTime(0);
+            setPaused(false);
+          } else {
+            void nextTrack(loopMode === 1);
+          }
+        }
+      }
     };
 
     window.addEventListener("message", handleMessage);
@@ -135,7 +170,7 @@ export default function MusicEmbedPlayer({
       "*",
     );
     return () => window.removeEventListener("message", handleMessage);
-  }, [embedTrack, ready]);
+  }, [embedTrack, loopMode, nextTrack, ready]);
 
   if (!embedTrack) return null;
 

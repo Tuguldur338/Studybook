@@ -24,6 +24,9 @@ export type MusicSettings = {
   activeByDay: Record<string, string>;
   volume: number;
   enabled: boolean;
+  loopMode: 0 | 1 | 2;
+  /** Tombstones so a cloud merge cannot bring removed songs back. */
+  deletedTracks: Record<string, string>;
 };
 
 const STORAGE_KEY = "studybook-music-v1";
@@ -35,6 +38,8 @@ export const DEFAULT_MUSIC_SETTINGS: MusicSettings = {
   activeByDay: {},
   volume: 0.45,
   enabled: false,
+  loopMode: 0,
+  deletedTracks: {},
 };
 
 export function newTrackId(prefix = "track") {
@@ -106,6 +111,52 @@ function isMusicTrack(value: unknown): value is MusicTrack {
   );
 }
 
+function readDeletedTracks(value: unknown): Record<string, string> {
+  if (typeof value !== "object" || value === null) return {};
+  const deleted: Record<string, string> = {};
+  for (const [id, deletedAt] of Object.entries(value)) {
+    if (typeof deletedAt === "string") deleted[id] = deletedAt;
+  }
+  return deleted;
+}
+
+export function isMusicSettings(value: unknown): value is MusicSettings {
+  if (typeof value !== "object" || value === null) return false;
+  const settings = value as Record<string, unknown>;
+  return (
+    Array.isArray(settings.tracks) &&
+    settings.tracks.every(isMusicTrack) &&
+    typeof settings.activeByDay === "object" &&
+    settings.activeByDay !== null &&
+    typeof settings.volume === "number" &&
+    typeof settings.enabled === "boolean" &&
+    (settings.loopMode === 0 ||
+      settings.loopMode === 1 ||
+      settings.loopMode === 2)
+  );
+}
+
+export function mergeMusicSettings(
+  cloud: unknown,
+  local: MusicSettings,
+): MusicSettings {
+  if (!isMusicSettings(cloud)) return local;
+
+  const mergedDeleted = {
+    ...readDeletedTracks(cloud.deletedTracks),
+    ...local.deletedTracks,
+  };
+  const tracks = new Map<string, MusicTrack>();
+  for (const track of cloud.tracks) tracks.set(track.id, track);
+  for (const track of local.tracks) tracks.set(track.id, track);
+
+  return {
+    ...local,
+    tracks: [...tracks.values()].filter((track) => !mergedDeleted[track.id]),
+    deletedTracks: mergedDeleted,
+  };
+}
+
 export function loadMusicSettings(): MusicSettings {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -128,12 +179,16 @@ export function loadMusicSettings(): MusicSettings {
       typeof parsed.volume === "number" && parsed.volume >= 0 && parsed.volume <= 1
         ? parsed.volume
         : DEFAULT_MUSIC_SETTINGS.volume;
+    const loopMode: 0 | 1 | 2 =
+      parsed.loopMode === 1 || parsed.loopMode === 2 ? parsed.loopMode : 0;
 
     return {
       tracks,
       activeByDay,
       volume,
       enabled: parsed.enabled === true,
+      loopMode,
+      deletedTracks: readDeletedTracks(parsed.deletedTracks),
     };
   } catch {
     return DEFAULT_MUSIC_SETTINGS;

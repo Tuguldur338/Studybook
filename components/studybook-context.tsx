@@ -13,6 +13,11 @@ import {
 } from "react";
 import { useSupabaseUser } from "@/components/use-supabase-user";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import {
+  isMusicSettings,
+  mergeMusicSettings,
+  type MusicSettings,
+} from "@/lib/music-store";
 
 export type ClassSession = {
   id: string;
@@ -57,7 +62,7 @@ export type RoutineChecks = Record<string, boolean>;
 
 /**
  * The part of the studybook that follows the account across devices. Theme,
- * fonts, music, and other device preferences deliberately stay local.
+ * fonts, and other device preferences deliberately stay local.
  */
 type StudybookSnapshot = {
   classes: ClassSession[];
@@ -73,6 +78,8 @@ type StudybookSnapshot = {
   deletedTasks: Record<string, string>;
   /** Tombstones for exams deleted here. */
   deletedExams: Record<string, string>;
+  /** Music library metadata and playback preferences. */
+  music: MusicSettings | null;
 };
 
 export const NOTE_COLORS = [
@@ -147,6 +154,8 @@ type StudybookContextValue = {
   tasks: StudyTask[];
   setTasks: Dispatch<SetStateAction<StudyTask[]>>;
   deleteTasks: (ids: string[]) => void;
+  music: MusicSettings | null;
+  setMusic: Dispatch<SetStateAction<MusicSettings | null>>;
   exams: Exam[];
   setExams: Dispatch<SetStateAction<Exam[]>>;
   deleteExam: (id: string) => void;
@@ -286,6 +295,9 @@ function snapshotHasContent(data: unknown): boolean {
   ) {
     return true;
   }
+  if (isMusicSettings(data.music) && data.music.tracks.length > 0) {
+    return true;
+  }
 
   return typeof data.profileAvatar === "string" && data.profileAvatar.length > 0;
 }
@@ -413,6 +425,11 @@ function mergeSnapshots(
       (typeof source.profileAvatar === "string" ? source.profileAvatar : ""),
     deletedTasks,
     deletedExams,
+    music: local.music
+      ? mergeMusicSettings(source.music, local.music)
+      : isMusicSettings(source.music)
+        ? source.music
+        : null,
   };
 }
 
@@ -487,6 +504,7 @@ function readStudybookData(key = STORAGE_KEY) {
       ? parsed.routineChecks
       : {},
     notes: Array.isArray(parsed.notes) ? parsed.notes.filter(isStudyNote) : [],
+    music: isMusicSettings(parsed.music) ? parsed.music : null,
     profile: {
       name: typeof profile.name === "string" ? profile.name : "Student",
       email: typeof profile.email === "string" ? profile.email : "",
@@ -505,6 +523,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
   const [deletedTasks, setDeletedTasks] = useState<Record<string, string>>({});
   const [deletedExams, setDeletedExams] = useState<Record<string, string>>({});
   const [exams, setExams] = useState<Exam[]>([]);
+  const [music, setMusic] = useState<MusicSettings | null>(null);
   const [routine, setRoutine] = useState<RoutineItem[]>([]);
   const [routineChecks, setRoutineChecks] = useState<RoutineChecks>({});
   const [notes, setNotes] = useState<StudyNote[]>([]);
@@ -537,6 +556,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     profileAvatar: "",
     deletedTasks: {},
     deletedExams: {},
+    music: null,
   });
 
   const dismissToast = useCallback((id: string) => {
@@ -581,6 +601,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     setRoutineChecks(
       isRoutineChecks(raw.routineChecks) ? raw.routineChecks : {},
     );
+    setMusic(isMusicSettings(raw.music) ? raw.music : null);
 
     const avatar = raw.profileAvatar;
     if (typeof avatar === "string" && avatar) {
@@ -617,6 +638,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     setExams([]);
     setRoutine([]);
     setRoutineChecks({});
+    setMusic(null);
     setProfile(defaultProfile);
     setTheme(
       window.matchMedia?.("(prefers-color-scheme: dark)").matches
@@ -677,6 +699,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
           setRoutine(saved.routine);
           setRoutineChecks(saved.routineChecks);
           setNotes(saved.notes);
+          setMusic(saved.music);
           setProfile(saved.profile);
           setTheme(saved.theme);
           setFont(saved.font);
@@ -714,6 +737,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
       profileAvatar: profile.avatar,
       deletedTasks,
       deletedExams,
+      music,
     };
 
     try {
@@ -730,6 +754,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
           routine,
           routineChecks,
           notes,
+          music,
           profile,
           theme,
           font,
@@ -757,6 +782,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     holidayEffects,
     isLoaded,
     loadedKey,
+    music,
     notes,
     profile,
     savedClasses,
@@ -946,6 +972,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
       profileAvatar: profile.avatar,
       deletedTasks,
       deletedExams,
+      music,
     };
 
     const timer = window.setTimeout(async () => {
@@ -995,6 +1022,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     exams,
     isLoaded,
     loadedKey,
+    music,
     notes,
     profile.avatar,
     routine,
@@ -1017,6 +1045,8 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
         tasks,
         setTasks,
         deleteTasks,
+        music,
+        setMusic,
         exams,
         setExams,
         deleteExam,

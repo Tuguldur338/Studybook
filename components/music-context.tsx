@@ -25,6 +25,7 @@ import {
   getMusicFile,
   isPlayableSource,
   loadMusicSettings,
+  mergeMusicSettings,
   newTrackId,
   putMusicFile,
   saveMusicSettings,
@@ -34,6 +35,7 @@ import {
 } from "@/lib/music-store";
 import { fetchRemoteTrackTitle } from "@/lib/music-embed";
 import { HALLOWEEN_THEME_TRACK } from "@/lib/music-specials";
+import { useStudybook } from "@/components/studybook-context";
 
 type MusicContextValue = {
   ready: boolean;
@@ -46,7 +48,11 @@ type MusicContextValue = {
   startingTrack: MusicTrack | null;
   embedTrack: MusicTrack | null;
   embedUserGesture: boolean;
-  playEmbed: (track: MusicTrack, userGesture?: boolean) => void;
+  playEmbed: (
+    track: MusicTrack,
+    userGesture?: boolean,
+    keepQueue?: boolean,
+  ) => void;
   closeEmbed: () => void;
   blocked: boolean;
   error: string;
@@ -58,7 +64,7 @@ type MusicContextValue = {
     tracks: MusicTrack[],
     startIndex?: number,
   ) => Promise<void>;
-  nextTrack: () => Promise<void>;
+  nextTrack: (wrap?: boolean) => Promise<void>;
   previousTrack: () => Promise<void>;
   pause: () => void;
   toggle: () => void;
@@ -133,24 +139,27 @@ function playlistFor(holiday: Holiday | null, settings: MusicSettings) {
   if (holiday) {
     const holidayTracks = settings.tracks.filter(
       (track) =>
-        isPlayableSource(track.source) &&
-        (track.day === holiday.key ||
-          settings.activeByDay[holiday.key] === track.id),
+        track.day === holiday.key ||
+        settings.activeByDay[holiday.key] === track.id,
     );
     if (holidayTracks.length) return holidayTracks;
   }
 
   const anyTracks = settings.tracks.filter(
     (track) =>
-      isPlayableSource(track.source) &&
-      (track.day === "any" || settings.activeByDay.any === track.id),
+      track.day === "any" || settings.activeByDay.any === track.id,
   );
   if (anyTracks.length) return anyTracks;
 
-  return settings.tracks.filter((track) => isPlayableSource(track.source));
+  return settings.tracks;
 }
 
 export function MusicProvider({ children }: { children: ReactNode }) {
+  const {
+    isLoaded: studybookLoaded,
+    music: sharedMusic,
+    setMusic: setSharedMusic,
+  } = useStudybook();
   const [settings, setSettings] = useState<MusicSettings>(
     DEFAULT_MUSIC_SETTINGS,
   );
@@ -178,14 +187,6 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   const queueRef = useRef<MusicTrack[]>([]);
   const loopModeRef = useRef<0 | 1 | 2>(0);
 
-  const cycleLoopMode = useCallback(() => {
-    setLoopMode((current) => {
-      const next = ((current + 1) % 3) as 0 | 1 | 2;
-      loopModeRef.current = next;
-      return next;
-    });
-  }, []);
-
   const currentTrack = useMemo(
     () => resolveTrack(holiday, settings),
     [holiday, settings],
@@ -195,7 +196,17 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     settingsRef.current = next;
     setSettings(next);
     saveMusicSettings(next);
-  }, []);
+    setSharedMusic(next);
+  }, [setSharedMusic]);
+
+  const cycleLoopMode = useCallback(() => {
+    setLoopMode((current) => {
+      const next = ((current + 1) % 3) as 0 | 1 | 2;
+      loopModeRef.current = next;
+      commit({ ...settingsRef.current, loopMode: next });
+      return next;
+    });
+  }, [commit]);
 
   const stopPlayback = useCallback(() => {
     const audio = audioRef.current;
@@ -371,8 +382,8 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   );
 
   const openEmbed = useCallback(
-    (track: MusicTrack, userGesture = false) => {
-      queueRef.current = [];
+    (track: MusicTrack, userGesture = false, keepQueue = false) => {
+      if (!keepQueue) queueRef.current = [];
       stopPlayback();
       setIsPlaying(false);
       lastStartedRef.current = currentTrack?.id ?? null;
@@ -393,7 +404,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       currentTrack.source === "youtube" ||
       currentTrack.source === "spotify"
     ) {
-      openEmbed(currentTrack, true);
+      openEmbed(currentTrack, false);
       return;
     }
     await startTrack(currentTrack);
@@ -434,32 +445,24 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   );
 
   const playEmbed = useCallback(
-    (track: MusicTrack, userGesture = false) => {
+    (track: MusicTrack, userGesture = false, keepQueue = false) => {
       if (track.source !== "youtube" && track.source !== "spotify") return;
-      openEmbed(track, userGesture);
+      openEmbed(track, userGesture, keepQueue);
     },
     [openEmbed],
   );
 
   const playPlaylist = useCallback(
     async (tracks: MusicTrack[], startIndex = 0) => {
-      const playable = tracks.filter((track) =>
-        isPlayableSource(track.source),
-      );
-      if (!playable.length) {
-        const first = tracks[startIndex] ?? tracks[0];
-        if (first) playEmbed(first, true);
-        return;
-      }
+      if (!tracks.length) return;
 
-      queueRef.current = playable;
-      const selectedId = tracks[startIndex]?.id;
-      const playableIndex = selectedId
-        ? playable.findIndex((track) => track.id === selectedId)
-        : -1;
-      const selected =
-        playableIndex >= 0 ? playable[playableIndex] : playable[0];
-      await playTrack(selected, true);
+      queueRef.current = tracks;
+      const selected = tracks[startIndex] ?? tracks[0];
+      if (isPlayableSource(selected.source)) {
+        await playTrack(selected, true);
+      } else {
+        playEmbed(selected, false, true);
+      }
     },
     [playEmbed, playTrack],
   );
@@ -471,36 +474,56 @@ export function MusicProvider({ children }: { children: ReactNode }) {
 
   const nextTrack = useCallback(async (wrap = true) => {
     const hasQueue = queueRef.current.length > 0;
-    const playable = hasQueue
+    const list = hasQueue
       ? queueRef.current
       : playlistFor(holiday, settingsRef.current);
-    if (!playable.length) return;
+    if (!list.length) return;
 
-    const index = nowPlaying
-      ? playable.findIndex((track) => track.id === nowPlaying.id)
+    const current = nowPlaying ?? embedTrack;
+    const index = current
+      ? list.findIndex((track) => track.id === current.id)
       : -1;
-    if (!wrap && index >= playable.length - 1) {
-      pause();
+    if (!wrap && index >= list.length - 1) {
+      if (embedTrack) closeEmbed();
+      else pause();
       return;
     }
-    const next = playable[(index + 1) % playable.length] ?? playable[0];
-    await playTrack(next, hasQueue);
-  }, [nowPlaying, holiday, pause, playTrack]);
+
+    const next = list[(index + 1) % list.length] ?? list[0];
+    if (isPlayableSource(next.source)) {
+      await playTrack(next, hasQueue);
+    } else {
+      playEmbed(next, true, hasQueue);
+    }
+  }, [
+    closeEmbed,
+    embedTrack,
+    holiday,
+    nowPlaying,
+    pause,
+    playEmbed,
+    playTrack,
+  ]);
 
   const previousTrack = useCallback(async () => {
     const hasQueue = queueRef.current.length > 0;
-    const playable = hasQueue
+    const list = hasQueue
       ? queueRef.current
       : playlistFor(holiday, settingsRef.current);
-    if (!playable.length) return;
+    if (!list.length) return;
 
-    const index = nowPlaying
-      ? playable.findIndex((track) => track.id === nowPlaying.id)
+    const current = nowPlaying ?? embedTrack;
+    const index = current
+      ? list.findIndex((track) => track.id === current.id)
       : 0;
     const previous =
-      playable[(index - 1 + playable.length) % playable.length] ?? playable[0];
-    await playTrack(previous, hasQueue);
-  }, [nowPlaying, holiday, playTrack]);
+      list[(index - 1 + list.length) % list.length] ?? list[0];
+    if (isPlayableSource(previous.source)) {
+      await playTrack(previous, hasQueue);
+    } else {
+      playEmbed(previous, true, hasQueue);
+    }
+  }, [embedTrack, nowPlaying, holiday, playEmbed, playTrack]);
 
   const setVolume = useCallback(
     (value: number) => {
@@ -608,6 +631,10 @@ export function MusicProvider({ children }: { children: ReactNode }) {
         ...settingsRef.current,
         tracks: settingsRef.current.tracks.filter((item) => item.id !== id),
         activeByDay,
+        deletedTracks: {
+          ...settingsRef.current.deletedTracks,
+          [id]: new Date().toISOString(),
+        },
       });
 
       if (lastStartedRef.current === id) {
@@ -689,12 +716,35 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       dayKeyRef.current = toDayKey(now);
       settingsRef.current = loaded;
       setSettings(loaded);
+      loopModeRef.current = loaded.loopMode;
+      setLoopMode(loaded.loopMode);
       setHoliday(getHoliday(now));
       setUpcoming(getUpcomingHoliday(now));
       setReady(true);
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+
+    if (!sharedMusic) {
+      if (studybookLoaded) setSharedMusic(settingsRef.current);
+      return;
+    }
+
+    const merged = mergeMusicSettings(sharedMusic, settingsRef.current);
+    if (JSON.stringify(merged) !== JSON.stringify(settingsRef.current)) {
+      settingsRef.current = merged;
+      setSettings(merged);
+      saveMusicSettings(merged);
+      loopModeRef.current = merged.loopMode;
+      setLoopMode(merged.loopMode);
+    }
+    if (JSON.stringify(sharedMusic) !== JSON.stringify(merged)) {
+      setSharedMusic(merged);
+    }
+  }, [ready, setSharedMusic, sharedMusic, studybookLoaded]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
