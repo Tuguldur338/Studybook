@@ -173,7 +173,7 @@ export default function MusicPlayer({ raised = false }: { raised?: boolean }) {
 
               <h2 className="music-now-title">{nowPlaying.title}</h2>
               <p className="music-now-sub">
-                {nowPlaying.playlist ?? dayLabel(nowPlaying.day)} Ã‚Â·{" "}
+                {nowPlaying.playlist ?? dayLabel(nowPlaying.day)} ·{" "}
                 {SOURCE_LABELS[nowPlaying.source] ?? nowPlaying.source}
               </p>
 
@@ -238,7 +238,7 @@ export default function MusicPlayer({ raised = false }: { raised?: boolean }) {
                         type="button"
                       >
                         <span aria-hidden="true" className="music-now-row-icon">
-                          {track.id === nowPlaying.id ? "Ã¢â€”â€°" : "Ã¢â‚¬Â¢"}
+                          {track.id === nowPlaying.id ? "◉" : "•"}
                         </span>
                         <span className="music-now-row-copy">
                           <strong>{track.title}</strong>

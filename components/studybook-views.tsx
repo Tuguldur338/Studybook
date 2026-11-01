@@ -188,7 +188,7 @@ function formatWeekRange(start: Date) {
       month: "short",
       day: "numeric",
     }).format(date);
-  return `${format(start)} â€“ ${format(addDays(start, 4))}`;
+  return `${format(start)} – ${format(addDays(start, 4))}`;
 }
 
 function formatHour(hour: number) {
@@ -252,7 +252,7 @@ function ClassRow({ session }: { session: ClassSession }) {
       <div>
         <div className="class-name">{session.subject}</div>
         <div className="class-location">
-          {[session.location, session.instructor].filter(Boolean).join(" Â· ") ||
+          {[session.location, session.instructor].filter(Boolean).join(" · ") ||
             "Class details not added"}
         </div>
       </div>
@@ -373,7 +373,7 @@ export default function DashboardView() {
         <div className="welcome-decor" aria-hidden="true" />
         <div className="welcome-content">
           <p className="welcome-kicker">
-            {greeting} Â· {today?.label ?? "Your study week"}
+            {greeting} · {today?.label ?? "Your study week"}
           </p>
           <h1 className="welcome-title">Hey, {firstName}.</h1>
           <p className="welcome-copy">
@@ -513,7 +513,7 @@ export default function DashboardView() {
                         <span>
                           {isOverdue(task, todayStr) ? (
                             <span className="overdue-label">
-                              <LuClock size={12} /> Overdue Â·{" "}
+                              <LuClock size={12} /> Overdue ·{" "}
                               {formatDate(task.dueDate)}
                             </span>
                           ) : (
@@ -872,7 +872,7 @@ export function ScheduleView() {
           {!editingId && savedClasses.length > 0 && (
             <div className="saved-classes">
               <p className="saved-classes-label">
-                Saved classes â€” tap one to fill the form, or Ã— to remove the
+                Saved classes — tap one to fill the form, or × to remove the
                 shortcut
               </p>
               <div className="saved-classes-list">
@@ -889,7 +889,7 @@ export function ScheduleView() {
                         <span>
                           {added
                             ? "In schedule"
-                            : `${shortWeekdays[saved.day]} Â· ${formatTime(saved.startTime)}`}
+                            : `${shortWeekdays[saved.day]} · ${formatTime(saved.startTime)}`}
                         </span>
                       </button>
                       <button
@@ -1185,9 +1185,9 @@ export function ScheduleView() {
                         </span>
                       </div>
                       <span className="time-block-time">
-                        {formatTime(session.startTime)} â€“{" "}
+                        {formatTime(session.startTime)} –{" "}
                         {formatTime(session.endTime)}
-                        {session.location ? ` Â· ${session.location}` : ""}
+                        {session.location ? ` · ${session.location}` : ""}
                       </span>
                     </article>
                   );
@@ -1220,7 +1220,7 @@ export function ScheduleView() {
                     <article className="day-class" key={session.id}>
                       <div className="day-class-title">{session.subject}</div>
                       <div className="day-class-time">
-                        {formatTime(session.startTime)} â€“{" "}
+                        {formatTime(session.startTime)} –{" "}
                         {formatTime(session.endTime)}
                       </div>
                       {session.location && (
@@ -1381,7 +1381,7 @@ export function CalendarView() {
             kind: "class" as const,
             title: item.subject,
             detail:
-              [item.location, item.instructor].filter(Boolean).join(" Â· ") ||
+              [item.location, item.instructor].filter(Boolean).join(" · ") ||
               "Class",
             time: formatTime(item.startTime),
           })),
@@ -1469,11 +1469,11 @@ export function CalendarView() {
       <>
         <PageHeading
           eyebrow="Plan ahead"
-          subtitle="A month at a glance â€” classes, due tasks, and exams."
+          subtitle="A month at a glance — classes, due tasks, and exams."
           title="Calendar"
         />
         <section className="panel calendar-loading">
-          <p className="notice">Loading your calendarâ€¦</p>
+          <p className="notice">Loading your calendar…</p>
         </section>
       </>
     );
@@ -1491,7 +1491,7 @@ export function CalendarView() {
     <>
       <PageHeading
         eyebrow="Plan ahead"
-        subtitle="A month at a glance â€” classes, due tasks, and exams."
+        subtitle="A month at a glance — classes, due tasks, and exams."
         title="Calendar"
       />
       <div className="calendar-view">
@@ -1501,8 +1501,8 @@ export function CalendarView() {
               <h2 className="calendar-title">{monthLabel}</h2>
               <p className="calendar-subtitle">
                 {classes.length} weekly{" "}
-                {classes.length === 1 ? "class" : "classes"} Â· {monthTaskCount}{" "}
-                {monthTaskCount === 1 ? "task" : "tasks"} due Â· {monthExamCount}{" "}
+                {classes.length === 1 ? "class" : "classes"} · {monthTaskCount}{" "}
+                {monthTaskCount === 1 ? "task" : "tasks"} due · {monthExamCount}{" "}
                 {monthExamCount === 1 ? "exam" : "exams"}
               </p>
             </div>
@@ -1554,7 +1554,7 @@ export function CalendarView() {
                       weekday: "long",
                       month: "long",
                       day: "numeric",
-                    }).format(cell.date)} â€” ${cell.events.length} ${
+                    }).format(cell.date)} — ${cell.events.length} ${
                       cell.events.length === 1 ? "event" : "events"
                     }`}
                     aria-pressed={isSelected}
@@ -1819,7 +1819,7 @@ export function ToDoListView() {
               <span>
                 {overdue ? (
                   <span className="overdue-label">
-                    <LuClock size={12} /> Overdue Â· {formatDate(task.dueDate)}
+                    <LuClock size={12} /> Overdue · {formatDate(task.dueDate)}
                   </span>
                 ) : (
                   formatDate(task.dueDate)
@@ -1962,7 +1962,7 @@ export function ToDoListView() {
         <div className="panel-heading" style={{ padding: 0 }}>
           <h2 className="panel-title">Your progress</h2>
           <span className="panel-link">
-            {completedCount} of {tasks.length} done Â· {progress}%
+            {completedCount} of {tasks.length} done · {progress}%
           </span>
         </div>
         <div className="progress-wrap">
@@ -2009,7 +2009,7 @@ export function ToDoListView() {
       <section className="panel">
         <div className="panel-heading">
           <h2 className="panel-title">
-            {heading} Â· {filtered.length}
+            {heading} · {filtered.length}
           </h2>
           {completedCount > 0 && (
             <button
@@ -2030,7 +2030,7 @@ export function ToDoListView() {
                 filter === "done"
                   ? "Finished tasks will be collected here. Take a moment to feel proud."
                   : filter === "active"
-                    ? "Nothing to do right now â€” enjoy the calm."
+                    ? "Nothing to do right now — enjoy the calm."
                     : "Add a homework assignment or a small study goal to get started."
               }
               icon={<LuCircleCheck aria-hidden="true" size={22} />}
@@ -2225,7 +2225,7 @@ export function NotesView() {
         >
           <option value="newest">Newest first</option>
           <option value="oldest">Oldest first</option>
-          <option value="az">Title Aâ€“Z</option>
+          <option value="az">Title A–Z</option>
         </select>
       </div>
       {filtered.length ? (
@@ -2451,7 +2451,7 @@ export function AccountView() {
 
     if (!/^[a-z0-9][a-z0-9_-]{2,29}$/.test(value)) {
       setUsernameError(
-        "Usernames are 3â€“30 characters: lowercase letters, numbers, _ or -.",
+        "Usernames are 3–30 characters: lowercase letters, numbers, _ or -.",
       );
       return;
     }
@@ -2572,9 +2572,9 @@ export function AccountView() {
         {syncStatus === "synced"
           ? "Synced to your account."
           : syncStatus === "syncing"
-            ? "Syncingâ€¦"
+            ? "Syncing…"
             : syncStatus === "error"
-              ? "Local only â€” run supabase/migrations/sync.sql in Supabase, then reload."
+              ? "Local only — run supabase/migrations/sync.sql in Supabase, then reload."
               : "Sign in to sync."}{" "}
         Your schedule, to-dos, notes, exams, routine, and profile picture follow
         your account; theme and music stay on this device.
@@ -2692,7 +2692,7 @@ export function AccountView() {
 
         {!accountReady ? (
           <p className="notice" style={{ marginTop: 14 }}>
-            Checking your accountâ€¦
+            Checking your account…
           </p>
         ) : !user ? (
           <p className="notice" style={{ marginTop: 14 }}>
@@ -2717,7 +2717,7 @@ export function AccountView() {
                 />
                 <p className="field-hint">
                   Friends can send requests to @{username.trim() || "username"}.
-                  Your username is your @handle â€” changing it does not change
+                  Your username is your @handle — changing it does not change
                   the name shown under Profile details. Edit that name
                   separately.
                 </p>
@@ -2997,7 +2997,7 @@ export function ProfileView() {
         </div>
         <div className="panel-body">
           {bordersLoading ? (
-            <p className="field-hint">Loading bordersâ€¦</p>
+            <p className="field-hint">Loading borders…</p>
           ) : earnedBorders.length ? (
             <div className="border-grid">
               {earnedBorders.map((borderId) => (
@@ -3194,7 +3194,7 @@ export function SettingsView() {
               <span className="setting-toggle-copy">
                 <strong>Celebration animations</strong>
                 <span>
-                  A short, one-time celebration on each special day â€” snow on
+                  A short, one-time celebration on each special day — snow on
                   Christmas, bats on Halloween, confetti on Naadam. It fades
                   after a few seconds and never repeats that holiday.
                 </span>
@@ -3313,7 +3313,7 @@ export function MusicView() {
   const dayLabel = (key: string) =>
     key === "any" ? "Any day" : (HOLIDAYS[key]?.name ?? key);
   const dayChoices = [
-    { value: "any", label: "ðŸŽµ Any day" },
+    { value: "any", label: "🎵 Any day" },
     ...Object.values(HOLIDAYS).map((item) => ({
       value: item.key,
       label: `${item.emoji} ${item.name}`,
@@ -3335,7 +3335,7 @@ export function MusicView() {
       const track = file
         ? await addFileTrack(file, selectedDay, title)
         : await addUrlTrack(url, selectedDay, title);
-      setNotice(`Added â€œ${track.title}â€.`);
+      setNotice(`Added “${track.title}”.`);
       setTitle("");
       setUrl("");
       setFile(null);
@@ -3380,8 +3380,8 @@ export function MusicView() {
     updateTrack(track.id, { day: adding ? "halloween" : "any" });
     setNotice(
       adding
-        ? `Added â€œ${track.title}â€ to the Halloween playlist.`
-        : `Removed â€œ${track.title}â€ from the Halloween playlist.`,
+        ? `Added “${track.title}” to the Halloween playlist.`
+        : `Removed “${track.title}” from the Halloween playlist.`,
     );
   }
 
@@ -3421,7 +3421,7 @@ export function MusicView() {
       setPersonalLinks("");
       setPersonalFiles([]);
       if (personalFileRef.current) personalFileRef.current.value = "";
-      setNotice(`Created â€œ${name}â€.`);
+      setNotice(`Created “${name}”.`);
     } catch (cause) {
       setPersonalError(
         cause instanceof Error
@@ -3448,7 +3448,7 @@ export function MusicView() {
       <section className="panel music-hero">
         <div className="music-hero-main">
           <span aria-hidden="true" className="music-hero-emoji">
-            {holiday?.emoji ?? "ðŸŽµ"}
+            {holiday?.emoji ?? "🎵"}
           </span>
           <div>
             <p className="eyebrow">
@@ -3532,7 +3532,7 @@ export function MusicView() {
                 onChange={(event) => setDayChoice(event.target.value)}
                 value={selectedDay}
               >
-                <option value="any">ðŸŽµ Any day</option>
+                <option value="any">🎵 Any day</option>
                 {Object.values(HOLIDAYS).map((item) => (
                   <option key={item.key} value={item.key}>
                     {item.emoji} {item.name}
@@ -3555,7 +3555,7 @@ export function MusicView() {
             />
           </div>
           <div className="field full-width">
-            <label htmlFor="music-file">â€¦or upload an audio file</label>
+            <label htmlFor="music-file">…or upload an audio file</label>
             <input
               accept="audio/*,video/mp4,video/webm"
               className="input music-file-input"
@@ -3601,24 +3601,24 @@ export function MusicView() {
             </div>
             <div className="field full-width">
               <label htmlFor="personal-playlist-links">
-                Song links Â· one per line
+                Song links · one per line
               </label>
               <textarea
                 className="input personal-music-textarea"
                 id="personal-playlist-links"
                 onChange={(event) => setPersonalLinks(event.target.value)}
-                placeholder={"Title | https://example.com/song.mp3\nhttps://youtu.be/â€¦"}
+                placeholder={"Title | https://example.com/song.mp3\nhttps://youtu.be/…"}
                 rows={4}
                 value={personalLinks}
               />
               <p className="field-hint">
-                Use â€œTitle | URLâ€ or just paste a URL. Direct audio, YouTube and
+                Use “Title | URL” or just paste a URL. Direct audio, YouTube and
                 Spotify links all work.
               </p>
             </div>
             <div className="field full-width">
               <label htmlFor="personal-playlist-files">
-                â€¦or add audio files to this playlist
+                …or add audio files to this playlist
               </label>
               <input
                 accept="audio/*,video/mp4,video/webm"
@@ -3674,13 +3674,13 @@ export function MusicView() {
                     key={track.id}
                   >
                     <span aria-hidden="true" className="music-row-icon">
-                      ðŸŽƒ
+                      🎃
                     </span>
                     <div className="music-row-main">
                       <strong>{track.title}</strong>
                       <span>
                         {track.id === HALLOWEEN_OPENER.id
-                          ? "Halloween opener Â· YouTube"
+                          ? "Halloween opener · YouTube"
                           : dayLabel(track.day)}
                       </span>
                     </div>
@@ -3756,7 +3756,7 @@ export function MusicView() {
             </div>
           ) : (
             <p className="field-hint">
-              Use the ðŸŽƒ button on a track below to add it to Halloween.
+              Use the 🎃 button on a track below to add it to Halloween.
             </p>
           )}
         </div>
@@ -3872,9 +3872,9 @@ export function MusicView() {
                       <strong>{track.title}</strong>
                       <span>
                         {track.playlist
-                          ? `Personal Â· ${track.playlist}`
+                          ? `Personal · ${track.playlist}`
                           : dayLabel(track.day)}{" "}
-                        Â· {SOURCE_LABELS[track.source] ?? track.source}
+                        · {SOURCE_LABELS[track.source] ?? track.source}
                       </span>
                     </div>
                     {current && <span className="music-tag">Now playing</span>}
@@ -3949,7 +3949,7 @@ export function MusicView() {
                       }
                       type="button"
                     >
-                      ðŸŽƒ
+                      🎃
                     </button>
                     <button
                       aria-label={`Edit ${track.title}`}
@@ -3984,7 +3984,7 @@ export function MusicView() {
           )}
           {filteredTracks.length > 10 && (
             <p className="field-hint">
-              Showing 10 of {filteredTracks.length} â€” search to narrow the
+              Showing 10 of {filteredTracks.length} — search to narrow the
               list.
             </p>
           )}
@@ -4367,12 +4367,12 @@ export function LeaderboardView() {
             onClick={() => void load()}
             type="button"
           >
-            <LuRefreshCw size={14} /> {loading ? "Refreshingâ€¦" : "Refresh"}
+            <LuRefreshCw size={14} /> {loading ? "Refreshing…" : "Refresh"}
           </button>
         ) : null
       }
-      eyebrow="Friends only Â· Monthly"
-      subtitle={`${seasonLabel ? `${seasonLabel} Â· ` : ""}Points reset on the 1st of every month. The top scorer earns a champion border â€” high +30, medium +20, low +10.`}
+      eyebrow="Friends only · Monthly"
+      subtitle={`${seasonLabel ? `${seasonLabel} · ` : ""}Points reset on the 1st of every month. The top scorer earns a champion border — high +30, medium +20, low +10.`}
       title="Leaderboard"
     />
   );
@@ -4381,7 +4381,7 @@ export function LeaderboardView() {
     return (
       <>
         {heading}
-        <p className="page-subtitle">Checking your accountâ€¦</p>
+        <p className="page-subtitle">Checking your account…</p>
       </>
     );
   }
@@ -4417,7 +4417,7 @@ export function LeaderboardView() {
       )}
 
       {loading && !rows.length ? (
-        <p className="page-subtitle">Loading the leaderboardâ€¦</p>
+        <p className="page-subtitle">Loading the leaderboard…</p>
       ) : error && !rows.length ? null : (
         <>
           <section className="panel leaderboard-board">
@@ -4466,7 +4466,7 @@ export function LeaderboardView() {
                         </div>
                         <div className="podium-block">
                           <span aria-hidden="true">
-                            {rank === 1 ? "ðŸ¥‡" : rank === 2 ? "ðŸ¥ˆ" : "ðŸ¥‰"}
+                            {rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉"}
                           </span>
                         </div>
                       </div>
@@ -4526,7 +4526,7 @@ export function LeaderboardView() {
                     No points in your circle yet
                   </h2>
                   <p className="page-subtitle">
-                    Complete a to-do to start â€” add friends in Messages to make
+                    Complete a to-do to start — add friends in Messages to make
                     it a friendly competition.
                   </p>
                 </div>
