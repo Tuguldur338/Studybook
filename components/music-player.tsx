@@ -78,24 +78,12 @@ export default function MusicPlayer({ raised = false }: { raised?: boolean }) {
   }, [nowPlaying]);
 
   useEffect(() => {
-    if (
-      !cardOpen ||
-      leaving ||
-      !nowPlaying ||
-      startingTrack
-    ) {
+    if (!cardOpen || leaving || !nowPlaying || startingTrack) {
       return;
     }
-    const timer = window.setTimeout(closeCard, 2000);
+    const timer = window.setTimeout(closeCard, 6000);
     return () => window.clearTimeout(timer);
-  }, [
-    cardOpen,
-    closeCard,
-    expanded,
-    leaving,
-    nowPlaying,
-    startingTrack,
-  ]);
+  }, [cardOpen, closeCard, expanded, leaving, nowPlaying, startingTrack]);
 
   if (embedTrack || (!nowPlaying && !startingTrack)) return null;
 
@@ -167,7 +155,7 @@ export default function MusicPlayer({ raised = false }: { raised?: boolean }) {
 
               <h2 className="music-now-title">{nowPlaying.title}</h2>
               <p className="music-now-sub">
-                {nowPlaying.playlist ?? dayLabel(nowPlaying.day)} ·{" "}
+                {nowPlaying.playlist ?? dayLabel(nowPlaying.day)} Â·{" "}
                 {SOURCE_LABELS[nowPlaying.source] ?? nowPlaying.source}
               </p>
 
@@ -232,7 +220,7 @@ export default function MusicPlayer({ raised = false }: { raised?: boolean }) {
                         type="button"
                       >
                         <span aria-hidden="true" className="music-now-row-icon">
-                          {track.id === nowPlaying.id ? "◉" : "•"}
+                          {track.id === nowPlaying.id ? "â—‰" : "â€¢"}
                         </span>
                         <span className="music-now-row-copy">
                           <strong>{track.title}</strong>

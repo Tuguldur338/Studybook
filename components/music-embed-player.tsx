@@ -108,7 +108,7 @@ export default function MusicEmbedPlayer({
 
   useEffect(() => {
     if (!ready || !cardOpen || leaving) return;
-    const timer = window.setTimeout(closeCard, 2000);
+    const timer = window.setTimeout(closeCard, 6000);
     return () => window.clearTimeout(timer);
   }, [cardOpen, closeCard, expanded, leaving, ready]);
 
@@ -287,7 +287,7 @@ export default function MusicEmbedPlayer({
 
               <h2 className="music-now-title">{embedTrack.title}</h2>
               <p className="music-now-sub">
-                {embedTrack.source === "youtube" ? "YouTube" : "Spotify"} ·{" "}
+                {embedTrack.source === "youtube" ? "YouTube" : "Spotify"} Â·{" "}
                 video hidden
               </p>
 
