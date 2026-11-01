@@ -208,6 +208,7 @@ export default function MusicEmbedPlayer({
   const cover = coverUrlFor(embedTrack);
   const loading = !ready;
   const active = ready && !(paused && gestureReady);
+  const isPlaying = ready && !paused;
   const progressPercent =
     duration > 0
       ? Math.min(100, Math.max(0, (currentTime / duration) * 100))
@@ -287,7 +288,7 @@ export default function MusicEmbedPlayer({
 
               <h2 className="music-now-title">{embedTrack.title}</h2>
               <p className="music-now-sub">
-                {embedTrack.source === "youtube" ? "YouTube" : "Spotify"} Ã‚Â·{" "}
+                {embedTrack.source === "youtube" ? "YouTube" : "Spotify"} ·{" "}
                 video hidden
               </p>
 
@@ -338,21 +339,18 @@ export default function MusicEmbedPlayer({
                   <button
                     className="music-now-control"
                     onClick={() => {
-                      if (!gestureReady) resumeEmbed();
+                      if (isPlaying) toggleEmbed();
+                      else if (!gestureReady) resumeEmbed();
                       else toggleEmbed();
                     }}
                     type="button"
                   >
-                    {!gestureReady || paused ? (
-                      <LuPlay size={14} />
-                    ) : (
+                    {isPlaying ? (
                       <LuPause size={14} />
+                    ) : (
+                      <LuPlay size={14} />
                     )}{" "}
-                    {!gestureReady
-                      ? "Play sound"
-                      : paused
-                        ? "Resume"
-                        : "Pause"}
+                    {isPlaying ? "Pause" : paused ? "Resume" : "Play sound"}
                   </button>
                 )}
                 <button

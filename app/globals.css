@@ -5628,7 +5628,7 @@ button.messenger-row:hover {
   }
 }
 
-/* Halloween â€” immersive night theme */
+/* Halloween — immersive night theme */
 .halloween-trigger {
   border: 1px solid rgb(232 121 46 / 65%);
   background:
@@ -5642,7 +5642,7 @@ button.messenger-row:hover {
 }
 
 .halloween-trigger::after {
-  content: "ðŸ¦‡";
+  content: "🦇";
   position: absolute;
   top: -12px;
   right: 12px;
