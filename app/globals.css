@@ -6187,72 +6187,154 @@ button.messenger-row:hover {
 .champion-1 {
   --champion: #8ec9f2;
   --champion-2: #dcf1ff;
+  --champion-glyph: "\2744";
+  --champion-ink: #10283a;
+  --champion-ring: 3px;
+  --champion-spin: 10s;
+  --champion-pulse: 4.6s;
 }
 
 .champion-2 {
   --champion: #f28aa2;
   --champion-2: #ffd9e2;
+  --champion-glyph: "\2665";
+  --champion-ink: #3a0e19;
+  --champion-ring: 2px;
+  --champion-spin: 8s;
+  --champion-pulse: 5.2s;
 }
 
 .champion-3 {
   --champion: #73c79d;
   --champion-2: #d7f5e5;
+  --champion-glyph: "\273F";
+  --champion-ink: #0f2e1e;
+  --champion-ring: 2px;
+  --champion-spin: 12s;
+  --champion-pulse: 4.2s;
 }
 
 .champion-4 {
   --champion: #c4a4f0;
   --champion-2: #ecdcff;
+  --champion-glyph: "\2602";
+  --champion-ink: #2a0f2e;
+  --champion-ring: 3px;
+  --champion-spin: 9s;
+  --champion-pulse: 5.6s;
 }
 
 .champion-5 {
   --champion: #f09b7b;
   --champion-2: #ffe0d3;
+  --champion-glyph: "\273F";
+  --champion-ink: #3a1a0a;
+  --champion-ring: 2px;
+  --champion-spin: 7s;
+  --champion-pulse: 4.8s;
 }
 
 .champion-6 {
   --champion: #e3c15c;
   --champion-2: #fff0b8;
+  --champion-glyph: "\2600";
+  --champion-ink: #3a2a06;
+  --champion-ring: 3px;
+  --champion-spin: 14s;
+  --champion-pulse: 5.8s;
 }
 
 .champion-7 {
   --champion: #54c5c9;
   --champion-2: #c9f5f5;
+  --champion-glyph: "\2248";
+  --champion-ink: #062a2c;
+  --champion-ring: 2px;
+  --champion-spin: 10s;
+  --champion-pulse: 4.4s;
 }
 
 .champion-8 {
   --champion: #f0a24e;
   --champion-2: #ffd9a8;
+  --champion-glyph: "\2600";
+  --champion-ink: #3a1e06;
+  --champion-ring: 3px;
+  --champion-spin: 9s;
+  --champion-pulse: 5.4s;
 }
 
 .champion-9 {
   --champion: #d9a94f;
   --champion-2: #f6e3b0;
+  --champion-glyph: "\1F342";
+  --champion-ink: #3a2a08;
+  --champion-ring: 2px;
+  --champion-spin: 11s;
+  --champion-pulse: 4.9s;
 }
 
 .champion-10 {
   --champion: #7c5cff;
   --champion-2: #e8792e;
+  --champion-glyph: "\1F383";
+  --champion-ink: #ffffff;
+  --champion-ring: 3px;
+  --champion-spin: 8s;
+  --champion-pulse: 5.1s;
 }
 
 .champion-11 {
   --champion: #c98b5e;
   --champion-2: #f2d7c1;
+  --champion-glyph: "\1F341";
+  --champion-ink: #2e1a0c;
+  --champion-ring: 2px;
+  --champion-spin: 12s;
+  --champion-pulse: 5.6s;
 }
 
 .champion-12 {
   --champion: #d95454;
   --champion-2: #4f9e70;
+  --champion-glyph: "\2744";
+  --champion-ink: #ffffff;
+  --champion-ring: 3px;
+  --champion-spin: 7s;
+  --champion-pulse: 4.2s;
 }
 
 .avatar[class*="champion-"] {
   position: relative;
+  overflow: visible;
   border-color: var(--surface);
-  outline: 2px solid var(--champion);
-  outline-offset: 1px;
+  outline: 3px solid var(--champion);
+  outline-offset: 2px;
   box-shadow:
-    0 0 0 5px color-mix(in srgb, var(--champion) 20%, transparent),
-    0 7px 20px color-mix(in srgb, var(--champion) 35%, transparent);
-  animation: champion-glow 4.6s ease-in-out infinite;
+    0 0 0 6px color-mix(in srgb, var(--champion) 22%, transparent),
+    0 0 0 10px color-mix(in srgb, var(--champion-2) 12%, transparent),
+    0 9px 26px color-mix(in srgb, var(--champion) 42%, transparent);
+  animation: champion-glow var(--champion-pulse, 4.6s) ease-in-out infinite;
+}
+
+.avatar[class*="champion-"]::before {
+  content: var(--champion-glyph, "\2726");
+  position: absolute;
+  right: -5px;
+  bottom: -4px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--champion), var(--champion-2));
+  color: var(--champion-ink, #ffffff);
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 3px 8px rgb(0 0 0 / 35%);
 }
 
 .avatar[class*="champion-"]::after {
@@ -6261,16 +6343,23 @@ button.messenger-row:hover {
   inset: 0;
   z-index: 2;
   border-radius: 50%;
-  padding: 2px;
-  background: conic-gradient(
-    from 0deg,
-    transparent 0 10%,
-    var(--champion) 18%,
-    var(--champion-2) 30%,
-    transparent 40% 72%,
-    var(--champion) 81%,
-    transparent 91%
-  );
+  padding: var(--champion-ring, 2px);
+  background:
+    repeating-conic-gradient(
+      from 0deg,
+      color-mix(in srgb, var(--champion-2) 70%, transparent) 0 1.2deg,
+      transparent 1.2deg 15deg
+    ),
+    conic-gradient(
+      from 0deg,
+      transparent 0 9%,
+      var(--champion) 17%,
+      rgb(255 255 255 / 75%) 22%,
+      var(--champion-2) 30%,
+      transparent 39% 70%,
+      var(--champion) 80%,
+      transparent 91%
+    );
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
@@ -6280,20 +6369,22 @@ button.messenger-row:hover {
     linear-gradient(#000 0 0);
   mask-composite: exclude;
   pointer-events: none;
-  animation: champion-spin 9s linear infinite;
+  animation: champion-spin var(--champion-spin, 9s) linear infinite;
 }
 
 @keyframes champion-glow {
   0%,
   100% {
     box-shadow:
-      0 0 0 5px color-mix(in srgb, var(--champion) 18%, transparent),
-      0 7px 18px color-mix(in srgb, var(--champion) 30%, transparent);
+      0 0 0 6px color-mix(in srgb, var(--champion) 22%, transparent),
+      0 0 0 10px color-mix(in srgb, var(--champion-2) 12%, transparent),
+      0 9px 26px color-mix(in srgb, var(--champion) 42%, transparent);
   }
   50% {
     box-shadow:
-      0 0 0 7px color-mix(in srgb, var(--champion) 26%, transparent),
-      0 9px 24px color-mix(in srgb, var(--champion) 44%, transparent);
+      0 0 0 8px color-mix(in srgb, var(--champion) 30%, transparent),
+      0 0 0 13px color-mix(in srgb, var(--champion-2) 16%, transparent),
+      0 12px 34px color-mix(in srgb, var(--champion) 56%, transparent);
   }
 }
 
@@ -8309,22 +8400,67 @@ textarea.input:focus {
 }
 /* Champion border cards */
 .border-card[class*="champion-"] {
+  position: relative;
+  overflow: hidden;
   border-color: color-mix(in srgb, var(--champion) 45%, var(--border));
   background:
+    repeating-linear-gradient(
+      135deg,
+      transparent 0 9px,
+      color-mix(in srgb, var(--champion) 7%, transparent) 9px 10px,
+      transparent 10px 19px
+    ),
     radial-gradient(
       130% 150% at 0% 0%,
-      color-mix(in srgb, var(--champion) 13%, transparent),
+      color-mix(in srgb, var(--champion) 16%, transparent),
       transparent 62%
     ),
     var(--surface);
 }
 
+.border-card[class*="champion-"]::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 1;
+  height: 3px;
+  background: linear-gradient(90deg, var(--champion), var(--champion-2));
+}
+
+.border-card[class*="champion-"]::after {
+  content: "";
+  position: absolute;
+  right: -45px;
+  bottom: -55px;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--champion) 22%, transparent),
+    transparent 70%
+  );
+  pointer-events: none;
+}
+
+.border-card[class*="champion-"] .border-card-main,
+.border-card[class*="champion-"] .border-unequip {
+  position: relative;
+  z-index: 1;
+}
+
 .border-card[class*="champion-"]:hover {
   border-color: color-mix(in srgb, var(--champion) 65%, var(--border));
   background:
+    repeating-linear-gradient(
+      135deg,
+      transparent 0 9px,
+      color-mix(in srgb, var(--champion) 10%, transparent) 9px 10px,
+      transparent 10px 19px
+    ),
     radial-gradient(
       130% 150% at 0% 0%,
-      color-mix(in srgb, var(--champion) 20%, transparent),
+      color-mix(in srgb, var(--champion) 22%, transparent),
       transparent 65%
     ),
     var(--surface-muted);
@@ -8333,6 +8469,12 @@ textarea.input:focus {
 .border-card[class*="champion-"].equipped {
   border-color: color-mix(in srgb, var(--champion) 70%, var(--accent));
   background:
+    repeating-linear-gradient(
+      135deg,
+      transparent 0 9px,
+      color-mix(in srgb, var(--champion) 12%, transparent) 9px 10px,
+      transparent 10px 19px
+    ),
     linear-gradient(
       135deg,
       color-mix(in srgb, var(--champion) 24%, transparent),
