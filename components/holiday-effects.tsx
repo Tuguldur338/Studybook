@@ -10,7 +10,10 @@ import {
 import { LuX } from "react-icons/lu";
 import { useMusic } from "@/components/music-context";
 import { useStudybook } from "@/components/studybook-context";
+import { useSupabaseUser } from "@/components/use-supabase-user";
+import { borderLabel, rollBorderDrop } from "@/lib/borders";
 import { HOLIDAYS, type Holiday } from "@/lib/holidays";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const CELEBRATED_KEY = "studybook-celebrated-v1";
 const CELEBRATION_MS = 18_000;
@@ -185,11 +188,73 @@ function makeParticles(kind: EffectKind): Particle[] {
 }
 
 export default function HolidayEffects() {
-  const { holiday, currentTrack, isPlaying, play } = useMusic();
-  const { holidayEffects } = useStudybook();
+  const {
+    holiday,
+    ready: musicReady,
+    currentTrack,
+    isPlaying,
+    play,
+  } = useMusic();
+  const { holidayEffects, notify } = useStudybook();
+  const { user, ready } = useSupabaseUser();
   const [preview, setPreview] = useState<Holiday | null>(null);
   const [celebrating, setCelebrating] = useState(false);
   const hideTimer = useRef(0);
+
+  useEffect(() => {
+    if (!ready || !user || !musicReady || holiday) return;
+
+    let active = true;
+    const timer = window.setTimeout(async () => {
+      try {
+        const borders = await rollBorderDrop(
+          getSupabaseBrowserClient(),
+          "daily",
+        );
+        if (!active || !borders.length) return;
+        notify(`You found the ${borders.map(borderLabel).join(" and ")} border!`);
+        window.dispatchEvent(new Event("studybook:borders-updated"));
+      } catch (cause) {
+        if (!active) return;
+        const message =
+          cause instanceof Error ? cause.message : "Unknown border drop error";
+        notify(`Daily border drop failed: ${message}`, "error");
+      }
+    }, 0);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [holiday, musicReady, notify, ready, user]);
+
+  useEffect(() => {
+    if (!ready || !user || !musicReady || !holiday) return;
+
+    let active = true;
+    const timer = window.setTimeout(async () => {
+      try {
+        const borders = await rollBorderDrop(
+          getSupabaseBrowserClient(),
+          "celebration",
+          holiday.key,
+        );
+        if (!active || !borders.length) return;
+        notify(`You found the ${borders.map(borderLabel).join(" and ")} border!`);
+        window.dispatchEvent(new Event("studybook:borders-updated"));
+      } catch (cause) {
+        if (!active) return;
+        const message =
+          cause instanceof Error ? cause.message : "Unknown border drop error";
+        notify(`Celebration border drop failed: ${message}`, "error");
+      }
+    }, 0);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [holiday, musicReady, notify, ready, user]);
 
   useEffect(() => {
     if (!holiday || !holidayEffects || preview) return;

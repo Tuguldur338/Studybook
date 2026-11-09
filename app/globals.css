@@ -6304,6 +6304,132 @@ button.messenger-row:hover {
   --champion-pulse: 4.2s;
 }
 
+.exclusive-blackhole {
+  --champion: #8d5be8;
+  --champion-2: #171126;
+  --champion-glyph: "\25ce";
+  --champion-ink: #ffffff;
+}
+
+.exclusive-sea {
+  --champion: #21b7c8;
+  --champion-2: #1452a0;
+  --champion-glyph: "\224b";
+  --champion-ink: #ffffff;
+}
+
+.exclusive-animal {
+  --champion: #8eaa4c;
+  --champion-2: #e3b75b;
+  --champion-glyph: "\2724";
+  --champion-ink: #25250f;
+}
+
+.exclusive-war {
+  --champion: #be453e;
+  --champion-2: #d5aa5a;
+  --champion-glyph: "\2694";
+  --champion-ink: #ffffff;
+}
+
+.exclusive-gun {
+  --champion: #78838b;
+  --champion-2: #d4a84e;
+  --champion-glyph: "\25ce";
+  --champion-ink: #172027;
+}
+
+.celebration-newyear {
+  --champion: #f0c64e;
+  --champion-2: #f18e45;
+  --champion-glyph: "\2726";
+  --champion-ink: #35260a;
+}
+
+.celebration-constitution {
+  --champion: #d5b568;
+  --champion-2: #5b7ca6;
+  --champion-glyph: "\2696";
+  --champion-ink: #243248;
+}
+
+.celebration-tsagaansar {
+  --champion: #d94d6c;
+  --champion-2: #f0ca71;
+  --champion-glyph: "\263e";
+  --champion-ink: #351321;
+}
+
+.celebration-womensday {
+  --champion: #e88bb2;
+  --champion-2: #b579ca;
+  --champion-glyph: "\273f";
+  --champion-ink: #381b36;
+}
+
+.celebration-soldiersday {
+  --champion: #82916a;
+  --champion-2: #c9aa68;
+  --champion-glyph: "\2691";
+  --champion-ink: #20271a;
+}
+
+.celebration-childrensday {
+  --champion: #52b9d1;
+  --champion-2: #f1d25d;
+  --champion-glyph: "\2605";
+  --champion-ink: #163540;
+}
+
+.celebration-naadam {
+  --champion: #d84f46;
+  --champion-2: #5c8ec5;
+  --champion-glyph: "\2605";
+  --champion-ink: #ffffff;
+}
+
+.celebration-halloween {
+  --champion: #a45ce0;
+  --champion-2: #f28a36;
+  --champion-glyph: "\1f383";
+  --champion-ink: #ffffff;
+}
+
+.celebration-genghis {
+  --champion: #c6a05d;
+  --champion-2: #526e82;
+  --champion-glyph: "\1f40e";
+  --champion-ink: #252016;
+}
+
+.celebration-republic {
+  --champion: #4c80c5;
+  --champion-2: #d84c52;
+  --champion-glyph: "\2605";
+  --champion-ink: #ffffff;
+}
+
+.celebration-christmas {
+  --champion: #4f9e70;
+  --champion-2: #d95454;
+  --champion-glyph: "\2744";
+  --champion-ink: #ffffff;
+}
+
+.celebration-independence {
+  --champion: #4b76bf;
+  --champion-2: #d95151;
+  --champion-glyph: "\2691";
+  --champion-ink: #ffffff;
+}
+
+.celebration-newyearseve {
+  --champion: #8a65d7;
+  --champion-2: #e4ba51;
+  --champion-glyph: "\2726";
+  --champion-ink: #ffffff;
+}
+
 .avatar[class*="champion-"] {
   position: relative;
   overflow: visible;
@@ -6317,7 +6443,26 @@ button.messenger-row:hover {
   animation: champion-glow var(--champion-pulse, 4.6s) ease-in-out infinite;
 }
 
-.avatar[class*="champion-"]::before {
+.avatar[class*="exclusive-"],
+.avatar[class*="celebration-"] {
+  --champion-ring: 3px;
+  --champion-spin: 9s;
+  --champion-pulse: 4.8s;
+  position: relative;
+  overflow: visible;
+  border-color: var(--surface);
+  outline: 3px solid var(--champion);
+  outline-offset: 2px;
+  box-shadow:
+    0 0 0 6px color-mix(in srgb, var(--champion) 22%, transparent),
+    0 0 0 10px color-mix(in srgb, var(--champion-2) 12%, transparent),
+    0 9px 26px color-mix(in srgb, var(--champion) 42%, transparent);
+  animation: champion-glow var(--champion-pulse) ease-in-out infinite;
+}
+
+.avatar[class*="champion-"]::before,
+.avatar[class*="exclusive-"]::before,
+.avatar[class*="celebration-"]::before {
   content: var(--champion-glyph, "\2726");
   position: absolute;
   right: -5px;
@@ -6337,7 +6482,9 @@ button.messenger-row:hover {
   box-shadow: 0 3px 8px rgb(0 0 0 / 35%);
 }
 
-.avatar[class*="champion-"]::after {
+.avatar[class*="champion-"]::after,
+.avatar[class*="exclusive-"]::after,
+.avatar[class*="celebration-"]::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -6395,10 +6542,14 @@ button.messenger-row:hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .avatar[class*="champion-"] {
+  .avatar[class*="champion-"],
+  .avatar[class*="exclusive-"],
+  .avatar[class*="celebration-"] {
     animation: none;
   }
-  .avatar[class*="champion-"]::after {
+  .avatar[class*="champion-"]::after,
+  .avatar[class*="exclusive-"]::after,
+  .avatar[class*="celebration-"]::after {
     animation: none;
   }
 }
@@ -8398,8 +8549,10 @@ textarea.input:focus {
   font-size: 0.74rem;
   line-height: 1.3;
 }
-/* Champion border cards */
-.border-card[class*="champion-"] {
+/* Collection and champion border cards */
+.border-card[class*="champion-"],
+.border-card[class*="exclusive-"],
+.border-card[class*="celebration-"] {
   position: relative;
   overflow: hidden;
   border-color: color-mix(in srgb, var(--champion) 45%, var(--border));
@@ -8418,7 +8571,9 @@ textarea.input:focus {
     var(--surface);
 }
 
-.border-card[class*="champion-"]::before {
+.border-card[class*="champion-"]::before,
+.border-card[class*="exclusive-"]::before,
+.border-card[class*="celebration-"]::before {
   content: "";
   position: absolute;
   inset: 0 0 auto;
@@ -8427,7 +8582,9 @@ textarea.input:focus {
   background: linear-gradient(90deg, var(--champion), var(--champion-2));
 }
 
-.border-card[class*="champion-"]::after {
+.border-card[class*="champion-"]::after,
+.border-card[class*="exclusive-"]::after,
+.border-card[class*="celebration-"]::after {
   content: "";
   position: absolute;
   right: -45px;
@@ -8444,12 +8601,18 @@ textarea.input:focus {
 }
 
 .border-card[class*="champion-"] .border-card-main,
-.border-card[class*="champion-"] .border-unequip {
+.border-card[class*="champion-"] .border-unequip,
+.border-card[class*="exclusive-"] .border-card-main,
+.border-card[class*="exclusive-"] .border-unequip,
+.border-card[class*="celebration-"] .border-card-main,
+.border-card[class*="celebration-"] .border-unequip {
   position: relative;
   z-index: 1;
 }
 
-.border-card[class*="champion-"]:hover {
+.border-card[class*="champion-"]:hover,
+.border-card[class*="exclusive-"]:hover,
+.border-card[class*="celebration-"]:hover {
   border-color: color-mix(in srgb, var(--champion) 65%, var(--border));
   background:
     repeating-linear-gradient(
@@ -8466,7 +8629,9 @@ textarea.input:focus {
     var(--surface-muted);
 }
 
-.border-card[class*="champion-"].equipped {
+.border-card[class*="champion-"].equipped,
+.border-card[class*="exclusive-"].equipped,
+.border-card[class*="celebration-"].equipped {
   border-color: color-mix(in srgb, var(--champion) 70%, var(--accent));
   background:
     repeating-linear-gradient(
@@ -8486,10 +8651,14 @@ textarea.input:focus {
     var(--shadow-sm);
 }
 
-.border-card[class*="champion-"] .border-unequip {
+.border-card[class*="champion-"] .border-unequip,
+.border-card[class*="exclusive-"] .border-unequip,
+.border-card[class*="celebration-"] .border-unequip {
   border-color: color-mix(in srgb, var(--champion) 40%, var(--border));
 }
 
-.border-card[class*="champion-"] .border-unequip:hover {
+.border-card[class*="champion-"] .border-unequip:hover,
+.border-card[class*="exclusive-"] .border-unequip:hover,
+.border-card[class*="celebration-"] .border-unequip:hover {
   border-color: var(--danger);
 }

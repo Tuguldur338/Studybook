@@ -69,7 +69,11 @@ import { fetchRemoteTrackTitle } from "@/lib/music-embed";
 import { HALLOWEEN_THEME_TRACK } from "@/lib/music-specials";
 import { PALETTES } from "@/lib/palettes";
 import LoopButton from "@/components/loop-button";
-import { borderClass, borderIdFromMonth, borderLabel } from "@/lib/borders";
+import {
+  borderClass,
+  borderLabel,
+  rollBorderDrop,
+} from "@/lib/borders";
 
 const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const shortWeekdays = ["Mon", "Tue", "Wed", "Thu", "Fri"];
@@ -99,6 +103,31 @@ function notifyPointsResult(
   }
 
   notify(`${result.delta > 0 ? "+" : ""}${result.delta} leaderboard points.`);
+}
+
+function scheduleTaskBorderDrop(
+  taskId: string,
+  userId: string | null,
+  notify: NotifyFn,
+) {
+  if (!userId) return;
+
+  window.setTimeout(async () => {
+    try {
+      const borders = await rollBorderDrop(
+        getSupabaseBrowserClient(),
+        "task",
+        taskId,
+      );
+      if (!borders.length) return;
+      notify(`You found the ${borders.map(borderLabel).join(" and ")} border!`);
+      window.dispatchEvent(new Event("studybook:borders-updated"));
+    } catch (cause) {
+      const message =
+        cause instanceof Error ? cause.message : "Unknown border drop error";
+      notify(`Task border drop failed: ${message}`, "error");
+    }
+  }, 1200);
 }
 
 function toISODate(date: Date) {
@@ -307,6 +336,7 @@ function ConfirmDialog({
 }
 export default function DashboardView() {
   const { classes, notes, notify, profile, setTasks, tasks } = useStudybook();
+  const { user } = useSupabaseUser();
   const [today, setToday] = useState<{ day: number; label: string } | null>(
     null,
   );
@@ -370,6 +400,7 @@ export default function DashboardView() {
           : item,
       ),
     );
+    scheduleTaskBorderDrop(task.id, user?.id ?? null, notify);
     void awardTaskPoints(task.priority, 1, late).then((result) =>
       notifyPointsResult(result, notify),
     );
@@ -1713,6 +1744,7 @@ type TaskSort = "due" | "priority" | "newest";
 
 export function ToDoListView() {
   const { deleteTasks, notify, setTasks, tasks } = useStudybook();
+  const { user } = useSupabaseUser();
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState(emptyTaskForm);
   const [query, setQuery] = useState("");
@@ -1811,6 +1843,9 @@ export function ToDoListView() {
           : item,
       ),
     );
+    if (nextCompleted) {
+      scheduleTaskBorderDrop(task.id, user?.id ?? null, notify);
+    }
     void awardTaskPoints(task.priority, nextCompleted ? 1 : -1, late).then(
       (result) => notifyPointsResult(result, notify),
     );
@@ -2880,34 +2915,72 @@ export function ProfileView() {
     const timer = window.setTimeout(async () => {
       const supabase = getSupabaseBrowserClient();
       const { error: syncError } = await supabase.rpc("sync_my_borders");
-      const [{ data: profileRow }, { data: borderRows, error: bordersError }] =
-        await Promise.all([
-          supabase
+      const [
+        { data: profileRow, error: profileError },
+        { data: borderRows, error: bordersError },
+      ] = await Promise.all([
+        supabase
             .from("profiles")
             .select("equipped_border")
             .eq("id", user.id)
             .maybeSingle(),
-          supabase.rpc("get_my_borders"),
-        ]);
+        supabase.rpc("get_my_borders"),
+      ]);
 
       if (!active) return;
-      const borderMessage = syncError?.message ?? bordersError?.message;
+      const borderMessage =
+        syncError?.message ?? profileError?.message ?? bordersError?.message;
       if (borderMessage) setBorderError(borderMessage);
       setEquippedBorder(
         (profileRow as { equipped_border?: string | null } | null)
           ?.equipped_border ?? null,
       );
       setEarnedBorders(
-        ((borderRows as { month: string }[] | null) ?? []).map((row) =>
-          borderIdFromMonth(row.month),
+        ((borderRows as { border_id: string }[] | null) ?? []).map(
+          (row) => row.border_id,
         ),
       );
       setBordersLoading(false);
     }, 0);
 
+    const refreshBorders = () => {
+      setBordersLoading(true);
+      void (async () => {
+        const supabase = getSupabaseBrowserClient();
+        const [
+          { data: profileRow, error: profileError },
+          { data: borderRows, error: bordersError },
+        ] = await Promise.all([
+          supabase
+              .from("profiles")
+              .select("equipped_border")
+              .eq("id", user.id)
+              .maybeSingle(),
+          supabase.rpc("get_my_borders"),
+        ]);
+
+        if (!active) return;
+        const message = profileError?.message ?? bordersError?.message;
+        if (message) setBorderError(message);
+        else setBorderError("");
+        setEquippedBorder(
+          (profileRow as { equipped_border?: string | null } | null)
+            ?.equipped_border ?? null,
+        );
+        setEarnedBorders(
+          ((borderRows as { border_id: string }[] | null) ?? []).map(
+            (row) => row.border_id,
+          ),
+        );
+        setBordersLoading(false);
+      })();
+    };
+    window.addEventListener("studybook:borders-updated", refreshBorders);
+
     return () => {
       active = false;
       window.clearTimeout(timer);
+      window.removeEventListener("studybook:borders-updated", refreshBorders);
     };
   }, [ready, user]);
 
@@ -3017,7 +3090,7 @@ export function ProfileView() {
       <section className="panel profile-borders">
         <div className="panel-heading">
           <h2 className="panel-title">Borders</h2>
-          <span className="panel-link">{earnedBorders.length} earned</span>
+          <span className="panel-link">{earnedBorders.length} owned</span>
         </div>
         <div className="panel-body">
           {bordersLoading ? (
@@ -3075,15 +3148,18 @@ export function ProfileView() {
             </div>
           ) : (
             <EmptyState
-              copy="Win a month on the leaderboard to earn a champion border."
+              copy="Celebrate a holiday, complete tasks, or visit on a regular day for a chance to find a border."
               icon={<LuTrophy aria-hidden="true" size={22} />}
               title="No borders yet"
             />
           )}
           {borderError && <p className="notice">{borderError}</p>}
           <p className="field-hint">
-            The leaderboard resets on the 1st of every month. The top scorer
-            earns that month&apos;s border, and you can equip it here.
+            Exclusive borders have a 5% daily-visit chance and a 1% chance per
+            completed task. On celebration days, there is a 2% chance to get
+            both borders; otherwise, the remaining drops split 40/60 between
+            the exclusive and celebration borders. Champion borders are earned
+            from the monthly leaderboard.
           </p>
         </div>
       </section>

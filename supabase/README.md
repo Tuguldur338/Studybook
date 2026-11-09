@@ -145,6 +145,9 @@ Apply the migrations in order after the base schema:
    monthly leaderboard points table, `equipped_border` on profiles,
    `get_my_borders()`, and the updated `award_points()`, `get_leaderboard()`,
    and `claim_halloween()` for monthly seasons and champion borders.
+9. [`migrations/border-drops.sql`](./migrations/border-drops.sql) — the border
+   catalog and inventory, celebration and random exclusive drops, and an
+   admin-only all-border grant.
 
 These migration files are meant for a **fresh project**. If the base schema,
 messaging, or usernames are already working, do not rerun them. Expected errors
@@ -160,7 +163,8 @@ when rerunning are:
 If sign-in and messaging already work, apply only the **missing** newer
 migrations: `chat-customization.sql` (group settings), `leaderboard.sql`
 (points), `sync.sql` (cross-device data), `halloween.sql` (the Halloween
-claim), and `monthly-borders.sql` (monthly seasons and borders).
+claim), `monthly-borders.sql` (monthly seasons and borders), and
+`border-drops.sql` (the full border collection and drops).
 
 ## Monthly leaderboard and borders
 
@@ -188,6 +192,32 @@ notify pgrst, 'reload schema';
 ```
 
 after the migration.
+
+## Border collection and drops
+
+Apply [`migrations/border-drops.sql`](./migrations/border-drops.sql) after
+`sync.sql` and `monthly-borders.sql`. It adds five exclusive themes, one border
+for every holiday in [`../lib/holidays.ts`](../lib/holidays.ts), and twelve
+monthly champion styles.
+Signed-in users get one 5% exclusive-border roll on their first visit on a
+non-celebration day, plus a 1% roll for each newly completed synced task. On a
+celebration, a user has a 2% chance to receive both borders; otherwise, the
+remaining drops split 40/60 between the exclusive and celebration borders
+(39.2% exclusive only, 58.8% celebration only). A holiday's celebration roll
+is once per account per year; daily and task rolls are also idempotent.
+
+An authorized project administrator can grant an account permanent access to
+all current and future catalog borders. Find the account's UUID in Supabase
+Authentication → Users, then run this in the SQL Editor:
+
+```sql
+select public.grant_all_borders('<auth-user-uuid>'::uuid);
+```
+
+The grant is not exposed to authenticated clients. It applies to the catalog
+when run and also includes catalog entries added later. This repository cannot
+apply the grant to a deployed Supabase project; an administrator must run it
+there. The user can still equip one border at a time from the Profile page.
 
 ## Halloween claim
 
