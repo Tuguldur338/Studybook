@@ -73,7 +73,7 @@ import {
   borderClass,
   borderDropErrorMessage,
   borderLabel,
-  rollBorderDrop,
+  recordCompletedTask,
 } from "@/lib/borders";
 
 const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
@@ -106,30 +106,37 @@ function notifyPointsResult(
   notify(`${result.delta > 0 ? "+" : ""}${result.delta} leaderboard points.`);
 }
 
-function scheduleTaskBorderDrop(
-  taskId: string,
+function saveCompletedTask(
+  task: StudyTask,
+  completedLate: boolean,
+  completedAt: string,
   userId: string | null,
   notify: NotifyFn,
 ) {
   if (!userId) return;
 
-  window.setTimeout(async () => {
+  void (async () => {
     try {
-      const borders = await rollBorderDrop(
+      const borders = await recordCompletedTask(
         getSupabaseBrowserClient(),
-        "task",
-        taskId,
+        {
+          ...task,
+          completedLate,
+          completedAt,
+        },
       );
-      if (!borders.length) return;
-      notify(`You found the ${borders.map(borderLabel).join(" and ")} border!`);
-      window.dispatchEvent(new Event("studybook:borders-updated"));
+      window.dispatchEvent(new Event("studybook:task-history-updated"));
+      if (borders.length) {
+        notify(`You found the ${borders.map(borderLabel).join(" and ")} border!`);
+        window.dispatchEvent(new Event("studybook:borders-updated"));
+      }
     } catch (cause) {
       notify(
-        `Task border drop failed: ${borderDropErrorMessage(cause)}`,
+        `Could not save completed task: ${borderDropErrorMessage(cause)}`,
         "error",
       );
     }
-  }, 1200);
+  })();
 }
 
 function toISODate(date: Date) {
@@ -402,7 +409,7 @@ export default function DashboardView() {
           : item,
       ),
     );
-    scheduleTaskBorderDrop(task.id, user?.id ?? null, notify);
+    saveCompletedTask(task, late, changedAt, user?.id ?? null, notify);
     void awardTaskPoints(task.priority, 1, late).then((result) =>
       notifyPointsResult(result, notify),
     );
@@ -1846,7 +1853,7 @@ export function ToDoListView() {
       ),
     );
     if (nextCompleted) {
-      scheduleTaskBorderDrop(task.id, user?.id ?? null, notify);
+      saveCompletedTask(task, late, changedAt, user?.id ?? null, notify);
     }
     void awardTaskPoints(task.priority, nextCompleted ? 1 : -1, late).then(
       (result) => notifyPointsResult(result, notify),
@@ -2879,6 +2886,14 @@ export function ProfileView() {
   const { classes, profile, tasks } = useStudybook();
   const { user, ready } = useSupabaseUser();
   const [username, setUsername] = useState("");
+  const [completedTaskHistory, setCompletedTaskHistory] = useState<
+    StudyTask[]
+  >([]);
+  const [completedTaskQuery, setCompletedTaskQuery] = useState("");
+  const [completedTaskHistoryLoading, setCompletedTaskHistoryLoading] =
+    useState(false);
+  const [completedTaskHistoryError, setCompletedTaskHistoryError] =
+    useState("");
 
   useEffect(() => {
     if (!ready || !user) return;
@@ -2986,6 +3001,79 @@ export function ProfileView() {
     };
   }, [ready, user]);
 
+  useEffect(() => {
+    if (!ready || !user) {
+      const timer = window.setTimeout(() => {
+        setCompletedTaskHistory([]);
+        setCompletedTaskHistoryLoading(false);
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
+
+    let active = true;
+    const loadHistory = async () => {
+      setCompletedTaskHistoryLoading(true);
+      try {
+        const { data, error } = await getSupabaseBrowserClient()
+          .from("profile_completed_tasks")
+          .select(
+            "task_id, title, course, due_date, priority, completed_late, completed_at",
+          )
+          .eq("user_id", user.id)
+          .order("completed_at", { ascending: false });
+        if (error) throw error;
+        if (!active) return;
+
+        setCompletedTaskHistory(
+          ((data ?? []) as Array<{
+            task_id: string;
+            title: string;
+            course: string;
+            due_date: string;
+            priority: "low" | "medium" | "high";
+            completed_late: boolean;
+            completed_at: string;
+          }>).map((row) => ({
+            id: row.task_id,
+            title: row.title,
+            course: row.course,
+            dueDate: row.due_date,
+            priority: row.priority,
+            completed: true,
+            completedLate: row.completed_late,
+            updatedAt: row.completed_at,
+          })),
+        );
+        setCompletedTaskHistoryError("");
+      } catch (cause) {
+        if (!active) return;
+        setCompletedTaskHistoryError(borderDropErrorMessage(cause));
+      } finally {
+        if (active) setCompletedTaskHistoryLoading(false);
+      }
+    };
+
+    const timer = window.setTimeout(() => void loadHistory(), 0);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") void loadHistory();
+    }, 15_000);
+    const refresh = () => {
+      if (document.visibilityState === "visible") void loadHistory();
+    };
+    window.addEventListener("studybook:task-history-updated", refresh);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+      window.clearInterval(interval);
+      window.removeEventListener("studybook:task-history-updated", refresh);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [ready, user]);
+
   async function equipBorder(borderId: string | null) {
     if (!user) return;
     setBorderError("");
@@ -3006,13 +3094,34 @@ export function ProfileView() {
     );
   }
 
-  const completed = tasks
-    .filter((task) => task.completed)
-    .sort((a, b) => {
-      if (!a.dueDate) return 1;
-      if (!b.dueDate) return -1;
-      return b.dueDate.localeCompare(a.dueDate);
-    });
+  const completed = useMemo(() => {
+    const historyById = new Map(
+      completedTaskHistory.map((task) => [task.id, task]),
+    );
+    for (const task of tasks) {
+      if (!task.completed) continue;
+      const existing = historyById.get(task.id);
+      if (
+        !existing ||
+        (task.updatedAt ?? "") >= (existing.updatedAt ?? "")
+      ) {
+        historyById.set(task.id, task);
+      }
+    }
+    return [...historyById.values()].sort((a, b) =>
+      (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""),
+    );
+  }, [completedTaskHistory, tasks]);
+  const matchingCompletedTasks = useMemo(() => {
+    const query = completedTaskQuery.trim().toLocaleLowerCase();
+    if (!query) return completed;
+    return completed.filter(
+      (task) =>
+        task.title.toLocaleLowerCase().includes(query) ||
+        task.course.toLocaleLowerCase().includes(query),
+    );
+  }, [completed, completedTaskQuery]);
+  const visibleCompletedTasks = matchingCompletedTasks.slice(0, 5);
 
   return (
     <>
@@ -3058,9 +3167,24 @@ export function ProfileView() {
             <span className="panel-link">{completed.length} finished</span>
           </div>
           <div className="panel-body">
-            {completed.length ? (
+            <div className="search-box">
+              <LuSearch aria-hidden="true" size={16} />
+              <input
+                aria-label="Search completed tasks"
+                className="search-input"
+                onChange={(event) => setCompletedTaskQuery(event.target.value)}
+                placeholder="Search completed tasks..."
+                value={completedTaskQuery}
+              />
+            </div>
+            {completedTaskHistoryError && (
+              <p className="notice">{completedTaskHistoryError}</p>
+            )}
+            {completedTaskHistoryLoading && completed.length === 0 ? (
+              <p className="field-hint">Loading completed task history…</p>
+            ) : visibleCompletedTasks.length ? (
               <div className="task-list">
-                {completed.map((task) => (
+                {visibleCompletedTasks.map((task) => (
                   <div className="task-row" key={task.id}>
                     <span className="task-done-icon">
                       <LuCircleCheck aria-hidden="true" size={16} />
@@ -3077,12 +3201,24 @@ export function ProfileView() {
                     </span>
                   </div>
                 ))}
+                {matchingCompletedTasks.length > visibleCompletedTasks.length && (
+                  <p className="field-hint">
+                    Showing 5 of {matchingCompletedTasks.length} matching
+                    tasks. Search to narrow the history.
+                  </p>
+                )}
               </div>
             ) : (
               <EmptyState
-                copy="Tick something off your to-do list and it will be collected here."
+                copy={
+                  completed.length
+                    ? "No completed tasks match that search."
+                    : "Complete a to-do and it will be saved here, even after you clear it from your list."
+                }
                 icon={<LuCircleCheck aria-hidden="true" size={22} />}
-                title="No finished tasks yet"
+                title={
+                  completed.length ? "No matching tasks" : "No finished tasks yet"
+                }
               />
             )}
           </div>
@@ -3157,11 +3293,11 @@ export function ProfileView() {
           )}
           {borderError && <p className="notice">{borderError}</p>}
           <p className="field-hint">
-            Exclusive borders have a 5% daily-visit chance and a 40% chance
-            per completed task. On celebration days, there is a 2% chance to get
-            both borders; otherwise, the remaining drops split 40/60 between
-            the exclusive and celebration borders. Champion borders are earned
-            from the monthly leaderboard.
+            Exclusive borders have a 5% daily-visit chance. Each completed task
+            has a 40% chance to award a random unowned border. On celebration
+            days, there is a 2% chance to get both borders; otherwise, the
+            remaining drops split 40/60 between the exclusive and celebration
+            borders. Champion borders are earned from the monthly leaderboard.
           </p>
         </div>
       </section>

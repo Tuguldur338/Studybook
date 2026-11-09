@@ -52,12 +52,13 @@ How it behaves:
 - If the account has no snapshot yet, the current browser's local data is
   uploaded, so the first signed-in device seeds the account.
 - After that, changes are saved after a short debounce.
-- If both the cloud and local data have content, the app merges the lists by id.
-  Tasks use their latest `updatedAt` so a completed/unchecked task from another
-  device wins over a stale copy; other lists keep the local entry for the same
-  id. The app also pulls the cloud snapshot every 15 seconds and when the tab
-  regains focus, so simultaneous devices converge without a reload. Deletions
-  made only on one stale device can reappear until that device syncs.
+- Apply [`migrations/task-history-and-sync.sql`](./migrations/task-history-and-sync.sql)
+  after `border-drops.sql`. The migration serializes each account's snapshot
+  merge in the database, so two devices saving at once cannot overwrite each
+  other's changes between a read and a write. Tasks use their latest
+  `updatedAt`, and deletion tombstones are merged to prevent stale devices from
+  restoring removed tasks. Devices pull cloud changes every 15 seconds and
+  when the tab regains focus.
 - Local data is now stored per account (`studybook-data-v1:<user id>`), so two
   accounts on the same browser keep separate schedules and to-dos. The older
   shared key is claimed only by an account whose email matches the saved
@@ -148,6 +149,8 @@ Apply the migrations in order after the base schema:
 9. [`migrations/border-drops.sql`](./migrations/border-drops.sql) — the border
    catalog and inventory, celebration and random exclusive drops, and an
    admin-only all-border grant.
+10. [`migrations/task-history-and-sync.sql`](./migrations/task-history-and-sync.sql) —
+    persistent completed-task history and atomic cross-device snapshot merges.
 
 These migration files are meant for a **fresh project**. If the base schema,
 messaging, or usernames are already working, do not rerun them. Expected errors
@@ -164,7 +167,8 @@ If sign-in and messaging already work, apply only the **missing** newer
 migrations: `chat-customization.sql` (group settings), `leaderboard.sql`
 (points), `sync.sql` (cross-device data), `halloween.sql` (the Halloween
 claim), `monthly-borders.sql` (monthly seasons and borders), and
-`border-drops.sql` (the full border collection and drops).
+`border-drops.sql` (the full border collection and drops), followed by
+`task-history-and-sync.sql` (completed-task history and safe concurrent sync).
 
 ## Monthly leaderboard and borders
 
@@ -200,8 +204,9 @@ Apply [`migrations/border-drops.sql`](./migrations/border-drops.sql) after
 for every holiday in [`../lib/holidays.ts`](../lib/holidays.ts), and twelve
 monthly champion styles.
 Signed-in users get one 5% exclusive-border roll on their first visit on a
-non-celebration day, plus a 40% roll for each newly completed synced task. On a
-celebration, a user has a 2% chance to receive both borders; otherwise, the
+non-celebration day, plus a 40% chance for each newly completed task to receive
+a random unowned catalog border. On a celebration, a user has a 2% chance to
+receive both borders; otherwise, the
 remaining drops split 40/60 between the exclusive and celebration borders
 (39.2% exclusive only, 58.8% celebration only). A holiday's celebration roll
 is once per account per year; daily and task rolls are also idempotent.
@@ -220,6 +225,15 @@ If the query returns no rows, that email is not registered in this Supabase
 project. The grant is not exposed to authenticated clients. It applies to the
 catalog when run and also includes catalog entries added later. The user can
 still equip one border at a time from the Profile page.
+
+Apply [`migrations/task-history-and-sync.sql`](./migrations/task-history-and-sync.sql)
+after `border-drops.sql`. Completed tasks are copied into a separate,
+account-owned history when first completed, so clearing them from the active
+to-do list no longer removes the Profile history. The migration backfills any
+completed tasks still present in account snapshots. Tasks already deleted
+before the history migration and absent from every device snapshot cannot be
+recovered. The Profile page searches the full history and shows at most five
+matches at a time.
 
 ## Halloween claim
 

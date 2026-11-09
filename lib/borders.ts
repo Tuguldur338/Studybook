@@ -69,7 +69,7 @@ export function borderDropErrorMessage(cause: unknown) {
   const code = typeof error?.code === "string" ? error.code : "";
 
   if (code === "PGRST202" || code === "42883") {
-    return `${message} Apply supabase/migrations/border-drops.sql to your Supabase project, then retry.`;
+    return `${message} Apply the latest Supabase migrations, including task-history-and-sync.sql and border-drops.sql, then retry.`;
   }
   return message;
 }
@@ -118,6 +118,33 @@ export async function rollBorderDrop(
   const { data, error } = await supabase.rpc("roll_border_drop", {
     p_source: source,
     p_reference: reference,
+  });
+  if (error) throw error;
+  return Array.isArray(data)
+    ? data.filter((borderId): borderId is string => typeof borderId === "string")
+    : [];
+}
+
+export async function recordCompletedTask(
+  supabase: SupabaseClient,
+  task: {
+    id: string;
+    title: string;
+    course: string;
+    dueDate: string;
+    priority: "low" | "medium" | "high";
+    completedLate: boolean;
+    completedAt: string;
+  },
+) {
+  const { data, error } = await supabase.rpc("record_completed_task", {
+    p_task_id: task.id,
+    p_title: task.title,
+    p_course: task.course,
+    p_due_date: task.dueDate,
+    p_priority: task.priority,
+    p_completed_late: task.completedLate,
+    p_completed_at: task.completedAt,
   });
   if (error) throw error;
   return Array.isArray(data)

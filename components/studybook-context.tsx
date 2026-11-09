@@ -302,6 +302,18 @@ function snapshotHasContent(data: unknown): boolean {
   ) {
     return true;
   }
+  if (
+    isDeletedTasks(data.deletedTasks) &&
+    Object.keys(data.deletedTasks).length > 0
+  ) {
+    return true;
+  }
+  if (
+    isDeletedTasks(data.deletedExams) &&
+    Object.keys(data.deletedExams).length > 0
+  ) {
+    return true;
+  }
   if (isMusicSettings(data.music) && data.music.tracks.length > 0) {
     return true;
   }
@@ -862,12 +874,10 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
         } else if (cloudHasContent) {
           applyCloudSnapshot(cloudData);
         } else if (localHasContent) {
-          const { error: uploadError } = await supabase
-            .from("studybook_snapshots")
-            .upsert(
-              { user_id: authUserId, data: localData },
-              { onConflict: "user_id" },
-            );
+          const { data: mergedData, error: uploadError } = await supabase.rpc(
+            "merge_studybook_snapshot",
+            { p_data: localData },
+          );
           if (uploadError) {
             console.warn(
               "Studybook cloud upload failed:",
@@ -879,6 +889,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
             }
             return;
           }
+          if (active && mergedData) applyCloudSnapshot(mergedData);
         }
 
         if (active) {
@@ -926,11 +937,16 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
       syncing = true;
       try {
         const supabase = getSupabaseBrowserClient();
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from("studybook_snapshots")
           .select("data")
           .eq("user_id", authUserId)
           .maybeSingle();
+        if (error) {
+          console.warn("Studybook cloud refresh failed:", error.message);
+          setSyncStatus("error");
+          return;
+        }
         if (!active || !data?.data) return;
 
         const merged = mergeSnapshots(data.data, snapshotRef.current);
@@ -998,23 +1014,10 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
       setSyncStatus("syncing");
       try {
         const supabase = getSupabaseBrowserClient();
-        // Merge the latest cloud copy before writing so a stale device cannot
-        // overwrite a newer task completion that arrived from another device.
-        const { data: cloudRow } = await supabase
-          .from("studybook_snapshots")
-          .select("data")
-          .eq("user_id", authUserId)
-          .maybeSingle();
-        const merged = cloudRow?.data
-          ? mergeSnapshots(cloudRow.data, snapshot)
-          : snapshot;
-
-        const { error } = await supabase
-          .from("studybook_snapshots")
-          .upsert(
-            { user_id: authUserId, data: merged },
-            { onConflict: "user_id" },
-          );
+        const { data: merged, error } = await supabase.rpc(
+          "merge_studybook_snapshot",
+          { p_data: snapshot },
+        );
         if (error) {
           console.warn("Studybook cloud save failed:", error.message);
           setSyncStatus("error");
