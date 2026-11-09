@@ -134,7 +134,7 @@ set search_path = ''
 as $$
 declare
   me uuid := auth.uid();
-  event_key text;
+  v_event_key text;
   exclusive_border text;
   celebration_border text;
   chosen_borders text[] := array[]::text[];
@@ -150,7 +150,7 @@ begin
     if p_reference is not null then
       raise exception 'Daily drops do not accept a reference' using errcode = '22023';
     end if;
-    event_key := 'daily:' || current_date::text;
+    v_event_key := 'daily:' || current_date::text;
   elsif p_source = 'task' then
     if p_reference is null or length(p_reference) > 80 then
       raise exception 'Invalid task reference' using errcode = '22023';
@@ -174,7 +174,7 @@ begin
       raise exception 'Task must be synced as completed before its border roll'
         using errcode = '22023';
     end if;
-    event_key := 'task:' || p_reference;
+    v_event_key := 'task:' || p_reference;
   elsif p_source = 'celebration' then
     if p_reference not in (
       'newyear',
@@ -251,14 +251,14 @@ begin
       raise exception 'This celebration is not active today' using errcode = '22023';
     end if;
 
-    event_key := 'celebration:' || p_reference || ':' ||
+    v_event_key := 'celebration:' || p_reference || ':' ||
       extract(year from current_date)::integer::text;
   else
     raise exception 'Invalid border drop source' using errcode = '22023';
   end if;
 
   insert into public.border_drop_attempts (user_id, event_key)
-  values (me, event_key)
+  values (me, v_event_key)
   on conflict (user_id, event_key) do nothing;
 
   if not found then
