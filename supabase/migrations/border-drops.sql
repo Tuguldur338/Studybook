@@ -288,7 +288,7 @@ begin
       chosen_borders := array[exclusive_border];
     end if;
   elsif p_source = 'task' then
-    if pg_catalog.random() < 0.01 and exclusive_border is not null then
+    if pg_catalog.random() < 0.40 and exclusive_border is not null then
       chosen_borders := array[exclusive_border];
     end if;
   else

@@ -3157,8 +3157,8 @@ export function ProfileView() {
           )}
           {borderError && <p className="notice">{borderError}</p>}
           <p className="field-hint">
-            Exclusive borders have a 5% daily-visit chance and a 1% chance per
-            completed task. On celebration days, there is a 2% chance to get
+            Exclusive borders have a 5% daily-visit chance and a 40% chance
+            per completed task. On celebration days, there is a 2% chance to get
             both borders; otherwise, the remaining drops split 40/60 between
             the exclusive and celebration borders. Champion borders are earned
             from the monthly leaderboard.

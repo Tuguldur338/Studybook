@@ -200,24 +200,26 @@ Apply [`migrations/border-drops.sql`](./migrations/border-drops.sql) after
 for every holiday in [`../lib/holidays.ts`](../lib/holidays.ts), and twelve
 monthly champion styles.
 Signed-in users get one 5% exclusive-border roll on their first visit on a
-non-celebration day, plus a 1% roll for each newly completed synced task. On a
+non-celebration day, plus a 40% roll for each newly completed synced task. On a
 celebration, a user has a 2% chance to receive both borders; otherwise, the
 remaining drops split 40/60 between the exclusive and celebration borders
 (39.2% exclusive only, 58.8% celebration only). A holiday's celebration roll
 is once per account per year; daily and task rolls are also idempotent.
 
 An authorized project administrator can grant an account permanent access to
-all current and future catalog borders. Find the account's UUID in Supabase
-Authentication → Users, then run this in the SQL Editor:
+all current and future catalog borders. In the Supabase SQL Editor, run this
+query with the registered email to grant that account:
 
 ```sql
-select public.grant_all_borders('<auth-user-uuid>'::uuid);
+select public.grant_all_borders(id)
+from auth.users
+where lower(email) = lower('<registered-email>');
 ```
 
-The grant is not exposed to authenticated clients. It applies to the catalog
-when run and also includes catalog entries added later. This repository cannot
-apply the grant to a deployed Supabase project; an administrator must run it
-there. The user can still equip one border at a time from the Profile page.
+If the query returns no rows, that email is not registered in this Supabase
+project. The grant is not exposed to authenticated clients. It applies to the
+catalog when run and also includes catalog entries added later. The user can
+still equip one border at a time from the Profile page.
 
 ## Halloween claim
 
