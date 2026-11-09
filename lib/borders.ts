@@ -48,6 +48,32 @@ const BORDER_LABELS = new Map(
 
 export type BorderDropSource = "daily" | "task" | "celebration";
 
+export function borderDropErrorMessage(cause: unknown) {
+  const error =
+    cause && typeof cause === "object"
+      ? (cause as {
+          code?: unknown;
+          details?: unknown;
+          hint?: unknown;
+          message?: unknown;
+        })
+      : null;
+  const parts = [
+    error?.message,
+    error?.details,
+    error?.hint,
+  ].filter((part): part is string => typeof part === "string" && part.length > 0);
+  const message =
+    parts.join(" ") ||
+    (cause instanceof Error ? cause.message : "Unexpected border drop error");
+  const code = typeof error?.code === "string" ? error.code : "";
+
+  if (code === "PGRST202" || code === "42883") {
+    return `${message} Apply supabase/migrations/border-drops.sql to your Supabase project, then retry.`;
+  }
+  return message;
+}
+
 export function borderIdFromMonth(month: string) {
   return `champion-${month}`;
 }

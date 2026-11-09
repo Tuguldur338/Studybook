@@ -11,7 +11,11 @@ import { LuX } from "react-icons/lu";
 import { useMusic } from "@/components/music-context";
 import { useStudybook } from "@/components/studybook-context";
 import { useSupabaseUser } from "@/components/use-supabase-user";
-import { borderLabel, rollBorderDrop } from "@/lib/borders";
+import {
+  borderDropErrorMessage,
+  borderLabel,
+  rollBorderDrop,
+} from "@/lib/borders";
 import { HOLIDAYS, type Holiday } from "@/lib/holidays";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -216,9 +220,7 @@ export default function HolidayEffects() {
         window.dispatchEvent(new Event("studybook:borders-updated"));
       } catch (cause) {
         if (!active) return;
-        const message =
-          cause instanceof Error ? cause.message : "Unknown border drop error";
-        notify(`Daily border drop failed: ${message}`, "error");
+        notify(`Daily border drop failed: ${borderDropErrorMessage(cause)}`, "error");
       }
     }, 0);
 
@@ -244,9 +246,10 @@ export default function HolidayEffects() {
         window.dispatchEvent(new Event("studybook:borders-updated"));
       } catch (cause) {
         if (!active) return;
-        const message =
-          cause instanceof Error ? cause.message : "Unknown border drop error";
-        notify(`Celebration border drop failed: ${message}`, "error");
+        notify(
+          `Celebration border drop failed: ${borderDropErrorMessage(cause)}`,
+          "error",
+        );
       }
     }, 0);
 

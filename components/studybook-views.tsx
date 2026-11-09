@@ -71,6 +71,7 @@ import { PALETTES } from "@/lib/palettes";
 import LoopButton from "@/components/loop-button";
 import {
   borderClass,
+  borderDropErrorMessage,
   borderLabel,
   rollBorderDrop,
 } from "@/lib/borders";
@@ -123,9 +124,10 @@ function scheduleTaskBorderDrop(
       notify(`You found the ${borders.map(borderLabel).join(" and ")} border!`);
       window.dispatchEvent(new Event("studybook:borders-updated"));
     } catch (cause) {
-      const message =
-        cause instanceof Error ? cause.message : "Unknown border drop error";
-      notify(`Task border drop failed: ${message}`, "error");
+      notify(
+        `Task border drop failed: ${borderDropErrorMessage(cause)}`,
+        "error",
+      );
     }
   }, 1200);
 }
