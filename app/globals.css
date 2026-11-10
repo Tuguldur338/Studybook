@@ -1687,6 +1687,70 @@ a {
   color: var(--muted);
 }
 
+.input[type="date"],
+.input[type="time"] {
+  color-scheme: light;
+  padding-right: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-theme="dark"] .input[type="date"],
+:root[data-theme="dark"] .input[type="time"] {
+  color-scheme: dark;
+}
+
+.input[type="date"]::-webkit-calendar-picker-indicator,
+.input[type="time"]::-webkit-calendar-picker-indicator {
+  width: 30px;
+  height: 30px;
+  margin-right: -6px;
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--border));
+  border-radius: 9px;
+  background-color: var(--accent-soft);
+  background-position: center;
+  background-size: 15px;
+  cursor: pointer;
+  opacity: 0.9;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.input[type="date"]:hover::-webkit-calendar-picker-indicator,
+.input[type="time"]:hover::-webkit-calendar-picker-indicator {
+  transform: scale(1.05);
+  border-color: var(--accent);
+  background-color: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  opacity: 1;
+}
+
+.input[type="date"]:focus::-webkit-calendar-picker-indicator,
+.input[type="time"]:focus::-webkit-calendar-picker-indicator {
+  border-color: var(--accent);
+  background-color: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  opacity: 1;
+}
+
+.input[type="time"]::-webkit-datetime-edit,
+.input[type="date"]::-webkit-datetime-edit {
+  padding: 0;
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.input[type="time"]::-webkit-datetime-edit-hour-field:focus,
+.input[type="time"]::-webkit-datetime-edit-minute-field:focus,
+.input[type="time"]::-webkit-datetime-edit-ampm-field:focus,
+.input[type="date"]::-webkit-datetime-edit-day-field:focus,
+.input[type="date"]::-webkit-datetime-edit-month-field:focus,
+.input[type="date"]::-webkit-datetime-edit-year-field:focus {
+  border-radius: 4px;
+  outline: none;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
 .select-wrap {
   position: relative;
 }
@@ -1794,17 +1858,37 @@ a {
   right: 8px;
   transform: translateY(-50%);
   display: grid;
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   place-items: center;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-muted);
+  color: var(--accent-strong);
+  box-shadow: var(--shadow-xs);
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .password-toggle:hover {
-  color: var(--foreground);
+  transform: translateY(-50%) scale(1.06);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  box-shadow: var(--shadow-sm);
+}
+
+.password-toggle:active {
+  transform: translateY(-50%) scale(0.96);
+}
+
+.password-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .auth-switch {
