@@ -24,6 +24,12 @@ With the Supabase CLI linked to your project, run this from the repository root:
 supabase db push
 ```
 
+Only migration files belong in `supabase/migrations`. Manual SQL utilities,
+such as the PostgREST schema-cache refresh in
+[`queries/reload-postgrest-schema-cache.sql`](./queries/reload-postgrest-schema-cache.sql),
+are kept in `supabase/queries` so they are not applied as migrations by
+`supabase db push`.
+
 Alternatively, copy
 [`migrations/schema.sql`](./migrations/schema.sql)
 into the Supabase Dashboard SQL Editor and run it against your project.
