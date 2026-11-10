@@ -150,7 +150,8 @@ Apply the migrations in order after the base schema:
    catalog and inventory, celebration and random exclusive drops, and an
    admin-only all-border grant.
 10. [`migrations/task-history-and-sync.sql`](./migrations/task-history-and-sync.sql) —
-    persistent completed-task history and atomic cross-device snapshot merges.
+    persistent completed-task history, routine deletion tombstones, and atomic
+    cross-device snapshot merges.
 
 These migration files are meant for a **fresh project**. If the base schema,
 messaging, or usernames are already working, do not rerun them. Expected errors
@@ -169,6 +170,8 @@ migrations: `chat-customization.sql` (group settings), `leaderboard.sql`
 claim), `monthly-borders.sql` (monthly seasons and borders), and
 `border-drops.sql` (the full border collection and drops), followed by
 `task-history-and-sync.sql` (completed-task history and safe concurrent sync).
+Re-run its latest version whenever that file is updated; it also installs the
+routine deletion fix so removed daily steps stay deleted across devices.
 
 ## Monthly leaderboard and borders
 
@@ -233,7 +236,9 @@ to-do list no longer removes the Profile history. The migration backfills any
 completed tasks still present in account snapshots. Tasks already deleted
 before the history migration and absent from every device snapshot cannot be
 recovered. The Profile page searches the full history and shows at most five
-matches at a time.
+matches at a time. This migration also merges routine deletion tombstones,
+preventing deleted daily steps on one device from being restored by a stale
+snapshot from another device.
 
 ## Halloween claim
 

@@ -4316,6 +4316,7 @@ export function RoutineView() {
     notify,
     routine,
     routineChecks,
+    deleteRoutine,
     setRoutine,
     setRoutineChecks,
   } = useStudybook();
@@ -4420,14 +4421,7 @@ export function RoutineView() {
   }
 
   function handleDelete(id: string) {
-    setRoutine((current) => current.filter((item) => item.id !== id));
-    setRoutineChecks((current) => {
-      const next = { ...current };
-      for (const key of Object.keys(next)) {
-        if (key.endsWith(`|${id}`)) delete next[key];
-      }
-      return next;
-    });
+    deleteRoutine(id);
     notify("Routine step removed.");
   }
 

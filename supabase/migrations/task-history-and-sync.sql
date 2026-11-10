@@ -297,9 +297,12 @@ declare
   end;
   deleted_tasks jsonb;
   deleted_exams jsonb;
+  deleted_routine jsonb;
   deleted_tracks jsonb;
   task_items jsonb;
   exam_items jsonb;
+  routine_items jsonb;
+  routine_checks jsonb;
   music_tracks jsonb;
   music jsonb;
 begin
@@ -308,6 +311,9 @@ begin
   );
   deleted_exams := public.merge_studybook_object(
     cloud -> 'deletedExams', incoming -> 'deletedExams'
+  );
+  deleted_routine := public.merge_studybook_object(
+    cloud -> 'deletedRoutine', incoming -> 'deletedRoutine'
   );
 
   task_items := public.merge_studybook_array(
@@ -331,6 +337,29 @@ begin
   into exam_items
   from pg_catalog.jsonb_array_elements(exam_items) as item(value)
   where not (deleted_exams ? (item.value ->> 'id'));
+
+  routine_items := public.merge_studybook_array(
+    cloud -> 'routine', incoming -> 'routine', 'id'
+  );
+  select coalesce(
+    pg_catalog.jsonb_agg(item.value order by item.value ->> 'id'),
+    '[]'::jsonb
+  )
+  into routine_items
+  from pg_catalog.jsonb_array_elements(routine_items) as item(value)
+  where not (deleted_routine ? (item.value ->> 'id'));
+
+  routine_checks := coalesce(cloud -> 'routineChecks', '{}'::jsonb) ||
+    coalesce(incoming -> 'routineChecks', '{}'::jsonb);
+  select coalesce(pg_catalog.jsonb_object_agg(check_entry.key, check_entry.value), '{}'::jsonb)
+  into routine_checks
+  from pg_catalog.jsonb_each(routine_checks) as check_entry(key, value)
+  where not exists (
+    select 1
+    from pg_catalog.jsonb_object_keys(deleted_routine) as removed(id)
+    where pg_catalog.right(check_entry.key, pg_catalog.length(removed.id) + 1)
+      = '|' || removed.id
+  );
 
   deleted_tracks := public.merge_studybook_object(
     cloud #> '{music,deletedTracks}', incoming #> '{music,deletedTracks}'
@@ -374,11 +403,9 @@ begin
     ),
     'exams', exam_items,
     'deletedExams', deleted_exams,
-    'routine', public.merge_studybook_array(
-      cloud -> 'routine', incoming -> 'routine', 'id'
-    ),
-    'routineChecks', coalesce(cloud -> 'routineChecks', '{}'::jsonb) ||
-      coalesce(incoming -> 'routineChecks', '{}'::jsonb),
+    'routine', routine_items,
+    'routineChecks', routine_checks,
+    'deletedRoutine', deleted_routine,
     'profileAvatar', coalesce(
       nullif(incoming ->> 'profileAvatar', ''),
       cloud ->> 'profileAvatar',

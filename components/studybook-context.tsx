@@ -81,6 +81,8 @@ type StudybookSnapshot = {
   deletedTasks: Record<string, string>;
   /** Tombstones for exams deleted here. */
   deletedExams: Record<string, string>;
+  /** Tombstones for routine steps deleted here. */
+  deletedRoutine: Record<string, string>;
   /** Music library metadata and playback preferences. */
   music: MusicSettings | null;
 };
@@ -164,6 +166,7 @@ type StudybookContextValue = {
   deleteExam: (id: string) => void;
   routine: RoutineItem[];
   setRoutine: Dispatch<SetStateAction<RoutineItem[]>>;
+  deleteRoutine: (id: string) => void;
   routineChecks: RoutineChecks;
   setRoutineChecks: Dispatch<SetStateAction<RoutineChecks>>;
   notes: StudyNote[];
@@ -406,6 +409,19 @@ function mergeSnapshots(
     : [];
   const deletedTasks = mergeDeletedTasks(source.deletedTasks, local.deletedTasks);
   const deletedExams = mergeDeletedTasks(source.deletedExams, local.deletedExams);
+  const deletedRoutine = mergeDeletedTasks(
+    source.deletedRoutine,
+    local.deletedRoutine,
+  );
+  const routineChecks = {
+    ...(isRoutineChecks(source.routineChecks) ? source.routineChecks : {}),
+    ...local.routineChecks,
+  };
+  for (const id of Object.keys(deletedRoutine)) {
+    for (const key of Object.keys(routineChecks)) {
+      if (key.endsWith(`|${id}`)) delete routineChecks[key];
+    }
+  }
 
   const notes = new Map<string, StudyNote>();
   for (const note of cloudNotes) notes.set(note.id, note);
@@ -434,16 +450,16 @@ function mergeSnapshots(
     exams: mergeById(cloudExams, local.exams).filter(
       (exam) => !deletedExams[exam.id],
     ),
-    routine: mergeById(cloudRoutine, local.routine),
-    routineChecks: {
-      ...(isRoutineChecks(source.routineChecks) ? source.routineChecks : {}),
-      ...local.routineChecks,
-    },
+    routine: mergeById(cloudRoutine, local.routine).filter(
+      (item) => !deletedRoutine[item.id],
+    ),
+    routineChecks,
     profileAvatar:
       local.profileAvatar ||
       (typeof source.profileAvatar === "string" ? source.profileAvatar : ""),
     deletedTasks,
     deletedExams,
+    deletedRoutine,
     music: local.music
       ? mergeMusicSettings(source.music, local.music)
       : isMusicSettings(source.music)
@@ -504,6 +520,17 @@ function readStudybookData(key = STORAGE_KEY) {
     ? (parsed.palette as PaletteId)
     : "sage";
   const holidayEffects = parsed.holidayEffects !== false;
+  const deletedRoutine = isDeletedTasks(parsed.deletedRoutine)
+    ? parsed.deletedRoutine
+    : {};
+  const routineChecks = isRoutineChecks(parsed.routineChecks)
+    ? { ...parsed.routineChecks }
+    : {};
+  for (const id of Object.keys(deletedRoutine)) {
+    for (const key of Object.keys(routineChecks)) {
+      if (key.endsWith(`|${id}`)) delete routineChecks[key];
+    }
+  }
 
   return {
     classes: Array.isArray(parsed.classes)
@@ -521,12 +548,13 @@ function readStudybookData(key = STORAGE_KEY) {
     deletedExams: isDeletedTasks(parsed.deletedExams)
       ? parsed.deletedExams
       : {},
+    deletedRoutine,
     routine: Array.isArray(parsed.routine)
-      ? parsed.routine.filter(isRoutineItem)
+      ? parsed.routine
+          .filter(isRoutineItem)
+          .filter((item) => !deletedRoutine[item.id])
       : [],
-    routineChecks: isRoutineChecks(parsed.routineChecks)
-      ? parsed.routineChecks
-      : {},
+    routineChecks,
     notes: Array.isArray(parsed.notes) ? parsed.notes.filter(isStudyNote) : [],
     music: isMusicSettings(parsed.music) ? parsed.music : null,
     profile: {
@@ -551,6 +579,9 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
   const [music, setMusic] = useState<MusicSettings | null>(null);
   const [routine, setRoutine] = useState<RoutineItem[]>([]);
   const [routineChecks, setRoutineChecks] = useState<RoutineChecks>({});
+  const [deletedRoutine, setDeletedRoutine] = useState<Record<string, string>>(
+    {},
+  );
   const [notes, setNotes] = useState<StudyNote[]>([]);
   const [profile, setProfile] = useState(defaultProfile);
   const [theme, setTheme] = useState<"light" | "dark">("light");
@@ -582,6 +613,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     profileAvatar: "",
     deletedTasks: {},
     deletedExams: {},
+    deletedRoutine: {},
     music: null,
   });
 
@@ -621,12 +653,23 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     setDeletedExams(isDeletedTasks(raw.deletedExams) ? raw.deletedExams : {});
     setNotes(Array.isArray(raw.notes) ? raw.notes.filter(isStudyNote) : []);
     setExams(Array.isArray(raw.exams) ? raw.exams.filter(isExam) : []);
+    const deletedRoutine = isDeletedTasks(raw.deletedRoutine)
+      ? raw.deletedRoutine
+      : {};
     setRoutine(
-      Array.isArray(raw.routine) ? raw.routine.filter(isRoutineItem) : [],
+      (Array.isArray(raw.routine) ? raw.routine.filter(isRoutineItem) : [])
+        .filter((item) => !deletedRoutine[item.id]),
     );
-    setRoutineChecks(
-      isRoutineChecks(raw.routineChecks) ? raw.routineChecks : {},
-    );
+    const routineChecks = isRoutineChecks(raw.routineChecks)
+      ? { ...raw.routineChecks }
+      : {};
+    for (const id of Object.keys(deletedRoutine)) {
+      for (const key of Object.keys(routineChecks)) {
+        if (key.endsWith(`|${id}`)) delete routineChecks[key];
+      }
+    }
+    setRoutineChecks(routineChecks);
+    setDeletedRoutine(deletedRoutine);
     setMusic(isMusicSettings(raw.music) ? raw.music : null);
 
     const avatar = raw.profileAvatar;
@@ -653,6 +696,19 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     setDeletedExams((current) => ({ ...current, [id]: deletedAt }));
   }, []);
 
+  const deleteRoutine = useCallback((id: string) => {
+    const deletedAt = new Date().toISOString();
+    setRoutine((current) => current.filter((item) => item.id !== id));
+    setDeletedRoutine((current) => ({ ...current, [id]: deletedAt }));
+    setRoutineChecks((current) => {
+      const next = { ...current };
+      for (const key of Object.keys(next)) {
+        if (key.endsWith(`|${id}`)) delete next[key];
+      }
+      return next;
+    });
+  }, []);
+
   const resetLocalSnapshot = useCallback(() => {
     setClasses([]);
     setClassChecks({});
@@ -664,6 +720,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     setExams([]);
     setRoutine([]);
     setRoutineChecks({});
+    setDeletedRoutine({});
     setMusic(null);
     setProfile(defaultProfile);
     setTheme(
@@ -725,6 +782,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
           setExams(saved.exams);
           setRoutine(saved.routine);
           setRoutineChecks(saved.routineChecks);
+          setDeletedRoutine(saved.deletedRoutine);
           setNotes(saved.notes);
           setMusic(saved.music);
           setProfile(saved.profile);
@@ -763,6 +821,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
       exams,
       routine,
       routineChecks,
+      deletedRoutine,
       profileAvatar: profile.avatar,
       deletedTasks,
       deletedExams,
@@ -782,6 +841,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
           exams,
           routine,
           routineChecks,
+          deletedRoutine,
           notes,
           music,
           profile,
@@ -804,6 +864,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     classChecks,
     classes,
     deletedExams,
+    deletedRoutine,
     deletedTasks,
     exams,
     routine,
@@ -1007,6 +1068,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
       profileAvatar: profile.avatar,
       deletedTasks,
       deletedExams,
+      deletedRoutine,
       music,
     };
 
@@ -1049,6 +1111,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     profile.avatar,
     routine,
     routineChecks,
+    deletedRoutine,
     savedClasses,
     storageKey,
     syncedUserId,
@@ -1074,6 +1137,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
         deleteExam,
         routine,
         setRoutine,
+        deleteRoutine,
         routineChecks,
         setRoutineChecks,
         notes,
