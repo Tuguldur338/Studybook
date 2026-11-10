@@ -639,42 +639,22 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
   const applyCloudSnapshot = useCallback((raw: unknown) => {
     if (!isRecord(raw)) return;
 
-    setClasses(
-      Array.isArray(raw.classes) ? raw.classes.filter(isClassSession) : [],
-    );
-    setClassChecks(isClassChecks(raw.classChecks) ? raw.classChecks : {});
-    setSavedClasses(
-      Array.isArray(raw.savedClasses)
-        ? raw.savedClasses.filter(isSavedClass)
-        : [],
-    );
-    setTasks(Array.isArray(raw.tasks) ? raw.tasks.filter(isStudyTask) : []);
-    setDeletedTasks(isDeletedTasks(raw.deletedTasks) ? raw.deletedTasks : {});
-    setDeletedExams(isDeletedTasks(raw.deletedExams) ? raw.deletedExams : {});
-    setNotes(Array.isArray(raw.notes) ? raw.notes.filter(isStudyNote) : []);
-    setExams(Array.isArray(raw.exams) ? raw.exams.filter(isExam) : []);
-    const deletedRoutine = isDeletedTasks(raw.deletedRoutine)
-      ? raw.deletedRoutine
-      : {};
-    setRoutine(
-      (Array.isArray(raw.routine) ? raw.routine.filter(isRoutineItem) : [])
-        .filter((item) => !deletedRoutine[item.id]),
-    );
-    const routineChecks = isRoutineChecks(raw.routineChecks)
-      ? { ...raw.routineChecks }
-      : {};
-    for (const id of Object.keys(deletedRoutine)) {
-      for (const key of Object.keys(routineChecks)) {
-        if (key.endsWith(`|${id}`)) delete routineChecks[key];
-      }
-    }
-    setRoutineChecks(routineChecks);
-    setDeletedRoutine(deletedRoutine);
-    setMusic(isMusicSettings(raw.music) ? raw.music : null);
+    const snapshot = mergeSnapshots(raw, snapshotRef.current);
+    setClasses(snapshot.classes);
+    setClassChecks(snapshot.classChecks);
+    setSavedClasses(snapshot.savedClasses);
+    setTasks(snapshot.tasks);
+    setDeletedTasks(snapshot.deletedTasks);
+    setDeletedExams(snapshot.deletedExams);
+    setNotes(snapshot.notes);
+    setExams(snapshot.exams);
+    setRoutine(snapshot.routine);
+    setRoutineChecks(snapshot.routineChecks);
+    setDeletedRoutine(snapshot.deletedRoutine);
+    setMusic(snapshot.music);
 
-    const avatar = raw.profileAvatar;
-    if (typeof avatar === "string" && avatar) {
-      setProfile((current) => ({ ...current, avatar }));
+    if (snapshot.profileAvatar) {
+      setProfile((current) => ({ ...current, avatar: snapshot.profileAvatar }));
     }
   }, []);
 
@@ -933,7 +913,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
           // the first sync) while also loading the account's other data.
           applyCloudSnapshot(mergeSnapshots(cloudData, localData));
         } else if (cloudHasContent) {
-          applyCloudSnapshot(cloudData);
+          applyCloudSnapshot(mergeSnapshots(cloudData, snapshotRef.current));
         } else if (localHasContent) {
           const { data: mergedData, error: uploadError } = await supabase.rpc(
             "merge_studybook_snapshot",
