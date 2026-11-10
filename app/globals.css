@@ -3277,6 +3277,11 @@ button.messenger-row:hover {
   height: auto;
   min-height: 44px;
   padding: 10px 12px;
+  cursor: pointer;
+}
+
+.music-file-input::file-selector-button {
+  cursor: pointer;
 }
 
 /* Holiday effects */
@@ -7303,6 +7308,11 @@ button.messenger-row:hover {
   height: auto;
   min-height: 42px;
   padding: 9px 11px;
+  cursor: pointer;
+}
+
+.personal-music-file::file-selector-button {
+  cursor: pointer;
 }
 
 .personal-lists {
