@@ -321,7 +321,9 @@ function snapshotHasContent(data: unknown): boolean {
     return true;
   }
 
-  return typeof data.profileAvatar === "string" && data.profileAvatar.length > 0;
+  return (
+    typeof data.profileAvatar === "string" && data.profileAvatar.length > 0
+  );
 }
 
 function savedClassKey(item: SavedClass) {
@@ -407,8 +409,14 @@ function mergeSnapshots(
   const cloudRoutine = Array.isArray(source.routine)
     ? source.routine.filter(isRoutineItem)
     : [];
-  const deletedTasks = mergeDeletedTasks(source.deletedTasks, local.deletedTasks);
-  const deletedExams = mergeDeletedTasks(source.deletedExams, local.deletedExams);
+  const deletedTasks = mergeDeletedTasks(
+    source.deletedTasks,
+    local.deletedTasks,
+  );
+  const deletedExams = mergeDeletedTasks(
+    source.deletedExams,
+    local.deletedExams,
+  );
   const deletedRoutine = mergeDeletedTasks(
     source.deletedRoutine,
     local.deletedRoutine,
@@ -601,6 +609,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
   const storageKey = authUserId ? userStorageKey(authUserId) : STORAGE_KEY;
   const [loadedKey, setLoadedKey] = useState("");
   const [syncedUserId, setSyncedUserId] = useState<string | null>(null);
+  const cloudUpdatedAt = useRef<string | null>(null);
   const snapshotRef = useRef<StudybookSnapshot>({
     classes: [],
     classChecks: {},
@@ -873,12 +882,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
   }, [authUserId]);
 
   useEffect(() => {
-    if (
-      !isLoaded ||
-      !authReady ||
-      !authUserId ||
-      loadedKey !== storageKey
-    ) {
+    if (!isLoaded || !authReady || !authUserId || loadedKey !== storageKey) {
       return;
     }
     if (syncedUserId === authUserId) return;
@@ -903,6 +907,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
           return;
         }
 
+        cloudUpdatedAt.current = data?.updated_at ?? null;
         const cloudData = data?.data as unknown;
         const localData = snapshotRef.current;
         const cloudHasContent = snapshotHasContent(cloudData);
@@ -920,10 +925,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
             { p_data: localData },
           );
           if (uploadError) {
-            console.warn(
-              "Studybook cloud upload failed:",
-              uploadError.message,
-            );
+            console.warn("Studybook cloud upload failed:", uploadError.message);
             if (active) {
               setSyncStatus("error");
               setSyncedUserId(authUserId);
@@ -978,9 +980,29 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
       syncing = true;
       try {
         const supabase = getSupabaseBrowserClient();
+        const { data: version, error: versionError } = await supabase
+          .from("studybook_snapshots")
+          .select("updated_at")
+          .eq("user_id", authUserId)
+          .maybeSingle();
+        if (versionError) {
+          console.warn(
+            "Studybook cloud version check failed:",
+            versionError.message,
+          );
+          setSyncStatus("error");
+          return;
+        }
+        if (!active) return;
+        if (!version) {
+          cloudUpdatedAt.current = null;
+          return;
+        }
+        if (version.updated_at === cloudUpdatedAt.current) return;
+
         const { data, error } = await supabase
           .from("studybook_snapshots")
-          .select("data")
+          .select("data, updated_at")
           .eq("user_id", authUserId)
           .maybeSingle();
         if (error) {
@@ -990,6 +1012,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
         }
         if (!active || !data?.data) return;
 
+        cloudUpdatedAt.current = data.updated_at ?? version.updated_at;
         const merged = mergeSnapshots(data.data, snapshotRef.current);
         if (JSON.stringify(merged) !== JSON.stringify(snapshotRef.current)) {
           applyCloudSnapshot(merged);

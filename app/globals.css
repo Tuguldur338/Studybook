@@ -6917,9 +6917,9 @@ button.messenger-row:hover {
 }
 
 .border-preview {
-  width: 44px;
-  height: 44px;
-  flex: 0 0 44px;
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
   border-radius: 50%;
   background: var(--surface-muted);
   color: var(--accent-strong);
@@ -8954,4 +8954,84 @@ textarea.input:focus {
 .border-card[class*="exclusive-"] .border-unequip:hover,
 .border-card[class*="celebration-"] .border-unequip:hover {
   border-color: var(--danger);
+}
+
+.border-card[class*="champion-"],
+.border-card[class*="exclusive-"],
+.border-card[class*="celebration-"] {
+  isolation: isolate;
+  box-shadow:
+    inset 0 1px rgb(255 255 255 / 8%),
+    0 5px 16px rgb(0 0 0 / 16%);
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease;
+}
+
+.border-card[class*="champion-"] .border-preview.avatar,
+.border-card[class*="exclusive-"] .border-preview.avatar,
+.border-card[class*="celebration-"] .border-preview.avatar {
+  --champion-ring: 5px;
+  outline-width: 3px;
+  outline-offset: 3px;
+  border: 2px solid var(--surface);
+  background:
+    radial-gradient(
+      circle at 34% 27%,
+      color-mix(in srgb, var(--champion-2) 46%, transparent),
+      transparent 42%
+    ),
+    radial-gradient(
+      circle at 50% 50%,
+      var(--surface-muted),
+      color-mix(in srgb, var(--champion) 22%, var(--surface))
+    );
+}
+
+.border-card[class*="champion-"] .border-preview.avatar::before,
+.border-card[class*="exclusive-"] .border-preview.avatar::before,
+.border-card[class*="celebration-"] .border-preview.avatar::before {
+  right: -7px;
+  bottom: -6px;
+  width: 19px;
+  height: 19px;
+  border-width: 2px;
+  font-size: 9px;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--champion) 34%, transparent),
+    0 3px 9px rgb(0 0 0 / 45%);
+}
+
+.border-card[class*="champion-"]:hover,
+.border-card[class*="exclusive-"]:hover,
+.border-card[class*="celebration-"]:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 1px rgb(255 255 255 / 12%),
+    0 8px 22px color-mix(in srgb, var(--champion) 18%, rgb(0 0 0 / 20%));
+}
+
+.border-card[class*="champion-"].equipped,
+.border-card[class*="exclusive-"].equipped,
+.border-card[class*="celebration-"].equipped {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--champion-2) 38%, transparent),
+    0 0 18px color-mix(in srgb, var(--champion) 20%, transparent),
+    0 5px 16px rgb(0 0 0 / 18%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .border-card[class*="champion-"],
+  .border-card[class*="exclusive-"],
+  .border-card[class*="celebration-"] {
+    transition: none;
+  }
+
+  .border-card[class*="champion-"]:hover,
+  .border-card[class*="exclusive-"]:hover,
+  .border-card[class*="celebration-"]:hover {
+    transform: none;
+  }
 }
