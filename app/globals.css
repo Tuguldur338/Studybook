@@ -809,8 +809,20 @@ a {
   width: auto;
   max-width: 210px;
   height: 34px;
-  padding: 0 30px 0 10px;
+  padding: 0 38px 0 10px;
   font-size: 11px;
+}
+
+.exam-select-wrap {
+  display: inline-flex;
+  max-width: 210px;
+}
+
+.exam-select-wrap .exam-select-chevron {
+  right: 6px;
+  width: 23px;
+  height: 23px;
+  border-radius: 7px;
 }
 
 .exam-heading-actions .exam-add-button {
@@ -1381,14 +1393,55 @@ a {
 }
 
 .sort-select {
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 126px;
   height: 42px;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--surface);
-  padding: 0 12px;
+  padding: 0 44px 0 14px;
   color: var(--foreground);
   font-size: 12px;
   font-weight: 550;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+.sort-select-wrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.sort-select-wrap .sort-select-chevron {
+  right: 8px;
+  display: grid;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--border));
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  pointer-events: none;
+  transition:
+    transform 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease;
+}
+
+.sort-select-wrap:active .sort-select {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+.sort-select-wrap:active .sort-select-chevron {
+  transform: translateY(-50%) rotate(180deg);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
 }
 
 .note-grid {
@@ -1764,9 +1817,26 @@ a {
   position: absolute;
   top: 50%;
   right: 12px;
+  display: grid;
+  width: 27px;
+  height: 27px;
   transform: translateY(-50%);
-  color: var(--muted);
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--border));
+  border-radius: 9px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
   pointer-events: none;
+  transition:
+    transform 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease;
+}
+
+.select-wrap:active .select-chevron {
+  transform: translateY(-50%) rotate(180deg);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
 }
 
 .form-actions {

@@ -2050,16 +2050,21 @@ export function ToDoListView() {
             </button>
           ))}
         </div>
-        <select
-          aria-label="Sort tasks"
-          className="sort-select"
-          onChange={(event) => setSort(event.target.value as TaskSort)}
-          value={sort}
-        >
-          <option value="due">Due date</option>
-          <option value="priority">Priority</option>
-          <option value="newest">Newest first</option>
-        </select>
+        <div className="select-wrap sort-select-wrap">
+          <select
+            aria-label="Sort tasks"
+            className="sort-select"
+            onChange={(event) => setSort(event.target.value as TaskSort)}
+            value={sort}
+          >
+            <option value="due">Due date</option>
+            <option value="priority">Priority</option>
+            <option value="newest">Newest first</option>
+          </select>
+          <span aria-hidden="true" className="select-chevron sort-select-chevron">
+            <LuChevronDown size={14} strokeWidth={2.5} />
+          </span>
+        </div>
       </div>
       <section className="panel">
         <div className="panel-heading">
@@ -2270,18 +2275,23 @@ export function NotesView() {
             value={query}
           />
         </div>
-        <select
-          aria-label="Sort notes"
-          className="sort-select"
-          onChange={(event) =>
-            setSort(event.target.value as "newest" | "oldest" | "az")
-          }
-          value={sort}
-        >
-          <option value="newest">Newest first</option>
-          <option value="oldest">Oldest first</option>
-          <option value="az">Title A–Z</option>
-        </select>
+        <div className="select-wrap sort-select-wrap">
+          <select
+            aria-label="Sort notes"
+            className="sort-select"
+            onChange={(event) =>
+              setSort(event.target.value as "newest" | "oldest" | "az")
+            }
+            value={sort}
+          >
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="az">Title A–Z</option>
+          </select>
+          <span aria-hidden="true" className="select-chevron sort-select-chevron">
+            <LuChevronDown size={14} strokeWidth={2.5} />
+          </span>
+        </div>
       </div>
       {filtered.length ? (
         <div className="note-grid">

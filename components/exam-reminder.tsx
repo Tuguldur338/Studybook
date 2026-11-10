@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
+  LuChevronDown,
   LuGraduationCap,
   LuPlus,
   LuTrash2,
@@ -210,18 +211,26 @@ export default function ExamReminder() {
         </h2>
         <div className="exam-heading-actions">
           {ordered.length > 1 && (
-            <select
-              aria-label="Choose exam"
-              className="select exam-select"
-              onChange={(event) => setSelectedId(event.target.value)}
-              value={selected?.id ?? ""}
-            >
-              {ordered.map((exam) => (
-                <option key={exam.id} value={exam.id}>
-                  {exam.title}
-                </option>
-              ))}
-            </select>
+            <div className="select-wrap exam-select-wrap">
+              <select
+                aria-label="Choose exam"
+                className="select exam-select"
+                onChange={(event) => setSelectedId(event.target.value)}
+                value={selected?.id ?? ""}
+              >
+                {ordered.map((exam) => (
+                  <option key={exam.id} value={exam.id}>
+                    {exam.title}
+                  </option>
+                ))}
+              </select>
+              <span
+                aria-hidden="true"
+                className="select-chevron exam-select-chevron"
+              >
+                <LuChevronDown size={13} strokeWidth={2.5} />
+              </span>
+            </div>
           )}
           <button
             className="secondary-button exam-add-button"
