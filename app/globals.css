@@ -6314,6 +6314,10 @@ button.messenger-row:hover {
   --champion-2: #171126;
   --champion-glyph: "\25ce";
   --champion-ink: #ffffff;
+  --exclusive-pattern:
+    radial-gradient(circle at center, #08050d 0 16%, transparent 17%),
+    conic-gradient(from 25deg, #130d20, #bba2ff, #160e24, #6124ba, #130d20);
+  --exclusive-effect: exclusive-blackhole 9s linear infinite;
 }
 
 .exclusive-sea {
@@ -6321,6 +6325,8 @@ button.messenger-row:hover {
   --champion-2: #1452a0;
   --champion-glyph: "\224b";
   --champion-ink: #ffffff;
+  --exclusive-pattern: repeating-radial-gradient(ellipse at 50% 120%, #b5ffff 0 2px, #1689a8 3px 6px, #0d3c75 7px 10px);
+  --exclusive-effect: exclusive-sea 4s ease-in-out infinite;
 }
 
 .exclusive-animal {
@@ -6328,6 +6334,11 @@ button.messenger-row:hover {
   --champion-2: #e3b75b;
   --champion-glyph: "\2724";
   --champion-ink: #25250f;
+  --exclusive-pattern:
+    radial-gradient(ellipse at 25% 35%, #23180b 0 9%, transparent 10%),
+    radial-gradient(ellipse at 70% 72%, #23180b 0 8%, transparent 9%),
+    repeating-conic-gradient(#dbb66a 0 8deg, #88663b 9deg 15deg);
+  --exclusive-effect: exclusive-animal 3.8s ease-in-out infinite;
 }
 
 .exclusive-war {
@@ -6335,13 +6346,184 @@ button.messenger-row:hover {
   --champion-2: #d5aa5a;
   --champion-glyph: "\2694";
   --champion-ink: #ffffff;
+  --exclusive-pattern: repeating-linear-gradient(135deg, #541e27 0 4px, #d7ad60 5px 7px, #9f3438 8px 11px);
+  --exclusive-effect: exclusive-war 2.8s steps(2, end) infinite;
 }
 
 .exclusive-gun {
   --champion: #78838b;
   --champion-2: #d4a84e;
-  --champion-glyph: "\25ce";
+  --champion-glyph: "\2699";
   --champion-ink: #172027;
+  --exclusive-pattern: repeating-linear-gradient(90deg, #26313a 0 5px, #c2cbd0 6px 7px, #59636b 8px 10px);
+  --exclusive-effect: exclusive-gun 3.2s ease-in-out infinite;
+}
+
+.exclusive-sun {
+  --champion: #ffca35;
+  --champion-2: #ff642f;
+  --champion-glyph: "\2600";
+  --champion-ink: #41200a;
+  --exclusive-pattern: repeating-conic-gradient(from 0deg, #ffef91 0 5deg, #ff8b26 6deg 11deg, #d74724 12deg 16deg);
+  --exclusive-effect: exclusive-sun 12s linear infinite;
+}
+
+.exclusive-angel {
+  --champion: #e8f4ff;
+  --champion-2: #98c9ff;
+  --champion-glyph: "\2727";
+  --champion-ink: #294b75;
+  --exclusive-pattern: repeating-conic-gradient(from 4deg, #ffffff 0 2deg, transparent 3deg 14deg, #a4d6ff 15deg 17deg, transparent 18deg 28deg);
+  --exclusive-effect: exclusive-angel 2.7s ease-in-out infinite;
+}
+
+.exclusive-nature {
+  --champion: #55c878;
+  --champion-2: #a4dd61;
+  --champion-glyph: "\2740";
+  --champion-ink: #15391f;
+  --exclusive-pattern: repeating-conic-gradient(from 10deg, #99dc58 0 4deg, #287c4b 5deg 9deg, #d6ed83 10deg 12deg, #287c4b 13deg 18deg);
+  --exclusive-effect: exclusive-nature 5s ease-in-out infinite;
+}
+
+.exclusive-dragon {
+  --champion: #cb3e35;
+  --champion-2: #f0a53c;
+  --champion-glyph: "\1f409";
+  --champion-ink: #ffffff;
+  --exclusive-pattern:
+    radial-gradient(ellipse at 50% 0%, #ffc45b 0 18%, transparent 20%),
+    repeating-conic-gradient(#76252b 0 7deg, #e05a36 8deg 14deg);
+  --exclusive-effect: exclusive-dragon 4s ease-in-out infinite;
+}
+
+.exclusive-phoenix {
+  --champion: #ff6340;
+  --champion-2: #ffd34e;
+  --champion-glyph: "\1f525";
+  --champion-ink: #55220d;
+  --exclusive-pattern: conic-gradient(from 210deg, #b72b24, #ffbd38, #fff2a1, #ed452b, #b72b24);
+  --exclusive-effect: exclusive-phoenix 2.2s ease-in-out infinite;
+}
+
+.exclusive-ice {
+  --champion: #b7f4ff;
+  --champion-2: #479de8;
+  --champion-glyph: "\2744";
+  --champion-ink: #163f67;
+  --exclusive-pattern: repeating-conic-gradient(from 30deg, #f3ffff 0 3deg, #65c9f3 4deg 7deg, #d1f6ff 8deg 10deg, #3384ce 11deg 13deg);
+  --exclusive-effect: exclusive-ice 3.4s ease-in-out infinite;
+}
+
+.exclusive-lightning {
+  --champion: #fff36b;
+  --champion-2: #8c67ff;
+  --champion-glyph: "\26a1";
+  --champion-ink: #281d54;
+  --exclusive-pattern: repeating-conic-gradient(from 4deg, #fff772 0 3deg, #8b62ff 4deg 7deg, #251c61 8deg 15deg);
+  --exclusive-effect: exclusive-lightning 1.8s steps(2, end) infinite;
+}
+
+.exclusive-fire {
+  --champion: #ff572e;
+  --champion-2: #ffcf39;
+  --champion-glyph: "\1f525";
+  --champion-ink: #55200b;
+  --exclusive-pattern: repeating-radial-gradient(ellipse at 50% 110%, #fff08b 0 4px, #ff8d29 5px 9px, #bd2723 10px 14px);
+  --exclusive-effect: exclusive-fire 1.5s ease-in-out infinite;
+}
+
+.exclusive-crystal {
+  --champion: #b68bff;
+  --champion-2: #62e5ef;
+  --champion-glyph: "\25c8";
+  --champion-ink: #30204f;
+  --exclusive-pattern: repeating-conic-gradient(from 15deg, #fcf6ff 0 3deg, #b68bff 4deg 7deg, #4bcbd6 8deg 10deg, #59419a 11deg 17deg);
+  --exclusive-effect: exclusive-crystal 3s ease-in-out infinite;
+}
+
+.exclusive-galaxy {
+  --champion: #b78aff;
+  --champion-2: #39d9e8;
+  --champion-glyph: "\2726";
+  --champion-ink: #ffffff;
+  --exclusive-pattern:
+    radial-gradient(circle at 25% 25%, #fff 0 1px, transparent 2px),
+    radial-gradient(circle at 70% 66%, #f6d5ff 0 1px, transparent 2px),
+    conic-gradient(#181144, #7a32ba, #162e77, #25104e);
+  --exclusive-effect: exclusive-galaxy 18s linear infinite;
+}
+
+.exclusive-shadow {
+  --champion: #7d72a8;
+  --champion-2: #211d32;
+  --champion-glyph: "\25d0";
+  --champion-ink: #ffffff;
+  --exclusive-pattern: repeating-linear-gradient(145deg, #12101d 0 4px, #554c77 5px 6px, #211d32 7px 11px);
+  --exclusive-effect: exclusive-shadow 4.5s ease-in-out infinite;
+}
+
+.exclusive-royal {
+  --champion: #edcc61;
+  --champion-2: #9c3e9f;
+  --champion-glyph: "\265b";
+  --champion-ink: #361c3d;
+  --exclusive-pattern: repeating-conic-gradient(from 0deg, #ffeaa0 0 2deg, #a83e9b 3deg 7deg, #542472 8deg 12deg, #e9c65e 13deg 15deg);
+  --exclusive-effect: exclusive-royal 5s ease-in-out infinite;
+}
+
+.exclusive-cyber {
+  --champion: #00f5d4;
+  --champion-2: #ff35c5;
+  --champion-glyph: "\25c7";
+  --champion-ink: #142736;
+  --exclusive-pattern: repeating-linear-gradient(90deg, #072a38 0 3px, #00f5d4 4px 5px, #092b45 6px 9px, #ff35c5 10px 11px);
+  --exclusive-effect: exclusive-cyber 2.4s steps(4, end) infinite;
+}
+
+.exclusive-storm {
+  --champion: #a8c9ef;
+  --champion-2: #6870bd;
+  --champion-glyph: "\26c8";
+  --champion-ink: #182743;
+  --exclusive-pattern: repeating-conic-gradient(from 2deg, #e7f4ff 0 2deg, #6e80c7 3deg 8deg, #35446f 9deg 15deg);
+  --exclusive-effect: exclusive-storm 2.1s ease-in-out infinite;
+}
+
+.exclusive-desert {
+  --champion: #eab969;
+  --champion-2: #a54f35;
+  --champion-glyph: "\25c6";
+  --champion-ink: #492817;
+  --exclusive-pattern: repeating-radial-gradient(ellipse at 10% 110%, #ffe1a0 0 2px, #c27b43 3px 6px, #824332 7px 10px);
+  --exclusive-effect: exclusive-desert 7s ease-in-out infinite;
+}
+
+.exclusive-music {
+  --champion: #ff70b8;
+  --champion-2: #8b72ff;
+  --champion-glyph: "\266b";
+  --champion-ink: #35184d;
+  --exclusive-pattern: repeating-conic-gradient(from 0deg, #ff9ecf 0 2deg, #773fd1 3deg 8deg, #22c5cc 9deg 11deg, #391875 12deg 16deg);
+  --exclusive-effect: exclusive-music 2.6s ease-in-out infinite;
+}
+
+.exclusive-time {
+  --champion: #e8d18c;
+  --champion-2: #897449;
+  --champion-glyph: "\231b";
+  --champion-ink: #302817;
+  --exclusive-pattern: repeating-conic-gradient(from 0deg, #e8d18c 0 2deg, #332b21 3deg 27deg, #ba9a5c 28deg 30deg, #332b21 31deg 57deg);
+  --exclusive-effect: exclusive-time 24s linear infinite;
+}
+
+.exclusive-rainbow {
+  --champion: #ff5b73;
+  --champion-2: #5ae6bb;
+  --champion-glyph: "\1f308";
+  --champion-ink: #28224a;
+  --exclusive-pattern: conic-gradient(#ff5757, #ffb84d, #f7f05c, #51dd83, #4dcfff, #8b72ff, #ed69d0, #ff5757);
+  --exclusive-effect: exclusive-rainbow 5.5s linear infinite;
 }
 
 .celebration-newyear {
@@ -6522,6 +6704,107 @@ button.messenger-row:hover {
   mask-composite: exclude;
   pointer-events: none;
   animation: champion-spin var(--champion-spin, 9s) linear infinite;
+}
+
+.avatar[class*="exclusive-"]::after {
+  background: var(--exclusive-pattern);
+  animation: var(--exclusive-effect);
+}
+
+@keyframes exclusive-blackhole {
+  50% { transform: rotate(180deg) scale(0.94); }
+  to { transform: rotate(360deg) scale(1); }
+}
+
+@keyframes exclusive-sea {
+  50% { background-position: 0 10px; }
+  to { background-position: 0 20px; }
+}
+
+@keyframes exclusive-animal {
+  50% { transform: scale(1.08); filter: contrast(1.3); }
+}
+
+@keyframes exclusive-war {
+  50% { opacity: 0.62; filter: brightness(1.6); }
+}
+
+@keyframes exclusive-gun {
+  50% { background-position: 100% 0; filter: brightness(1.35); }
+  to { background-position: 200% 0; }
+}
+
+@keyframes exclusive-sun {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes exclusive-angel {
+  50% { opacity: 0.45; transform: scale(1.06); }
+}
+
+@keyframes exclusive-nature {
+  50% { background-position: 12px 0; transform: rotate(5deg); }
+}
+
+@keyframes exclusive-dragon {
+  50% { filter: brightness(1.5) saturate(1.4); }
+}
+
+@keyframes exclusive-phoenix {
+  50% { opacity: 0.55; filter: brightness(1.7); transform: scale(1.06); }
+}
+
+@keyframes exclusive-ice {
+  50% { filter: brightness(1.7); transform: scale(1.04); }
+}
+
+@keyframes exclusive-lightning {
+  50% { opacity: 0.2; filter: brightness(2); }
+}
+
+@keyframes exclusive-fire {
+  50% { background-position: 0 -12px; transform: scale(1.05); }
+}
+
+@keyframes exclusive-crystal {
+  50% { filter: brightness(1.8) drop-shadow(0 0 5px #b68bff); }
+}
+
+@keyframes exclusive-galaxy {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes exclusive-shadow {
+  50% { opacity: 0.35; transform: scale(0.92); }
+}
+
+@keyframes exclusive-royal {
+  50% { background-position: 30px 0; filter: brightness(1.4); }
+}
+
+@keyframes exclusive-cyber {
+  50% { background-position: 18px 0; filter: brightness(1.8); }
+}
+
+@keyframes exclusive-storm {
+  50% { opacity: 0.55; transform: rotate(8deg); }
+}
+
+@keyframes exclusive-desert {
+  50% { background-position: 8px 12px; filter: brightness(1.25); }
+}
+
+@keyframes exclusive-music {
+  50% { transform: scale(1.08) rotate(-8deg); filter: brightness(1.35); }
+}
+
+@keyframes exclusive-time {
+  to { transform: rotate(-360deg); }
+}
+
+@keyframes exclusive-rainbow {
+  50% { filter: hue-rotate(180deg) brightness(1.25); }
+  to { filter: hue-rotate(360deg); }
 }
 
 @keyframes champion-glow {

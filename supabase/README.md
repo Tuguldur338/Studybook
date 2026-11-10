@@ -152,6 +152,8 @@ Apply the migrations in order after the base schema:
 10. [`migrations/task-history-and-sync.sql`](./migrations/task-history-and-sync.sql) —
     persistent completed-task history, routine deletion tombstones, and atomic
     cross-device snapshot merges.
+11. [`migrations/exclusive-border-expansion.sql`](./migrations/exclusive-border-expansion.sql) —
+    the additional themed exclusive border catalog entries.
 
 These migration files are meant for a **fresh project**. If the base schema,
 messaging, or usernames are already working, do not rerun them. Expected errors
@@ -169,7 +171,8 @@ migrations: `chat-customization.sql` (group settings), `leaderboard.sql`
 (points), `sync.sql` (cross-device data), `halloween.sql` (the Halloween
 claim), `monthly-borders.sql` (monthly seasons and borders), and
 `border-drops.sql` (the full border collection and drops), followed by
-`task-history-and-sync.sql` (completed-task history and safe concurrent sync).
+`task-history-and-sync.sql` (completed-task history and safe concurrent sync),
+then `exclusive-border-expansion.sql` for the additional exclusive borders.
 Re-run its latest version whenever that file is updated; it also installs the
 routine deletion fix so removed daily steps stay deleted across devices.
 
@@ -203,7 +206,7 @@ after the migration.
 ## Border collection and drops
 
 Apply [`migrations/border-drops.sql`](./migrations/border-drops.sql) after
-`sync.sql` and `monthly-borders.sql`. It adds five exclusive themes, one border
+`sync.sql` and `monthly-borders.sql`. It adds five initial exclusive themes, one border
 for every holiday in [`../lib/holidays.ts`](../lib/holidays.ts), and twelve
 monthly champion styles.
 Signed-in users get one 5% exclusive-border roll on their first visit on a
@@ -228,6 +231,13 @@ If the query returns no rows, that email is not registered in this Supabase
 project. The grant is not exposed to authenticated clients. It applies to the
 catalog when run and also includes catalog entries added later. The user can
 still equip one border at a time from the Profile page.
+
+For the full set of individually styled exclusive themes, also apply
+[`migrations/exclusive-border-expansion.sql`](./migrations/exclusive-border-expansion.sql)
+after `border-drops.sql` and `task-history-and-sync.sql`. It adds Sun, Angel,
+Nature, Dragon, Phoenix, Ice, Lightning, Fire, Crystal, Galaxy, Shadow, Royal,
+Cyber, Storm, Desert, Music, Time, and Rainbow. Each exclusive border has its
+own colors, pattern, symbol, and animation rather than sharing a rotating ring.
 
 Apply [`migrations/task-history-and-sync.sql`](./migrations/task-history-and-sync.sql)
 after `border-drops.sql`. Completed tasks are copied into a separate,

@@ -22,9 +22,27 @@ const BORDER_STYLE_PATTERN = /^champion-style-(\d{2})$/;
 export const EXCLUSIVE_BORDERS = [
   { id: "exclusive-blackhole", label: "Black Hole" },
   { id: "exclusive-sea", label: "Sea" },
-  { id: "exclusive-animal", label: "Animal" },
+  { id: "exclusive-animal", label: "Animals" },
   { id: "exclusive-war", label: "War" },
   { id: "exclusive-gun", label: "Gun" },
+  { id: "exclusive-sun", label: "Sun" },
+  { id: "exclusive-angel", label: "Angel" },
+  { id: "exclusive-nature", label: "Nature" },
+  { id: "exclusive-dragon", label: "Dragon" },
+  { id: "exclusive-phoenix", label: "Phoenix" },
+  { id: "exclusive-ice", label: "Ice" },
+  { id: "exclusive-lightning", label: "Lightning" },
+  { id: "exclusive-fire", label: "Fire" },
+  { id: "exclusive-crystal", label: "Crystal" },
+  { id: "exclusive-galaxy", label: "Galaxy" },
+  { id: "exclusive-shadow", label: "Shadow" },
+  { id: "exclusive-royal", label: "Royal" },
+  { id: "exclusive-cyber", label: "Cyber" },
+  { id: "exclusive-storm", label: "Storm" },
+  { id: "exclusive-desert", label: "Desert" },
+  { id: "exclusive-music", label: "Music" },
+  { id: "exclusive-time", label: "Time" },
+  { id: "exclusive-rainbow", label: "Rainbow" },
 ] as const;
 
 export const CELEBRATION_BORDERS = Object.values(HOLIDAYS).map((holiday) => ({
