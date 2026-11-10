@@ -45,6 +45,14 @@ export const metadata: Metadata = {
   title: "Studybook",
   description:
     "Your personal student planner for class schedules, assignments, notes, and study goals.",
+  appleWebApp: {
+    capable: true,
+    title: "Studybook",
+    statusBarStyle: "default",
+  },
+  icons: {
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 // Runs before the app hydrates so the right palette is on <html> for the first

@@ -69,6 +69,7 @@ import { fetchRemoteTrackTitle } from "@/lib/music-embed";
 import { HALLOWEEN_THEME_TRACK } from "@/lib/music-specials";
 import { PALETTES } from "@/lib/palettes";
 import LoopButton from "@/components/loop-button";
+import PWAInstallCard from "@/components/pwa-install-card";
 import {
   borderClass,
   borderDropErrorMessage,
@@ -3373,6 +3374,7 @@ export function SettingsView() {
       />
 
       <div className="settings-grid">
+        <PWAInstallCard />
         <section className="panel">
           <div className="panel-heading">
             <h2 className="panel-title">Theme</h2>

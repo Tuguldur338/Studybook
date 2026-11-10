@@ -3845,6 +3845,45 @@ button.messenger-row:hover {
   grid-column: 1 / -1;
 }
 
+.pwa-install-content {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.pwa-install-icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-radius: 14px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.pwa-install-copy {
+  display: grid;
+  flex: 1;
+  gap: 4px;
+}
+
+.pwa-install-copy strong {
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.pwa-install-copy span {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.pwa-install-content .primary-button {
+  flex: 0 0 auto;
+}
+
 .setting-toggle {
   display: flex;
   align-items: center;
@@ -4129,6 +4168,18 @@ button.messenger-row:hover {
 }
 
 @media (max-width: 640px) {
+  .pwa-install-content {
+    flex-wrap: wrap;
+  }
+
+  .pwa-install-copy {
+    flex-basis: calc(100% - 58px);
+  }
+
+  .pwa-install-content .primary-button {
+    margin-left: 58px;
+  }
+
   .topbar {
     height: 65px;
     padding: 0 16px;
@@ -6193,6 +6244,7 @@ button.messenger-row:hover {
   --champion: #8ec9f2;
   --champion-2: #dcf1ff;
   --champion-glyph: "\2744";
+  --champion-pattern: repeating-conic-gradient(from 2deg, color-mix(in srgb, var(--champion-2) 85%, transparent) 0deg 2deg, transparent 2deg 14deg);
   --champion-ink: #10283a;
   --champion-ring: 3px;
   --champion-spin: 10s;
@@ -6203,6 +6255,7 @@ button.messenger-row:hover {
   --champion: #f28aa2;
   --champion-2: #ffd9e2;
   --champion-glyph: "\2665";
+  --champion-pattern: repeating-linear-gradient(45deg, color-mix(in srgb, var(--champion-2) 72%, transparent) 0 2px, transparent 2px 6px);
   --champion-ink: #3a0e19;
   --champion-ring: 2px;
   --champion-spin: 8s;
@@ -6213,6 +6266,7 @@ button.messenger-row:hover {
   --champion: #73c79d;
   --champion-2: #d7f5e5;
   --champion-glyph: "\273F";
+  --champion-pattern: radial-gradient(circle at 50% 0%, var(--champion-2) 0 1px, transparent 2px), repeating-conic-gradient(from 6deg, transparent 0deg 10deg, color-mix(in srgb, var(--champion-2) 76%, transparent) 10deg 12deg);
   --champion-ink: #0f2e1e;
   --champion-ring: 2px;
   --champion-spin: 12s;
@@ -6223,6 +6277,7 @@ button.messenger-row:hover {
   --champion: #c4a4f0;
   --champion-2: #ecdcff;
   --champion-glyph: "\2602";
+  --champion-pattern: repeating-conic-gradient(from 20deg, color-mix(in srgb, var(--champion-2) 80%, transparent) 0deg 3deg, transparent 3deg 18deg);
   --champion-ink: #2a0f2e;
   --champion-ring: 3px;
   --champion-spin: 9s;
@@ -6233,6 +6288,7 @@ button.messenger-row:hover {
   --champion: #f09b7b;
   --champion-2: #ffe0d3;
   --champion-glyph: "\273F";
+  --champion-pattern: repeating-radial-gradient(ellipse at 50% 100%, color-mix(in srgb, var(--champion-2) 85%, transparent) 0 2px, transparent 3px 6px);
   --champion-ink: #3a1a0a;
   --champion-ring: 2px;
   --champion-spin: 7s;
@@ -6243,6 +6299,7 @@ button.messenger-row:hover {
   --champion: #e3c15c;
   --champion-2: #fff0b8;
   --champion-glyph: "\2600";
+  --champion-pattern: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--champion-2) 86%, transparent) 0deg 3deg, transparent 3deg 15deg);
   --champion-ink: #3a2a06;
   --champion-ring: 3px;
   --champion-spin: 14s;
@@ -6253,6 +6310,7 @@ button.messenger-row:hover {
   --champion: #54c5c9;
   --champion-2: #c9f5f5;
   --champion-glyph: "\2248";
+  --champion-pattern: repeating-linear-gradient(0deg, color-mix(in srgb, var(--champion-2) 78%, transparent) 0 1px, transparent 1px 4px);
   --champion-ink: #062a2c;
   --champion-ring: 2px;
   --champion-spin: 10s;
@@ -6263,6 +6321,7 @@ button.messenger-row:hover {
   --champion: #f0a24e;
   --champion-2: #ffd9a8;
   --champion-glyph: "\2600";
+  --champion-pattern: repeating-conic-gradient(from 8deg, transparent 0deg 8deg, color-mix(in srgb, var(--champion-2) 82%, transparent) 8deg 11deg);
   --champion-ink: #3a1e06;
   --champion-ring: 3px;
   --champion-spin: 9s;
@@ -6273,6 +6332,7 @@ button.messenger-row:hover {
   --champion: #d9a94f;
   --champion-2: #f6e3b0;
   --champion-glyph: "\1F342";
+  --champion-pattern: repeating-linear-gradient(135deg, color-mix(in srgb, var(--champion-2) 78%, transparent) 0 2px, transparent 2px 7px);
   --champion-ink: #3a2a08;
   --champion-ring: 2px;
   --champion-spin: 11s;
@@ -6283,6 +6343,7 @@ button.messenger-row:hover {
   --champion: #7c5cff;
   --champion-2: #e8792e;
   --champion-glyph: "\1F383";
+  --champion-pattern: repeating-conic-gradient(from 4deg, color-mix(in srgb, var(--champion-2) 80%, transparent) 0deg 5deg, transparent 5deg 16deg);
   --champion-ink: #ffffff;
   --champion-ring: 3px;
   --champion-spin: 8s;
@@ -6293,6 +6354,7 @@ button.messenger-row:hover {
   --champion: #c98b5e;
   --champion-2: #f2d7c1;
   --champion-glyph: "\1F341";
+  --champion-pattern: radial-gradient(circle, color-mix(in srgb, var(--champion-2) 86%, transparent) 0 1px, transparent 2px);
   --champion-ink: #2e1a0c;
   --champion-ring: 2px;
   --champion-spin: 12s;
@@ -6303,6 +6365,7 @@ button.messenger-row:hover {
   --champion: #d95454;
   --champion-2: #4f9e70;
   --champion-glyph: "\2744";
+  --champion-pattern: repeating-conic-gradient(from 8deg, color-mix(in srgb, var(--champion-2) 78%, transparent) 0deg 4deg, transparent 4deg 13deg);
   --champion-ink: #ffffff;
   --champion-ring: 3px;
   --champion-spin: 7s;
@@ -6530,6 +6593,7 @@ button.messenger-row:hover {
   --champion: #f0c64e;
   --champion-2: #f18e45;
   --champion-glyph: "\2726";
+  --champion-pattern: radial-gradient(circle at 50% 50%, #fff8cc 0 1px, transparent 2px), repeating-conic-gradient(from 0deg, transparent 0deg 12deg, color-mix(in srgb, var(--champion-2) 82%, transparent) 12deg 14deg);
   --champion-ink: #35260a;
 }
 
@@ -6537,6 +6601,7 @@ button.messenger-row:hover {
   --champion: #d5b568;
   --champion-2: #5b7ca6;
   --champion-glyph: "\2696";
+  --champion-pattern: repeating-linear-gradient(90deg, color-mix(in srgb, var(--champion-2) 82%, transparent) 0 2px, transparent 2px 7px);
   --champion-ink: #243248;
 }
 
@@ -6544,6 +6609,7 @@ button.messenger-row:hover {
   --champion: #d94d6c;
   --champion-2: #f0ca71;
   --champion-glyph: "\263e";
+  --champion-pattern: repeating-conic-gradient(from 10deg, color-mix(in srgb, var(--champion-2) 84%, transparent) 0deg 4deg, transparent 4deg 16deg);
   --champion-ink: #351321;
 }
 
@@ -6551,6 +6617,7 @@ button.messenger-row:hover {
   --champion: #e88bb2;
   --champion-2: #b579ca;
   --champion-glyph: "\273f";
+  --champion-pattern: radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--champion-2) 90%, transparent) 0 2px, transparent 3px), repeating-conic-gradient(transparent 0deg 12deg, color-mix(in srgb, var(--champion-2) 70%, transparent) 12deg 14deg);
   --champion-ink: #381b36;
 }
 
@@ -6558,6 +6625,7 @@ button.messenger-row:hover {
   --champion: #82916a;
   --champion-2: #c9aa68;
   --champion-glyph: "\2691";
+  --champion-pattern: repeating-linear-gradient(135deg, color-mix(in srgb, var(--champion-2) 80%, transparent) 0 3px, transparent 3px 8px);
   --champion-ink: #20271a;
 }
 
@@ -6565,6 +6633,7 @@ button.messenger-row:hover {
   --champion: #52b9d1;
   --champion-2: #f1d25d;
   --champion-glyph: "\2605";
+  --champion-pattern: repeating-conic-gradient(from 2deg, color-mix(in srgb, var(--champion-2) 84%, transparent) 0deg 3deg, transparent 3deg 15deg);
   --champion-ink: #163540;
 }
 
@@ -6572,6 +6641,7 @@ button.messenger-row:hover {
   --champion: #d84f46;
   --champion-2: #5c8ec5;
   --champion-glyph: "\2605";
+  --champion-pattern: repeating-linear-gradient(90deg, color-mix(in srgb, var(--champion) 82%, transparent) 0 3px, transparent 3px 7px, color-mix(in srgb, var(--champion-2) 82%, transparent) 7px 10px, transparent 10px 14px);
   --champion-ink: #ffffff;
 }
 
@@ -6579,6 +6649,7 @@ button.messenger-row:hover {
   --champion: #a45ce0;
   --champion-2: #f28a36;
   --champion-glyph: "\1f383";
+  --champion-pattern: repeating-conic-gradient(from 5deg, color-mix(in srgb, var(--champion-2) 84%, transparent) 0deg 5deg, transparent 5deg 18deg);
   --champion-ink: #ffffff;
 }
 
@@ -6586,6 +6657,7 @@ button.messenger-row:hover {
   --champion: #c6a05d;
   --champion-2: #526e82;
   --champion-glyph: "\1f40e";
+  --champion-pattern: repeating-linear-gradient(45deg, color-mix(in srgb, var(--champion-2) 80%, transparent) 0 2px, transparent 2px 6px);
   --champion-ink: #252016;
 }
 
@@ -6593,6 +6665,7 @@ button.messenger-row:hover {
   --champion: #4c80c5;
   --champion-2: #d84c52;
   --champion-glyph: "\2605";
+  --champion-pattern: repeating-conic-gradient(from 12deg, color-mix(in srgb, var(--champion-2) 84%, transparent) 0deg 4deg, transparent 4deg 14deg);
   --champion-ink: #ffffff;
 }
 
@@ -6600,6 +6673,7 @@ button.messenger-row:hover {
   --champion: #4f9e70;
   --champion-2: #d95454;
   --champion-glyph: "\2744";
+  --champion-pattern: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--champion-2) 90%, transparent) 0 1px, transparent 2px), repeating-conic-gradient(transparent 0deg 12deg, color-mix(in srgb, var(--champion-2) 78%, transparent) 12deg 14deg);
   --champion-ink: #ffffff;
 }
 
@@ -6607,6 +6681,7 @@ button.messenger-row:hover {
   --champion: #4b76bf;
   --champion-2: #d95151;
   --champion-glyph: "\2691";
+  --champion-pattern: repeating-linear-gradient(90deg, color-mix(in srgb, var(--champion) 80%, transparent) 0 3px, transparent 3px 6px, color-mix(in srgb, var(--champion-2) 82%, transparent) 6px 9px, transparent 9px 12px);
   --champion-ink: #ffffff;
 }
 
@@ -6614,10 +6689,12 @@ button.messenger-row:hover {
   --champion: #8a65d7;
   --champion-2: #e4ba51;
   --champion-glyph: "\2726";
+  --champion-pattern: repeating-conic-gradient(from 4deg, color-mix(in srgb, var(--champion-2) 84%, transparent) 0deg 2deg, transparent 2deg 12deg);
   --champion-ink: #ffffff;
 }
 
 .avatar[class*="champion-"] {
+  --champion-ring: 5px;
   position: relative;
   overflow: visible;
   border-color: var(--surface);
@@ -6632,7 +6709,7 @@ button.messenger-row:hover {
 
 .avatar[class*="exclusive-"],
 .avatar[class*="celebration-"] {
-  --champion-ring: 3px;
+  --champion-ring: 5px;
   --champion-spin: 9s;
   --champion-pulse: 4.8s;
   position: relative;
@@ -6679,11 +6756,7 @@ button.messenger-row:hover {
   border-radius: 50%;
   padding: var(--champion-ring, 2px);
   background:
-    repeating-conic-gradient(
-      from 0deg,
-      color-mix(in srgb, var(--champion-2) 70%, transparent) 0 1.2deg,
-      transparent 1.2deg 15deg
-    ),
+    var(--champion-pattern, repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--champion-2) 82%, transparent) 0deg 2deg, transparent 2deg 14deg)),
     conic-gradient(
       from 0deg,
       transparent 0 9%,
@@ -6707,8 +6780,32 @@ button.messenger-row:hover {
 }
 
 .avatar[class*="exclusive-"]::after {
-  background: var(--exclusive-pattern);
+  background:
+    var(--exclusive-pattern),
+    conic-gradient(
+      from 20deg,
+      transparent 0 10%,
+      color-mix(in srgb, var(--champion-2) 90%, white) 18%,
+      var(--champion) 32%,
+      transparent 45% 68%,
+      var(--champion-2) 82%,
+      transparent 93%
+    );
   animation: var(--exclusive-effect);
+}
+
+.avatar[class*="celebration-"]::after {
+  background:
+    var(--champion-pattern),
+    conic-gradient(
+      from 20deg,
+      transparent 0 10%,
+      color-mix(in srgb, var(--champion-2) 90%, white) 18%,
+      var(--champion) 32%,
+      transparent 45% 68%,
+      var(--champion-2) 82%,
+      transparent 93%
+    );
 }
 
 @keyframes exclusive-blackhole {
