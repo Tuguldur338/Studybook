@@ -865,6 +865,32 @@ export function ScheduleView() {
     () => new Set(classes.map((item) => classSignature(item))),
     [classes],
   );
+  const completedWeekChecks = classes.reduce((total, session) => {
+    const state =
+      classChecks[`${weekKey}:${session.id}`] ??
+      { classwork: false, homework: false };
+    return total + Number(state.classwork) + Number(state.homework);
+  }, 0);
+  const totalWeekChecks = classes.length * 2;
+  const weekCheckProgress = totalWeekChecks
+    ? Math.round((completedWeekChecks / totalWeekChecks) * 100)
+    : 0;
+  const checklistDayStats = classesByDay.map((dayClasses) => {
+    const completedChecks = dayClasses.reduce((total, session) => {
+      const state =
+        classChecks[`${weekKey}:${session.id}`] ??
+        { classwork: false, homework: false };
+      return total + Number(state.classwork) + Number(state.homework);
+    }, 0);
+    const totalChecks = dayClasses.length * 2;
+    return {
+      completedChecks,
+      totalChecks,
+      progress: totalChecks
+        ? Math.round((completedChecks / totalChecks) * 100)
+        : 0,
+    };
+  });
 
   function checkState(id: string) {
     return (
@@ -1187,13 +1213,59 @@ export function ScheduleView() {
           <div className="week-checklist">
             <div className="week-checklist-inner">
               <div className="checklist-head">
-                <h2>Classwork &amp; homework</h2>
-                <span>Separate checks for each week</span>
+                <div className="checklist-heading-copy">
+                  <h2>Classwork &amp; homework</h2>
+                  <span>Separate checks for each week</span>
+                </div>
+                <div
+                  aria-label={`${completedWeekChecks} of ${totalWeekChecks} weekly checks complete`}
+                  className="checklist-week-progress"
+                  role="progressbar"
+                  aria-valuemax={totalWeekChecks}
+                  aria-valuemin={0}
+                  aria-valuenow={completedWeekChecks}
+                >
+                  <span className="checklist-week-progress-count">
+                    <LuCircleCheck aria-hidden="true" size={14} />
+                    {completedWeekChecks}/{totalWeekChecks} done
+                  </span>
+                  <span className="checklist-week-progress-track">
+                    <span style={{ width: `${weekCheckProgress}%` }} />
+                  </span>
+                </div>
               </div>
               <div className="checklist-grid">
                 {weekdays.map((day, index) => (
-                  <div className="checklist-day" key={day}>
-                    <h3>{day}</h3>
+                  <div
+                    className={`checklist-day${weekOffset === 0 && todayDay === index ? " today" : ""}`}
+                    key={day}
+                  >
+                    <div className="checklist-day-heading">
+                      <div>
+                        <h3>{day}</h3>
+                        <span className="checklist-day-date">
+                          {dayDates[index]
+                            ? new Intl.DateTimeFormat(undefined, {
+                                month: "short",
+                                day: "numeric",
+                              }).format(dayDates[index])
+                            : ""}
+                        </span>
+                      </div>
+                      <span
+                        className={`checklist-day-count${checklistDayStats[index].totalChecks > 0 && checklistDayStats[index].completedChecks === checklistDayStats[index].totalChecks ? " complete" : ""}`}
+                      >
+                        {checklistDayStats[index].completedChecks}/
+                        {checklistDayStats[index].totalChecks}
+                      </span>
+                    </div>
+                    <span className="checklist-day-progress">
+                      <span
+                        style={{
+                          width: `${checklistDayStats[index].progress}%`,
+                        }}
+                      />
+                    </span>
                     {classesByDay[index].length ? (
                       classesByDay[index].map((session) => (
                         <div className="checklist-row" key={session.id}>
