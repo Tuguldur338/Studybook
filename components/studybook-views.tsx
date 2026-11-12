@@ -605,6 +605,8 @@ export function ScheduleView() {
   const {
     classChecks,
     classes,
+    deleteClass,
+    deleteSavedClass,
     isLoaded,
     notify,
     savedClasses,
@@ -715,7 +717,7 @@ export function ScheduleView() {
   }
 
   function removeSavedClass(id: string) {
-    setSavedClasses((current) => current.filter((item) => item.id !== id));
+    deleteSavedClass(id);
     notify("Removed from saved classes.");
   }
 
@@ -1347,9 +1349,7 @@ export function ScheduleView() {
           copy="This class will be removed from your weekly schedule."
           onCancel={() => setDeleteId(null)}
           onConfirm={() => {
-            setClasses((current) =>
-              current.filter((item) => item.id !== deleteId),
-            );
+            deleteClass(deleteId);
             setDeleteId(null);
             notify("Class removed.");
           }}
@@ -2122,7 +2122,7 @@ export function ToDoListView() {
   );
 }
 export function NotesView() {
-  const { notes, notify, setNotes } = useStudybook();
+  const { deleteNote, notes, notify, setNotes } = useStudybook();
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
@@ -2355,9 +2355,7 @@ export function NotesView() {
           copy="This note will be permanently removed."
           onCancel={() => setDeleteId(null)}
           onConfirm={() => {
-            setNotes((current) =>
-              current.filter((item) => item.id !== deleteId),
-            );
+            deleteNote(deleteId);
             setDeleteId(null);
             notify("Note deleted.");
           }}

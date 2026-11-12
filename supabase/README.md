@@ -65,6 +65,10 @@ How it behaves:
   `updatedAt`, and deletion tombstones are merged to prevent stale devices from
   restoring removed tasks. Devices pull cloud changes every 15 seconds and
   when the tab regains focus.
+- Apply [`migrations/persistent-delete-tombstones.sql`](./migrations/persistent-delete-tombstones.sql)
+  after `task-history-and-sync.sql`. It adds deletion tombstones for weekly
+  schedule classes, saved classes, and notes, preventing removed entries from
+  returning when a stale device syncs.
 - Local data is now stored per account (`studybook-data-v1:<user id>`), so two
   accounts on the same browser keep separate schedules and to-dos. The older
   shared key is claimed only by an account whose email matches the saved
