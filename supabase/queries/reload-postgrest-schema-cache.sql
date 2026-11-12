@@ -1,2 +1,3 @@
 -- Manual cache refresh; keep outside supabase/migrations so db push won't apply it.
 notify pgrst, 'reload schema';
+-- I suggest that this not be pushed into github for which it is only intended to be used in a local dev environment. It is not needed for production and will not be run by supabase migrations. This query is not permanent and will be removed in the future. It is only intended to be used to refresh the PostgREST schema cache when developing locally.
