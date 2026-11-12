@@ -10072,6 +10072,11 @@ select:focus-visible {
   gap: 12px;
 }
 
+.confirm-actions .primary-button {
+  width: auto;
+  margin-top: 0;
+}
+
 .calendar-icon-button,
 .calendar-today-button,
 .day-heading,
