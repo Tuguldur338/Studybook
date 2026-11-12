@@ -178,13 +178,73 @@ function formatDate(value: string) {
 }
 
 function hasOverlap(list: ClassSession[]) {
-  const sorted = [...list].sort((a, b) =>
-    a.startTime.localeCompare(b.startTime),
+  return list.some((session, index) =>
+    list.some(
+      (other, otherIndex) =>
+        otherIndex > index &&
+        session.startTime < other.endTime &&
+        other.startTime < session.endTime,
+    ),
   );
-  for (let i = 1; i < sorted.length; i++) {
-    if (sorted[i].startTime < sorted[i - 1].endTime) return true;
+}
+
+function layoutDayClasses(list: ClassSession[]) {
+  const layouts = new Map<
+    string,
+    { column: number; columnCount: number; overlapCount: number }
+  >();
+  const sorted = [...list].sort(
+    (a, b) =>
+      a.startTime.localeCompare(b.startTime) ||
+      a.endTime.localeCompare(b.endTime),
+  );
+  let group: ClassSession[] = [];
+  let groupEnd = "";
+
+  function placeGroup() {
+    if (!group.length) return;
+
+    const columnEnds: string[] = [];
+    const columns = new Map<string, number>();
+    for (const session of group) {
+      let column = columnEnds.findIndex(
+        (columnEnd) => columnEnd <= session.startTime,
+      );
+      if (column === -1) column = columnEnds.length;
+      columnEnds[column] = session.endTime;
+      columns.set(session.id, column);
+    }
+
+    for (const session of group) {
+      const overlapCount = group.reduce(
+        (count, other) =>
+          count +
+          Number(
+            other.id !== session.id &&
+              session.startTime < other.endTime &&
+              other.startTime < session.endTime,
+          ),
+        0,
+      );
+      layouts.set(session.id, {
+        column: columns.get(session.id) ?? 0,
+        columnCount: columnEnds.length,
+        overlapCount,
+      });
+    }
+
+    group = [];
+    groupEnd = "";
   }
-  return false;
+
+  for (const session of sorted) {
+    if (group.length && session.startTime >= groupEnd) placeGroup();
+    group.push(session);
+    if (session.endTime > groupEnd) groupEnd = session.endTime;
+  }
+  placeGroup();
+
+  return layouts;
 }
 
 const HOUR_HEIGHT = 64;
@@ -761,6 +821,7 @@ export function ScheduleView() {
   const classesByDay = weekdays.map((_, index) =>
     sortedClasses.filter((session) => session.day === index),
   );
+  const classLayoutsByDay = classesByDay.map(layoutDayClasses);
 
   const currentWeekStart = weekAnchor
     ? new Date(`${weekAnchor}T00:00:00`)
@@ -1189,67 +1250,91 @@ export function ScheduleView() {
                 </div>
               ))}
             </div>
-            {weekdays.map((day, index) => (
-              <div
-                aria-label={day}
-                className={`day-lane${weekOffset === 0 && todayDay === index ? " today" : ""}`}
-                key={day}
-                role="group"
-              >
-                {classesByDay[index].map((session) => {
-                  const state = checkState(session.id);
-                  const complete = state.classwork && state.homework;
-                  const start = minutesSinceMidnight(session.startTime);
-                  const end = minutesSinceMidnight(session.endTime);
-                  const top = ((start - startHour * 60) / 60) * HOUR_HEIGHT;
-                  const height = Math.max(
-                    ((end - start) / 60) * HOUR_HEIGHT - 4,
-                    62,
-                  );
-                  return (
-                    <article
-                      className={`time-block${complete ? " complete" : ""}`}
-                      key={session.id}
-                      style={{ height: `${height}px`, top: `${top}px` }}
-                    >
-                      <div className="time-block-head">
-                        <span className="time-block-title">
-                          {session.subject}
+            {weekdays.map((day, index) => {
+              return (
+                <div
+                  aria-label={day}
+                  className={`day-lane${weekOffset === 0 && todayDay === index ? " today" : ""}`}
+                  key={day}
+                  role="group"
+                >
+                  {classesByDay[index].map((session) => {
+                    const state = checkState(session.id);
+                    const complete = state.classwork && state.homework;
+                    const start = minutesSinceMidnight(session.startTime);
+                    const end = minutesSinceMidnight(session.endTime);
+                    const top =
+                      ((start - startHour * 60) / 60) * HOUR_HEIGHT;
+                    const height = Math.max(
+                      ((end - start) / 60) * HOUR_HEIGHT - 4,
+                      4,
+                    );
+                    const layout = classLayoutsByDay[index].get(session.id) ?? {
+                      column: 0,
+                      columnCount: 1,
+                      overlapCount: 0,
+                    };
+                    const columnWidth = 100 / layout.columnCount;
+                    const overlapDescription = layout.overlapCount
+                      ? `Overlaps with ${layout.overlapCount} other ${layout.overlapCount === 1 ? "class" : "classes"}.`
+                      : undefined;
+                    return (
+                      <article
+                        className={`time-block${complete ? " complete" : ""}${layout.overlapCount ? " has-overlap" : ""}${height < 58 ? " compact" : ""}${height < 100 ? " tight" : ""}${layout.columnCount > 2 ? " dense" : ""}`}
+                        key={session.id}
+                        style={{
+                          height: `${height}px`,
+                          top: `${top}px`,
+                          left: `calc(${layout.column * columnWidth}% + 4px)`,
+                          right: "auto",
+                          width: `calc(${columnWidth}% - 8px)`,
+                        }}
+                        title={overlapDescription}
+                      >
+                        <div className="time-block-head">
+                          <span className="time-block-title">
+                            {session.subject}
+                          </span>
+                          <span className="time-block-actions">
+                            <button
+                              aria-label={`Edit ${session.subject}`}
+                              className="block-action"
+                              onClick={() => startEditing(session)}
+                              type="button"
+                            >
+                              <LuPencil size={12} />
+                            </button>
+                            <button
+                              aria-label={`Delete ${session.subject}`}
+                              className="block-action danger"
+                              onClick={() => setDeleteId(session.id)}
+                              type="button"
+                            >
+                              <LuTrash2 size={12} />
+                            </button>
+                          </span>
+                        </div>
+                        <span className="time-block-time">
+                          {formatTime(session.startTime)} –{" "}
+                          {formatTime(session.endTime)}
+                          {session.location ? ` · ${session.location}` : ""}
                         </span>
-                        <span className="time-block-actions">
-                          <button
-                            aria-label={`Edit ${session.subject}`}
-                            className="block-action"
-                            onClick={() => startEditing(session)}
-                            type="button"
+                        {layout.overlapCount > 0 && (
+                          <span
+                            aria-label={overlapDescription}
+                            className="time-block-conflict"
                           >
-                            <LuPencil size={12} />
-                          </button>
-                          <button
-                            aria-label={`Delete ${session.subject}`}
-                            className="block-action danger"
-                            onClick={() => setDeleteId(session.id)}
-                            type="button"
-                          >
-                            <LuTrash2 size={12} />
-                          </button>
-                        </span>
-                      </div>
-                      <span className="time-block-time">
-                        {formatTime(session.startTime)} –{" "}
-                        {formatTime(session.endTime)}
-                        {session.location ? ` · ${session.location}` : ""}
-                      </span>
-                    </article>
-                  );
-                })}
-                {hasOverlap(classesByDay[index]) && (
-                  <span className="overlap-badge lane-overlap">
-                    <LuCircleAlert size={12} /> Overlap
-                  </span>
-                )}
-              </div>
-            ))}
+                            <LuCircleAlert aria-hidden="true" size={11} />
+                            {layout.overlapCount} conflict
+                            {layout.overlapCount === 1 ? "" : "s"}
+                          </span>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -1257,6 +1342,11 @@ export function ScheduleView() {
           {weekdays.map((day, index) => {
             const dayClasses = classesByDay[index];
             const overlap = hasOverlap(dayClasses);
+            const overlappingCount = dayClasses.filter(
+              (session) =>
+                (classLayoutsByDay[index].get(session.id)?.overlapCount ?? 0) >
+                0,
+            ).length;
             return (
               <div
                 className={`day-column${todayDay === index && weekOffset === 0 ? " today" : ""}`}
@@ -1305,7 +1395,8 @@ export function ScheduleView() {
                 )}
                 {overlap && (
                   <span className="overlap-badge">
-                    <LuCircleAlert size={12} /> Overlapping times
+                    <LuCircleAlert size={12} /> {overlappingCount} classes
+                    overlap
                   </span>
                 )}
               </div>

@@ -2953,6 +2953,7 @@ button.messenger-row:hover {
   position: absolute;
   right: 6px;
   left: 6px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -2971,23 +2972,110 @@ button.messenger-row:hover {
   box-shadow: var(--shadow-sm);
 }
 
+.time-block.compact {
+  overflow: visible;
+  justify-content: center;
+  gap: 0;
+  border-radius: 6px;
+  padding: 1px 5px;
+}
+
+.time-block.compact .time-block-head {
+  align-items: center;
+}
+
+.time-block.compact .time-block-title {
+  -webkit-line-clamp: 1;
+  font-size: 9px;
+  line-height: 1.1;
+}
+
+.time-block.compact .time-block-time,
+.time-block.compact .time-block-conflict {
+  display: none;
+}
+
+.time-block.compact .time-block-actions {
+  position: absolute;
+  top: 50%;
+  right: 3px;
+  z-index: 2;
+  transform: translateY(-50%);
+}
+
+.time-block.compact .block-action {
+  width: 18px;
+  height: 18px;
+}
+
+.time-block.compact:hover .time-block-actions,
+.time-block.compact:focus-within .time-block-actions {
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 2px;
+  opacity: 1;
+  box-shadow: var(--shadow-sm);
+}
+
 .time-block.complete {
   background: var(--accent-soft);
   border-color: var(--accent);
 }
 
+.time-block.has-overlap {
+  border-color: color-mix(in srgb, var(--warning) 60%, var(--border));
+  border-left-color: var(--warning);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--warning-soft) 55%, var(--surface)),
+      var(--surface) 72%
+    );
+  padding: 4px 7px 20px;
+}
+
+.time-block.has-overlap.complete {
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--warning-soft) 55%, var(--accent-soft)),
+      var(--accent-soft) 72%
+    );
+}
+
+.time-block.has-overlap.compact {
+  padding: 1px 5px;
+}
+
+.time-block.has-overlap .time-block-actions {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+}
+
+.time-block.has-overlap:hover .time-block-title,
+.time-block.has-overlap:focus-within .time-block-title {
+  padding-right: 44px;
+}
+
 .time-block-head {
   display: flex;
+  min-width: 0;
   align-items: flex-start;
   justify-content: space-between;
   gap: 4px;
 }
 
 .time-block-title {
+  min-width: 0;
   font-size: 12px;
   font-weight: 650;
   line-height: 1.2;
   overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
 
 .time-block-actions {
@@ -3025,20 +3113,38 @@ button.messenger-row:hover {
 }
 
 .time-block-time {
+  min-width: 0;
   color: var(--muted);
   font-size: 10px;
   line-height: 1.3;
   overflow-wrap: anywhere;
 }
 
-.lane-overlap {
+.time-block.tight .time-block-time {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.time-block-conflict {
   position: absolute;
-  right: 6px;
+  right: 5px;
   bottom: 4px;
-  z-index: 6;
-  padding: 2px 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: calc(100% - 10px);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--warning) 34%, transparent);
   border-radius: 999px;
   background: var(--warning-soft);
+  padding: 2px 5px;
+  color: var(--warning);
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Classwork / homework checkboxes */
@@ -3085,6 +3191,27 @@ button.messenger-row:hover {
 
 .day-class .class-checks {
   margin-top: 10px;
+}
+
+.time-block.dense .time-block-title {
+  -webkit-line-clamp: 1;
+  padding-right: 42px;
+  font-size: 10px;
+}
+
+.time-block.dense .time-block-time {
+  display: none;
+}
+
+.time-block.dense .time-block-actions {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+}
+
+.time-block.dense .block-action {
+  width: 18px;
+  height: 18px;
 }
 
 .week-checklist {
