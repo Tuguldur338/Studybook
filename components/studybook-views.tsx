@@ -1411,6 +1411,26 @@ export function ScheduleView() {
         </div>
 
         <div className="week-grid">
+          {classes.length > 0 && (
+            <div
+              aria-label={`${completedWeekChecks} of ${totalWeekChecks} weekly checks complete`}
+              className="mobile-week-progress"
+              role="progressbar"
+              aria-valuemax={totalWeekChecks}
+              aria-valuemin={0}
+              aria-valuenow={completedWeekChecks}
+            >
+              <div className="mobile-week-progress-heading">
+                <strong>Classwork &amp; homework</strong>
+                <span>
+                  {completedWeekChecks}/{totalWeekChecks} done
+                </span>
+              </div>
+              <span className="mobile-week-progress-track">
+                <span style={{ width: `${weekCheckProgress}%` }} />
+              </span>
+            </div>
+          )}
           {weekdays.map((day, index) => {
             const dayClasses = classesByDay[index];
             const overlap = hasOverlap(dayClasses);
@@ -1425,9 +1445,46 @@ export function ScheduleView() {
                 key={day}
               >
                 <div className="day-heading">
-                  {day}
-                  <span className="day-count">{dayClasses.length}</span>
+                  <div className="day-heading-copy">
+                    <span>{day}</span>
+                    <small>
+                      {dayDates[index]
+                        ? new Intl.DateTimeFormat(undefined, {
+                            month: "short",
+                            day: "numeric",
+                          }).format(dayDates[index])
+                        : ""}
+                    </small>
+                  </div>
+                  <div className="day-heading-counts">
+                    <span className="day-count">
+                      {dayClasses.length}{" "}
+                      {dayClasses.length === 1 ? "class" : "classes"}
+                    </span>
+                    <span
+                      className={`mobile-day-check-count${checklistDayStats[index].totalChecks > 0 && checklistDayStats[index].completedChecks === checklistDayStats[index].totalChecks ? " complete" : ""}`}
+                    >
+                      {checklistDayStats[index].completedChecks}/
+                      {checklistDayStats[index].totalChecks} done
+                    </span>
+                  </div>
                 </div>
+                {checklistDayStats[index].totalChecks > 0 && (
+                  <span
+                    aria-label={`${checklistDayStats[index].completedChecks} of ${checklistDayStats[index].totalChecks} ${day} checks complete`}
+                    className="mobile-day-progress"
+                    role="progressbar"
+                    aria-valuemax={checklistDayStats[index].totalChecks}
+                    aria-valuemin={0}
+                    aria-valuenow={checklistDayStats[index].completedChecks}
+                  >
+                    <span
+                      style={{
+                        width: `${checklistDayStats[index].progress}%`,
+                      }}
+                    />
+                  </span>
+                )}
                 {dayClasses.length ? (
                   dayClasses.map((session) => (
                     <article className="day-class" key={session.id}>

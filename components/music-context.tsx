@@ -183,6 +183,8 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   const dayKeyRef = useRef("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const objectUrlRef = useRef<string | null>(null);
+  const cachedFileRef = useRef<{ id: string; blob: Blob } | null>(null);
+  const playbackAttemptRef = useRef(0);
   const synthStopRef = useRef<(() => void) | null>(null);
   const synthGainRef = useRef<GainNode | null>(null);
   const lastStartedRef = useRef<string | null>(null);
@@ -313,30 +315,91 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       });
   }, [stopPlayback]);
 
-  const startAudio = useCallback(async (track: MusicTrack) => {
-    const audio = audioRef.current;
-    if (!audio) throw new Error("Audio is not ready yet.");
+  const startAudio = useCallback(
+    async (track: MusicTrack, attempt: number) => {
+      const audio = audioRef.current;
+      if (!audio) throw new Error("Audio is not ready yet.");
 
-    stopPlayback();
-    let source = track.url;
-    if (track.source === "file") {
-      const blob = await getMusicFile(track.id);
-      if (!blob) {
-        throw new Error("That audio file is missing. Add it again.");
+      stopPlayback();
+      let source = track.url;
+      if (track.source === "file") {
+        let blob =
+          cachedFileRef.current?.id === track.id
+            ? cachedFileRef.current.blob
+            : undefined;
+        if (!blob) {
+          blob = await getMusicFile(track.id);
+          if (attempt !== playbackAttemptRef.current) return;
+          if (!blob) {
+            throw new Error("That audio file is missing. Add it again.");
+          }
+          cachedFileRef.current = { id: track.id, blob };
+        }
+        source = URL.createObjectURL(blob);
+        objectUrlRef.current = source;
       }
-      source = URL.createObjectURL(blob);
-      objectUrlRef.current = source;
-    }
 
-    audio.src = source;
-    audio.volume = settingsRef.current.volume;
-    await audio.play();
-    setNowPlaying(track);
-    setIsPlaying(true);
-  }, [stopPlayback]);
+      if (attempt !== playbackAttemptRef.current) return;
+      audio.src = source;
+      audio.volume = settingsRef.current.volume;
+      await new Promise<void>((resolve, reject) => {
+        let settled = false;
+        let timeout: number | null = null;
+        const cleanup = () => {
+          if (timeout !== null) window.clearTimeout(timeout);
+          audio.removeEventListener("playing", handlePlaying);
+          audio.removeEventListener("error", handleError);
+        };
+        const finish = (cause?: Error) => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          if (cause) reject(cause);
+          else resolve();
+        };
+        const handlePlaying = () => finish();
+        const handleError = () => {
+          const code = audio.error?.code;
+          const message =
+            code === MediaError.MEDIA_ERR_DECODE
+              ? "This audio file could not be decoded. Try a different format."
+              : code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED
+                ? "This audio format or link is not supported. Try an MP3 or another audio file."
+                : "Could not load this audio. Check the link or try another track.";
+          finish(new Error(message));
+        };
+
+        audio.addEventListener("playing", handlePlaying);
+        audio.addEventListener("error", handleError);
+        timeout = window.setTimeout(
+          () =>
+            finish(
+              new Error(
+                "Audio did not start within 20 seconds. Check your connection or try another track.",
+              ),
+            ),
+          20_000,
+        );
+        audio.play().then(
+          () => finish(),
+          (cause: unknown) =>
+            finish(
+              cause instanceof Error
+                ? cause
+                : new Error("Could not start audio in this browser."),
+            ),
+        );
+      });
+      if (attempt !== playbackAttemptRef.current) return;
+      setNowPlaying(track);
+      setIsPlaying(true);
+    },
+    [stopPlayback],
+  );
 
   const startTrack = useCallback(
     async (track: MusicTrack) => {
+      const attempt = ++playbackAttemptRef.current;
       setError("");
       setBlocked(false);
       setStartingTrack(track);
@@ -351,8 +414,9 @@ export function MusicProvider({ children }: { children: ReactNode }) {
             "This link opens on its platform — it cannot autoplay as background music.",
           );
         }
-        await startAudio(track);
+        await startAudio(track, attempt);
       } catch (cause) {
+        if (attempt !== playbackAttemptRef.current) return;
         setIsPlaying(false);
         stopPlayback();
         if (
@@ -377,7 +441,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
             : "Could not play this track.",
         );
       } finally {
-        setStartingTrack(null);
+        if (attempt === playbackAttemptRef.current) setStartingTrack(null);
       }
     },
     [startAudio, startSynth, stopPlayback],
@@ -386,8 +450,10 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   const openEmbed = useCallback(
     (track: MusicTrack, userGesture = false, keepQueue = false) => {
       if (!keepQueue) queueRef.current = [];
+      playbackAttemptRef.current += 1;
       stopPlayback();
       setIsPlaying(false);
+      setStartingTrack(null);
       lastStartedRef.current = currentTrack?.id ?? null;
       setEmbedUserGesture(userGesture);
       setEmbedPlayNonce((value) => value + 1);
@@ -414,7 +480,9 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   }, [commit, currentTrack, openEmbed, startTrack]);
 
   const pause = useCallback(() => {
+    playbackAttemptRef.current += 1;
     stopPlayback();
+    setStartingTrack(null);
     setIsPlaying(false);
     setBlocked(false);
     lastStartedRef.current = null;
@@ -596,6 +664,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
 
       const id = newTrackId("file");
       await putMusicFile(id, file);
+      cachedFileRef.current = { id, blob: file };
       const track: MusicTrack = {
         id,
         title:
@@ -621,7 +690,10 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     (id: string) => {
       queueRef.current = queueRef.current.filter((track) => track.id !== id);
       const track = settingsRef.current.tracks.find((item) => item.id === id);
-      if (track?.source === "file") void deleteMusicFile(id);
+      if (track?.source === "file") {
+        if (cachedFileRef.current?.id === id) cachedFileRef.current = null;
+        void deleteMusicFile(id);
+      }
 
       const activeByDay: Record<string, string> = {};
       for (const [day, trackId] of Object.entries(
@@ -748,6 +820,40 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       setSharedMusic(merged);
     }
   }, [ready, setSharedMusic, sharedMusic, studybookLoaded]);
+
+  useEffect(() => {
+    if (
+      !ready ||
+      currentTrack?.source !== "file" ||
+      cachedFileRef.current?.id === currentTrack.id
+    ) {
+      return;
+    }
+
+    let active = true;
+    void getMusicFile(currentTrack.id)
+      .then((blob) => {
+        if (!active) return;
+        if (!blob) {
+          setError("That audio file is missing. Add it again.");
+          return;
+        }
+        cachedFileRef.current = { id: currentTrack.id, blob };
+      })
+      .catch((cause: unknown) => {
+        if (active) {
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : "Could not read the saved audio file.",
+          );
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [currentTrack, ready]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {

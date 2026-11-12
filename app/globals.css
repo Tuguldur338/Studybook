@@ -319,6 +319,11 @@ a {
   font-weight: 650;
 }
 
+.music-now-external {
+  text-decoration: none;
+  white-space: nowrap;
+}
+
 .sidebar-profile-caption {
   color: var(--muted);
   font-size: 10px;
@@ -1100,14 +1105,80 @@ a {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   padding: 0 2px 6px;
   font-size: 12px;
   font-weight: 700;
   color: var(--foreground);
 }
 
+.day-heading-copy,
+.day-heading-counts {
+  display: grid;
+  gap: 3px;
+}
+
+.day-heading-copy small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 550;
+}
+
+.day-heading-counts {
+  justify-items: end;
+}
+
 .day-column.today .day-heading {
   color: var(--accent-strong);
+}
+
+.mobile-week-progress {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 12px;
+}
+
+.mobile-week-progress-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--foreground);
+  font-size: 11px;
+}
+
+.mobile-week-progress-heading span {
+  color: var(--accent-strong);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.mobile-week-progress-track,
+.mobile-day-progress {
+  display: block;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-muted);
+}
+
+.mobile-week-progress-track > span,
+.mobile-day-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent-grad);
+  transition: width 240ms ease;
+}
+
+.mobile-day-progress {
+  height: 3px;
+  margin: -7px 0 2px;
 }
 
 .day-count {
@@ -1119,6 +1190,19 @@ a {
   font-size: 10px;
   font-weight: 700;
   text-align: center;
+  white-space: nowrap;
+}
+
+.mobile-day-check-count {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.mobile-day-check-count.complete {
+  color: var(--accent-strong);
 }
 
 .day-class {
@@ -8052,19 +8136,43 @@ button.messenger-row:hover {
 
 .music-embed-media {
   position: fixed;
-  left: 0;
-  bottom: 0;
-  width: 1px;
-  height: 1px;
+  z-index: 53;
+  right: 18px;
+  bottom: 150px;
+  width: 200px;
+  height: 200px;
   overflow: hidden;
-  opacity: 0;
+  opacity: 0.001;
   pointer-events: none;
 }
 
 .music-embed-media iframe {
-  width: 1px;
-  height: 1px;
+  width: 200px;
+  height: 200px;
   border: 0;
+}
+
+.music-embed-error {
+  position: fixed;
+  z-index: 56;
+  right: 20px;
+  bottom: 160px;
+  display: grid;
+  width: min(342px, calc(100vw - 32px));
+  gap: 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  background: var(--surface);
+  padding: 12px 14px;
+  color: var(--foreground);
+  box-shadow: var(--shadow-md);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.music-embed-error a {
+  color: var(--accent-strong);
+  font-weight: 700;
 }
 
 @media (max-width: 640px) {
@@ -8083,24 +8191,21 @@ button.messenger-row:hover {
     font-size: 18px;
   }
 
-  /*
-   * Mobile browsers pause YouTube players that are only a 1x1 hidden iframe.
-   * Keep the same player on-screen (behind the card, effectively invisible)
-   * so playlist looping can continue. Desktop keeps the 1x1 audio-only frame.
-   */
   .music-embed-media {
     right: 18px;
     bottom: 150px;
-    width: min(200px, 50vw);
-    height: 112px;
-    opacity: 0.001;
-    z-index: 53;
-    pointer-events: none;
+    width: 200px;
+    height: 200px;
   }
 
   .music-embed-media iframe {
-    width: 100%;
-    height: 100%;
+    width: 200px;
+    height: 200px;
+  }
+
+  .music-embed-error {
+    right: 12px;
+    bottom: 150px;
   }
 }
 

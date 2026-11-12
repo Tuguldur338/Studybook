@@ -40,6 +40,7 @@ export default function MusicEmbedPlayer({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [playerSrc, setPlayerSrc] = useState("");
+  const [loadError, setLoadError] = useState("");
   const [liveTitle, setLiveTitle] = useState("");
   const [liveVideoId, setLiveVideoId] = useState("");
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -109,6 +110,7 @@ export default function MusicEmbedPlayer({
     }
 
     const timer = window.setTimeout(() => {
+      setLoadError("");
       const currentVideoId = youtubeVideoId(embedTrack);
       let loopSuffix = "";
       if (
@@ -139,6 +141,7 @@ export default function MusicEmbedPlayer({
       const sameSrc = playerSrcRef.current === nextSrc;
       if (!sameSrc) {
         playerSrcRef.current = nextSrc;
+        setLoadError("");
         setPlayerSrc(nextSrc);
         setReady(false);
       } else if (embedTrack.source === "youtube") {
@@ -176,7 +179,7 @@ export default function MusicEmbedPlayer({
       setLiveTitle(embedTrack.title);
       setLiveVideoId(currentVideoId ?? "");
       setCardOpen(true);
-      setPaused(false);
+      setPaused(true);
       setLeaving(false);
       setExpanded(false);
       setGestureReady(sameSrc ? true : embedUserGesture);
@@ -192,6 +195,16 @@ export default function MusicEmbedPlayer({
     loopMode,
     settings.tracks,
   ]);
+
+  useEffect(() => {
+    if (!playerSrc || ready) return;
+    const timer = window.setTimeout(() => {
+      setLoadError(
+        "The music player could not load. Check your connection or open the track on its service.",
+      );
+    }, 20_000);
+    return () => window.clearTimeout(timer);
+  }, [playerSrc, ready]);
 
   useEffect(() => {
     if (!ready || !cardOpen || leaving || expanded) return;
@@ -227,6 +240,13 @@ export default function MusicEmbedPlayer({
       }
       if (typeof payload !== "object" || payload === null) return;
       const message = payload as { event?: unknown; info?: unknown };
+      if (message.event === "onError") {
+        setLoadError(
+          "YouTube could not play this track. Open it on YouTube or try another link.",
+        );
+        setReady(false);
+        return;
+      }
       if (
         message.event !== "infoDelivery" ||
         typeof message.info !== "object" ||
@@ -310,8 +330,8 @@ export default function MusicEmbedPlayer({
     ? `https://img.youtube.com/vi/${encodeURIComponent(liveVideoId)}/hqdefault.jpg`
     : coverUrlFor(embedTrack);
   const displayTitle = liveTitle || embedTrack.title;
-  const loading = !ready;
-  const active = ready && !(paused && gestureReady);
+  const loading = !ready && !loadError;
+  const active = ready && !paused;
   const isPlaying = ready && !paused;
   const progressPercent =
     duration > 0
@@ -345,7 +365,11 @@ export default function MusicEmbedPlayer({
               aria-label="Show embedded music controls"
               className="music-now-compact"
               onClick={() => {
-                if (!gestureReady) {
+                if (embedTrack.source === "spotify") {
+                  window.open(embedTrack.url, "_blank", "noopener,noreferrer");
+                  return;
+                }
+                if (paused) {
                   resumeEmbed();
                   return;
                 }
@@ -358,8 +382,12 @@ export default function MusicEmbedPlayer({
                 <span className="music-now-compact-title">
                   {displayTitle}
                 </span>
-                {!gestureReady && (
-                  <span className="music-now-compact-hint">Tap for sound</span>
+                {paused && (
+                  <span className="music-now-compact-hint">
+                    {embedTrack.source === "youtube"
+                      ? "Tap for sound"
+                      : "Open Spotify to play"}
+                  </span>
                 )}
                 <span aria-hidden="true" className="music-now-eq">
                   <i />
@@ -373,12 +401,16 @@ export default function MusicEmbedPlayer({
               <div className="music-now-top">
                 <span className="music-now-kicker">
                   <span aria-hidden="true" className="music-now-live" />
-                  Audio only
-                  <span aria-hidden="true" className="music-now-eq">
-                    <i />
-                    <i />
-                    <i />
-                  </span>
+                  {embedTrack.source === "youtube"
+                    ? "YouTube audio"
+                    : "Spotify"}
+                  {isPlaying && (
+                    <span aria-hidden="true" className="music-now-eq">
+                      <i />
+                      <i />
+                      <i />
+                    </span>
+                  )}
                 </span>
                 <button
                   aria-label="Collapse embedded player"
@@ -392,8 +424,9 @@ export default function MusicEmbedPlayer({
 
               <h2 className="music-now-title">{displayTitle}</h2>
               <p className="music-now-sub">
-                {embedTrack.source === "youtube" ? "YouTube" : "Spotify"} ·{" "}
-                video hidden
+                {embedTrack.source === "youtube"
+                  ? "YouTube · video hidden"
+                  : "Spotify · playback opens in Spotify"}
               </p>
 
               {embedTrack.source === "youtube" && (
@@ -457,6 +490,16 @@ export default function MusicEmbedPlayer({
                     {isPlaying ? "Pause" : paused ? "Resume" : "Play sound"}
                   </button>
                 )}
+                {embedTrack.source === "spotify" && (
+                  <a
+                    className="music-now-control music-now-external"
+                    href={embedTrack.url}
+                    rel="noreferrer noopener"
+                    target="_blank"
+                  >
+                    Open in Spotify
+                  </a>
+                )}
                 <button
                   className="music-now-control"
                   onClick={closeEmbed}
@@ -474,8 +517,9 @@ export default function MusicEmbedPlayer({
               </div>
 
               <p className="music-now-empty">
-                The player is running invisibly so it keeps playing while you
-                study.
+                {embedTrack.source === "youtube"
+                  ? "The player is running in the background. If sound does not start, tap Play sound."
+                  : "Use the Spotify player to start playback."}
               </p>
             </>
           )}
@@ -488,13 +532,35 @@ export default function MusicEmbedPlayer({
             allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
             allowFullScreen
             key={playerSrc}
-            onLoad={() => setReady(true)}
+            onError={() => {
+              setReady(false);
+              setLoadError(
+                "The music player could not load. Check your connection or open the track on its service.",
+              );
+            }}
+            onLoad={() => {
+              setLoadError("");
+              setReady(true);
+            }}
             ref={iframeRef}
             src={playerSrc}
             title={`${displayTitle} player`}
           />
         )}
       </div>
+
+      {loadError && embedTrack && (
+        <div className="music-embed-error" role="alert">
+          <span>{loadError}</span>
+          <a
+            href={embedTrack.url}
+            rel="noreferrer noopener"
+            target="_blank"
+          >
+            Open original
+          </a>
+        </div>
+      )}
 
       <MusicOrb
         cover={cover}
@@ -508,7 +574,11 @@ export default function MusicEmbedPlayer({
         loading={loading}
         onClick={() => {
           if (cardOpen) {
-            if (expanded) closeCard();
+            if (embedTrack.source === "spotify") {
+              window.open(embedTrack.url, "_blank", "noopener,noreferrer");
+            } else if (paused) {
+              resumeEmbed();
+            } else if (expanded) closeCard();
             else setExpanded(true);
           } else {
             setExpanded(true);
