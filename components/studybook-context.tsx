@@ -115,7 +115,7 @@ export type ClassCheckKind = "classwork" | "homework";
 export type ClassCheck = Record<ClassCheckKind, boolean>;
 
 /**
- * Keyed by `${mondayOfWeek}|${classId}`, so a new week starts with empty
+ * Keyed by `${mondayOfWeek}:${classId}`, so a new week starts with empty
  * checks while previous weeks keep their history.
  */
 export type ClassChecks = Record<string, ClassCheck>;

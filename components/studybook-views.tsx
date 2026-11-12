@@ -773,30 +773,6 @@ export function ScheduleView() {
     ? weekdays.map((_, index) => addDays(viewedWeekStart, index))
     : [];
 
-  // Keep the previous week's classwork/homework ticks visible in the new
-  // week instead of starting every Monday with an empty checklist.
-  useEffect(() => {
-    if (!isLoaded || !weekKey || weekOffset !== 0) return;
-    const previousWeekKey = toISODate(
-      addDays(new Date(`${weekKey}T00:00:00`), -7),
-    );
-    setClassChecks((current) => {
-      const next = { ...current };
-      let changed = false;
-      for (const session of classes) {
-        const currentKey = `${weekKey}:${session.id}`;
-        if (next[currentKey]) continue;
-        const previous = current[`${previousWeekKey}:${session.id}`];
-        if (previous) {
-          next[currentKey] = { ...previous };
-          changed = true;
-        }
-      }
-      return changed ? next : current;
-    });
-  }, [classChecks, classes, isLoaded, setClassChecks, weekKey, weekOffset]);
-
-
   const subjectOptions = useMemo(() => {
     const values = new Set<string>();
     [...savedClasses, ...classes].forEach((item) => {
@@ -936,7 +912,7 @@ export function ScheduleView() {
           </button>
         }
         eyebrow="Make room for learning"
-        subtitle="Add each class with its day and times, then tick off classwork and homework as you finish them. Checks carry over from the previous week."
+        subtitle="Add each class with its day and times, then tick off classwork and homework as you finish them. Each week's checks are saved separately."
         title="Weekly schedule"
       />
       {formOpen && (
@@ -1151,7 +1127,7 @@ export function ScheduleView() {
             <div className="week-checklist-inner">
               <div className="checklist-head">
                 <h2>Classwork &amp; homework</h2>
-                <span>Ticks carry over weekly</span>
+                <span>Separate checks for each week</span>
               </div>
               <div className="checklist-grid">
                 {weekdays.map((day, index) => (
@@ -1340,7 +1316,7 @@ export function ScheduleView() {
 
       <p className="page-subtitle" style={{ marginTop: 14 }}>
         {classes.length
-          ? `${classes.length} ${classes.length === 1 ? "class" : "classes"} planned each week. Classwork and homework checks carry over from the previous week.`
+          ? `${classes.length} ${classes.length === 1 ? "class" : "classes"} planned each week. Classwork and homework checks are saved separately for each week.`
           : "Your schedule is saved on this device, so you can come back and update it anytime."}
       </p>
 
