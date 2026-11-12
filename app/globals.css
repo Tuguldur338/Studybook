@@ -9678,3 +9678,691 @@ textarea.input:focus {
     transform: none;
   }
 }
+
+/* Unified shape, spacing, and interaction polish. Color tokens stay unchanged. */
+:root {
+  --radius-sm: 12px;
+  --radius: 18px;
+  --radius-lg: 24px;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+a,
+input,
+textarea,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a {
+  touch-action: manipulation;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.page-content {
+  padding-top: clamp(26px, 4vw, 42px);
+  padding-bottom: clamp(42px, 6vw, 72px);
+}
+
+.page-heading {
+  align-items: center;
+  margin-bottom: clamp(22px, 3vw, 34px);
+}
+
+.page-title {
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+}
+
+.page-subtitle {
+  max-width: 70ch;
+  text-wrap: pretty;
+}
+
+.panel,
+.note-card,
+.day-class,
+.day-column,
+.stat-card,
+.exam-hero,
+.calendar-grid-wrap,
+.calendar-detail,
+.routine-row,
+.week-checklist,
+.music-row,
+.border-card {
+  border-radius: var(--radius-lg);
+}
+
+.panel,
+.stat-card,
+.exam-hero,
+.calendar-grid-wrap,
+.calendar-detail,
+.routine-row,
+.week-checklist {
+  box-shadow: var(--shadow-xs);
+  transition:
+    border-color 200ms ease,
+    box-shadow 220ms ease,
+    background-color 200ms ease;
+}
+
+.panel:hover,
+.stat-card:hover,
+.exam-hero:hover,
+.calendar-grid-wrap:hover,
+.calendar-detail:hover {
+  box-shadow: var(--shadow-sm);
+}
+
+.panel-heading {
+  gap: 14px;
+  padding: clamp(16px, 2.4vw, 24px) clamp(16px, 2.6vw, 26px) 0;
+}
+
+.panel-body {
+  padding: clamp(16px, 2.4vw, 24px) clamp(16px, 2.6vw, 26px);
+}
+
+.form-panel {
+  border-radius: var(--radius-lg);
+  padding: clamp(18px, 3vw, 30px);
+}
+
+.primary-button,
+.secondary-button,
+.sign-in-button,
+.register-button {
+  min-height: 44px;
+  border-radius: 14px;
+  transition:
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease,
+    filter 180ms ease;
+}
+
+.primary-button:active,
+.secondary-button:active,
+.sign-in-button:active,
+.register-button:active {
+  transform: translateY(1px) scale(0.985);
+}
+
+.icon-button {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  transition:
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease,
+    color 180ms ease;
+}
+
+.small-icon-button {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border-radius: 12px;
+  transition:
+    transform 160ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.small-icon-button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-xs);
+}
+
+.small-icon-button:active {
+  transform: scale(0.94);
+}
+
+.small-icon-button.danger {
+  flex: 0 0 40px;
+}
+
+.small-icon-button.danger:hover,
+.saved-class-remove:hover,
+.personal-song-remove:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-xs);
+}
+
+.saved-class-remove,
+.personal-song-remove {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  border-radius: 11px;
+  transition:
+    transform 160ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.block-action {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: 9px;
+  transition:
+    transform 160ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease,
+    color 180ms ease;
+}
+
+.time-block.dense .block-action {
+  width: 22px;
+  height: 22px;
+  flex-basis: 22px;
+}
+
+.inline-actions {
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.task-row {
+  align-items: flex-start;
+  min-width: 0;
+  gap: 12px;
+  border-radius: var(--radius);
+  padding: 14px;
+}
+
+.task-main {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.task-title,
+.task-meta,
+.class-name,
+.class-location,
+.note-title,
+.note-content,
+.day-class-title,
+.day-class-location,
+.routine-row-title,
+.routine-row-note,
+.music-row-main {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.task-row .priority-badge {
+  align-self: flex-start;
+}
+
+.task-row .inline-actions {
+  margin-left: auto;
+}
+
+.task-check {
+  width: 22px;
+  height: 22px;
+  flex-basis: 22px;
+  margin-top: 1px;
+  border-radius: 7px;
+}
+
+.note-card {
+  min-width: 0;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  transition:
+    transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 220ms ease,
+    border-color 180ms ease;
+}
+
+.note-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow);
+}
+
+.note-title {
+  margin-right: 20px;
+  margin-left: 20px;
+}
+
+.note-content {
+  max-height: 18rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  margin-right: 20px;
+  margin-left: 20px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  scrollbar-gutter: stable;
+}
+
+.note-footer {
+  min-width: 0;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  padding: 14px 20px 18px;
+}
+
+.note-footer > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note-footer .inline-actions {
+  flex: 0 0 auto;
+}
+
+.day-class {
+  min-width: 0;
+  border-radius: var(--radius);
+  transition:
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+
+.day-class .inline-actions {
+  flex-wrap: nowrap;
+}
+
+.day-column {
+  min-width: 0;
+}
+
+.routine-row {
+  min-width: 0;
+  border-radius: var(--radius);
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.toolbar,
+.form-actions,
+.panel-heading-actions,
+.exam-heading-actions {
+  gap: 10px;
+}
+
+.input,
+.textarea,
+.select,
+.search-input,
+.sort-select {
+  min-width: 0;
+  border-radius: 13px;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease;
+}
+
+.input,
+.textarea {
+  padding: 12px 14px;
+}
+
+.input:focus,
+.textarea:focus,
+.select:focus,
+.search-input:focus,
+.sort-select:focus {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.field {
+  min-width: 0;
+}
+
+.field label {
+  margin-bottom: 7px;
+  font-size: 11px;
+  letter-spacing: 0.01em;
+}
+
+.empty-state {
+  border-radius: var(--radius-lg);
+  padding: clamp(28px, 5vw, 48px) 20px;
+}
+
+.notice,
+.toast {
+  border-radius: 14px;
+}
+
+.modal {
+  border-radius: 26px;
+  padding: clamp(20px, 4vw, 30px);
+  box-shadow: var(--shadow-lg);
+}
+
+.confirm-actions {
+  gap: 12px;
+}
+
+.calendar-icon-button,
+.calendar-today-button,
+.day-heading,
+.calendar-day,
+.calendar-chip,
+.calendar-event,
+.border-card {
+  transition:
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.calendar-day {
+  border-radius: 14px;
+}
+
+.calendar-day:hover,
+.calendar-icon-button:hover,
+.calendar-today-button:hover {
+  transform: translateY(-1px);
+}
+
+.messenger,
+.messenger-docked {
+  border-radius: 24px;
+  box-shadow: var(--shadow-lg);
+}
+
+.messenger-head {
+  padding: 16px 18px;
+}
+
+.messenger-row,
+.bubble,
+.messenger-section,
+.group-member {
+  min-width: 0;
+}
+
+.messenger-row {
+  border-radius: 16px;
+  transition:
+    transform 160ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+button.messenger-row:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-xs);
+}
+
+.bubble {
+  max-width: min(88%, 42rem);
+  border-radius: 17px 17px 17px 6px;
+  padding: 10px 13px;
+}
+
+.bubble.mine {
+  border-radius: 17px 17px 6px 17px;
+}
+
+.bubble p {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.messenger-composer {
+  align-items: flex-end;
+  gap: 9px;
+  padding: 12px;
+}
+
+.messenger-composer .input {
+  min-height: 44px;
+  border-radius: 14px;
+}
+
+.composer-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.composer-attach,
+.composer-emoji-button {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border-radius: 13px;
+}
+
+.music-row {
+  min-width: 0;
+  border-radius: 16px;
+  transition:
+    transform 160ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.music-row-main {
+  flex: 1 1 120px;
+}
+
+.week-checklist,
+.checklist-day {
+  border-radius: var(--radius-lg);
+}
+
+.check-chip,
+.checklist-row .check-chip {
+  min-height: 40px;
+  border-radius: 12px;
+}
+
+.check-chip input {
+  width: 20px;
+  height: 20px;
+}
+
+.music-orb,
+.messenger-bubble,
+.calendar-today-button,
+.primary-button {
+  transition:
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 180ms ease,
+    filter 180ms ease;
+}
+
+@media (max-width: 640px) {
+  .page-content {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .page-heading {
+    gap: 14px;
+  }
+
+  .panel-heading {
+    align-items: flex-start;
+  }
+
+  .task-row {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .task-main {
+    flex: 1 1 calc(100% - 38px);
+  }
+
+  .task-row .priority-badge {
+    margin-left: 32px;
+  }
+
+  .task-row .inline-actions {
+    margin-left: auto;
+  }
+
+  .note-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .note-content {
+    max-height: 15rem;
+  }
+
+  .messenger-docked {
+    right: 8px;
+    bottom: 8px;
+    width: calc(100vw - 16px);
+    height: min(88dvh, 780px);
+    border-radius: 22px;
+  }
+
+  .messenger-thread {
+    padding: 14px;
+  }
+
+  .messenger-composer {
+    gap: 6px;
+    padding: 10px;
+  }
+
+  .messenger-composer .primary-button {
+    min-width: 44px;
+    padding: 0 10px;
+  }
+
+  .music-row {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .music-row-main {
+    flex-basis: calc(100% - 54px);
+  }
+
+  .music-row .small-icon-button {
+    width: 40px;
+    height: 40px;
+    flex-basis: 40px;
+  }
+
+  .confirm-actions {
+    flex-direction: column-reverse;
+  }
+
+  .confirm-actions .secondary-button,
+  .confirm-actions .primary-button {
+    width: 100%;
+  }
+}
+
+@media (hover: none) {
+  .panel:hover,
+  .stat-card:hover,
+  .exam-hero:hover,
+  .calendar-grid-wrap:hover,
+  .calendar-detail:hover,
+  .note-card:hover,
+  .day-class:hover,
+  .calendar-day:hover,
+  .calendar-icon-button:hover,
+  .calendar-today-button:hover,
+  button.messenger-row:hover,
+  .small-icon-button:hover {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Keep native dropdown indicators still on press; animate the chevron itself. */
+.select-wrap .select-chevron,
+.sort-select-wrap .sort-select-chevron {
+  transition:
+    transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.select-wrap .select-chevron svg,
+.sort-select-wrap .sort-select-chevron svg {
+  transform-origin: center;
+  transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.select-wrap:focus-within .select-chevron,
+.sort-select-wrap:focus-within .sort-select-chevron {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.select-wrap:focus-within .select-chevron svg,
+.sort-select-wrap:focus-within .sort-select-chevron svg {
+  transform: rotate(180deg);
+}
+
+.select-wrap:active .select-chevron {
+  transform: translateY(-50%) scale(0.94);
+}
+
+.sort-select-wrap:active .sort-select-chevron {
+  transform: translateY(-50%) scale(0.94);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .select-wrap .select-chevron,
+  .sort-select-wrap .sort-select-chevron,
+  .select-wrap .select-chevron svg,
+  .sort-select-wrap .sort-select-chevron svg {
+    transition: none;
+  }
+}
