@@ -63,10 +63,7 @@ export type RoutineItem = {
 /** Keyed by `${YYYY-MM-DD}|${routineItemId}` so checks reset each day. */
 export type RoutineChecks = Record<string, boolean>;
 
-/**
- * The part of the studybook that follows the account across devices. Theme,
- * fonts, and other device preferences deliberately stay local.
- */
+/** Account data and preferences shared between a user's devices. */
 type StudybookSnapshot = {
   classes: ClassSession[];
   classChecks: ClassChecks;
@@ -89,6 +86,15 @@ type StudybookSnapshot = {
   deletedRoutine: Record<string, string>;
   /** Music library metadata and playback preferences. */
   music: MusicSettings | null;
+  preferences: StudybookPreferences;
+};
+
+type StudybookPreferences = {
+  theme: "light" | "dark";
+  font: FontFamily;
+  palette: PaletteId;
+  holidayEffects: boolean;
+  updatedAt: string;
 };
 
 export const NOTE_COLORS = [
@@ -337,8 +343,37 @@ function snapshotHasContent(data: unknown): boolean {
     return true;
   }
 
+  if (
+    typeof data.profileAvatar === "string" &&
+    data.profileAvatar.length > 0
+  ) {
+    return true;
+  }
+
+  if (isStudybookPreferences(data.preferences)) {
+    const preferences = data.preferences;
+    return Boolean(
+      preferences.updatedAt ||
+        preferences.theme === "dark" ||
+        preferences.font !== "geist" ||
+        preferences.palette !== "sage" ||
+        !preferences.holidayEffects,
+    );
+  }
+
+  return false;
+}
+
+function isStudybookPreferences(
+  value: unknown,
+): value is StudybookPreferences {
   return (
-    typeof data.profileAvatar === "string" && data.profileAvatar.length > 0
+    isRecord(value) &&
+    (value.theme === "light" || value.theme === "dark") &&
+    FONT_OPTIONS.includes(value.font as FontFamily) &&
+    PALETTES.some((option) => option.id === value.palette) &&
+    typeof value.holidayEffects === "boolean" &&
+    typeof value.updatedAt === "string"
   );
 }
 
@@ -406,6 +441,15 @@ function mergeSnapshots(
   local: StudybookSnapshot,
 ): StudybookSnapshot {
   const source = isRecord(cloud) ? cloud : {};
+  const cloudPreferences = isStudybookPreferences(source.preferences)
+    ? source.preferences
+    : null;
+  const preferences =
+    !cloudPreferences ||
+    (local.preferences.updatedAt &&
+      local.preferences.updatedAt >= cloudPreferences.updatedAt)
+      ? local.preferences
+      : cloudPreferences;
 
   const cloudClasses = Array.isArray(source.classes)
     ? source.classes.filter(isClassSession)
@@ -508,6 +552,7 @@ function mergeSnapshots(
       : isMusicSettings(source.music)
         ? source.music
         : null,
+    preferences,
   };
 }
 
@@ -563,6 +608,15 @@ function readStudybookData(key = STORAGE_KEY) {
     ? (parsed.palette as PaletteId)
     : "sage";
   const holidayEffects = parsed.holidayEffects !== false;
+  const savedPreferences = isRecord(parsed.preferences)
+    ? parsed.preferences
+    : {};
+  const preferencesUpdatedAt =
+    typeof savedPreferences.updatedAt === "string"
+      ? savedPreferences.updatedAt
+      : typeof parsed.preferencesUpdatedAt === "string"
+        ? parsed.preferencesUpdatedAt
+        : "";
   const deletedRoutine = isDeletedTasks(parsed.deletedRoutine)
     ? parsed.deletedRoutine
     : {};
@@ -629,6 +683,7 @@ function readStudybookData(key = STORAGE_KEY) {
     font,
     palette,
     holidayEffects,
+    preferencesUpdatedAt,
   };
 }
 export function StudybookProvider({ children }: { children: ReactNode }) {
@@ -654,10 +709,11 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
   const [notes, setNotes] = useState<StudyNote[]>([]);
   const [deletedNotes, setDeletedNotes] = useState<Record<string, string>>({});
   const [profile, setProfile] = useState(defaultProfile);
-  const [theme, setTheme] = useState<"light" | "dark">("light");
-  const [font, setFont] = useState<FontFamily>("geist");
-  const [palette, setPalette] = useState<PaletteId>("sage");
-  const [holidayEffects, setHolidayEffects] = useState(true);
+  const [theme, setThemeState] = useState<"light" | "dark">("light");
+  const [font, setFontState] = useState<FontFamily>("geist");
+  const [palette, setPaletteState] = useState<PaletteId>("sage");
+  const [holidayEffects, setHolidayEffectsState] = useState(true);
+  const [preferencesUpdatedAt, setPreferencesUpdatedAt] = useState("");
   const [syncStatus, setSyncStatus] = useState<
     "local" | "syncing" | "synced" | "error"
   >("local");
@@ -689,7 +745,47 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     deletedExams: {},
     deletedRoutine: {},
     music: null,
+    preferences: {
+      theme: "light",
+      font: "geist",
+      palette: "sage",
+      holidayEffects: true,
+      updatedAt: "",
+    },
   });
+
+  const markPreferencesChanged = useCallback(
+    () => setPreferencesUpdatedAt(new Date().toISOString()),
+    [],
+  );
+  const setTheme: Dispatch<SetStateAction<"light" | "dark">> = useCallback(
+    (value) => {
+      setThemeState(value);
+      markPreferencesChanged();
+    },
+    [markPreferencesChanged],
+  );
+  const setFont: Dispatch<SetStateAction<FontFamily>> = useCallback(
+    (value) => {
+      setFontState(value);
+      markPreferencesChanged();
+    },
+    [markPreferencesChanged],
+  );
+  const setPalette: Dispatch<SetStateAction<PaletteId>> = useCallback(
+    (value) => {
+      setPaletteState(value);
+      markPreferencesChanged();
+    },
+    [markPreferencesChanged],
+  );
+  const setHolidayEffects: Dispatch<SetStateAction<boolean>> = useCallback(
+    (value) => {
+      setHolidayEffectsState(value);
+      markPreferencesChanged();
+    },
+    [markPreferencesChanged],
+  );
 
   const dismissToast = useCallback((id: string) => {
     setToasts((current) => current.filter((toast) => toast.id !== id));
@@ -729,6 +825,11 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     setRoutineChecks(snapshot.routineChecks);
     setDeletedRoutine(snapshot.deletedRoutine);
     setMusic(snapshot.music);
+    setThemeState(snapshot.preferences.theme);
+    setFontState(snapshot.preferences.font);
+    setPaletteState(snapshot.preferences.palette);
+    setHolidayEffectsState(snapshot.preferences.holidayEffects);
+    setPreferencesUpdatedAt(snapshot.preferences.updatedAt);
 
     if (snapshot.profileAvatar) {
       setProfile((current) => ({ ...current, avatar: snapshot.profileAvatar }));
@@ -807,14 +908,15 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     setDeletedRoutine({});
     setMusic(null);
     setProfile(defaultProfile);
-    setTheme(
+    setThemeState(
       window.matchMedia?.("(prefers-color-scheme: dark)").matches
         ? "dark"
         : "light",
     );
-    setFont("geist");
-    setPalette("sage");
-    setHolidayEffects(true);
+    setFontState("geist");
+    setPaletteState("sage");
+    setHolidayEffectsState(true);
+    setPreferencesUpdatedAt("");
   }, []);
 
   useEffect(() => {
@@ -873,10 +975,11 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
           setDeletedNotes(saved.deletedNotes);
           setMusic(saved.music);
           setProfile(saved.profile);
-          setTheme(saved.theme);
-          setFont(saved.font);
-          setPalette(saved.palette);
-          setHolidayEffects(saved.holidayEffects);
+          setThemeState(saved.theme);
+          setFontState(saved.font);
+          setPaletteState(saved.palette);
+          setHolidayEffectsState(saved.holidayEffects);
+          setPreferencesUpdatedAt(saved.preferencesUpdatedAt);
         } else {
           resetLocalSnapshot();
         }
@@ -916,6 +1019,13 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
       deletedNotes,
       deletedExams,
       music,
+      preferences: {
+        theme,
+        font,
+        palette,
+        holidayEffects,
+        updatedAt: preferencesUpdatedAt,
+      },
     };
 
     try {
@@ -942,6 +1052,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
           font,
           palette,
           holidayEffects,
+          preferencesUpdatedAt,
         }),
       );
     } catch (error) {
@@ -972,6 +1083,7 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     loadedKey,
     music,
     notes,
+    preferencesUpdatedAt,
     profile,
     savedClasses,
     storageKey,
@@ -1183,6 +1295,13 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
       deletedExams,
       deletedRoutine,
       music,
+      preferences: {
+        theme,
+        font,
+        palette,
+        holidayEffects,
+        updatedAt: preferencesUpdatedAt,
+      },
     };
 
     const timer = window.setTimeout(async () => {
@@ -1224,6 +1343,11 @@ export function StudybookProvider({ children }: { children: ReactNode }) {
     loadedKey,
     music,
     notes,
+    theme,
+    font,
+    palette,
+    holidayEffects,
+    preferencesUpdatedAt,
     profile.avatar,
     routine,
     routineChecks,

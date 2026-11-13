@@ -42,10 +42,11 @@ into the Supabase Dashboard SQL Editor and run it against your project.
 The Studybook app's registration and sign-in forms use Supabase Auth when the
 project credentials below are configured. With the `sync.sql` migration
 applied, classes, checks, saved classes, tasks, notes, exams, routine steps,
-routine checks, and the profile picture are synchronized through the private
-`studybook_snapshots` table. Theme, font, music, and widget preferences stay in
-the browser. Avatar uploads still use a browser data URL inside that snapshot;
-a dedicated Storage bucket is optional.
+routine checks, the profile picture, and appearance preferences are synchronized
+through the private `studybook_snapshots` table. Music metadata syncs, while
+uploaded audio files and widget visibility stay in the browser. Avatar uploads
+still use a browser data URL inside that snapshot; a dedicated Storage bucket
+is optional.
 
 ## Cross-device sync
 
@@ -69,14 +70,17 @@ How it behaves:
   after `task-history-and-sync.sql`. It adds deletion tombstones for weekly
   schedule classes, saved classes, and notes, preventing removed entries from
   returning when a stale device syncs.
+- Apply [`migrations/sync-appearance-preferences.sql`](./migrations/sync-appearance-preferences.sql)
+  after `persistent-delete-tombstones.sql`. It keeps a stale device from
+  replacing newer account appearance preferences during a snapshot update.
 - Local data is now stored per account (`studybook-data-v1:<user id>`), so two
   accounts on the same browser keep separate schedules and to-dos. The older
   shared key is claimed only by an account whose email matches the saved
   profile; other accounts use their own local data or the cloud snapshot.
 
-Theme, font, holiday effects, the music library/audio files, and the messages
-widget position remain device-local. Messages, friendships, and leaderboard
-points already live on the server.
+Theme, color mood, font, and holiday effects sync to the signed-in account.
+Uploaded audio files and the messages widget position remain device-local.
+Messages, friendships, and leaderboard points already live on the server.
 
 ## Configure local app credentials
 

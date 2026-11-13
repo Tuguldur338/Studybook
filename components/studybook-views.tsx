@@ -2843,8 +2843,9 @@ export function AccountView() {
             : syncStatus === "error"
               ? "Local only — run supabase/migrations/sync.sql in Supabase, then reload."
               : "Sign in to sync."}{" "}
-        Your schedule, to-dos, notes, exams, routine, and profile picture follow
-        your account; theme and music stay on this device.
+        Your schedule, to-dos, notes, exams, routine, profile picture,
+        appearance preferences, and music metadata follow your account.
+        Uploaded audio files remain stored on this device.
       </p>
       <div className="profile-layout">
         <section className="panel profile-card">
@@ -3573,7 +3574,7 @@ export function SettingsView() {
     <>
       <PageHeading
         eyebrow="Make yourself comfortable"
-        subtitle="Choose a color mood, light or dark theme, and a font family. Changes apply across Studybook and are saved on this device."
+        subtitle="Choose a color mood, light or dark theme, and a font family. Your appearance preferences sync with your account across devices."
         title="Settings"
       />
 

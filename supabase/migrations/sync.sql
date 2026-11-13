@@ -2,8 +2,8 @@
 --
 -- The whole browser studybook (classes, checks, saved classes, tasks, notes,
 -- exams, routine, and the profile picture) is stored as one private JSON
--- snapshot per account. Theme, fonts, music, and widget preferences stay on
--- the device.
+-- snapshot per account. Appearance preferences and music metadata are included;
+-- uploaded audio files and widget preferences stay on the device.
 
 create table if not exists public.studybook_snapshots (
   user_id uuid primary key references auth.users (id) on delete cascade,
