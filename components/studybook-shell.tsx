@@ -435,6 +435,7 @@ function StudybookFrame({ children }: { children: ReactNode }) {
     useState<MessagesWidget>("closed");
   const [messagesMinimizedFromPage, setMessagesMinimizedFromPage] =
     useState(false);
+  const [messagesPagePending, setMessagesPagePending] = useState(false);
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [authError, setAuthError] = useState("");
   const [username, setUsername] = useState("");
@@ -479,10 +480,17 @@ function StudybookFrame({ children }: { children: ReactNode }) {
 
   const messaging = useMessaging(authUser);
   const isMessagesPage = pathname === "/messages";
+  const isMessagesView = isMessagesPage || messagesPagePending;
   const messagesBadge = authUser
     ? messaging.totalUnread + messaging.incomingRequests.length
     : 0;
   const [titleUnread, setTitleUnread] = useState(0);
+
+  useEffect(() => {
+    if (!isMessagesPage) return;
+    const timer = window.setTimeout(() => setMessagesPagePending(false), 0);
+    return () => window.clearTimeout(timer);
+  }, [isMessagesPage]);
 
   useEffect(() => {
     function markSeen() {
@@ -761,6 +769,7 @@ function StudybookFrame({ children }: { children: ReactNode }) {
                 updateMessagesWidget("open");
                 setMobileMenuOpen(false);
                 void messaging.refresh();
+                if (!isMessagesPage) setMessagesPagePending(true);
                 router.push("/messages");
               }}
               title="Messages"
@@ -910,24 +919,24 @@ function StudybookFrame({ children }: { children: ReactNode }) {
             onClose={() => setAuthMode(null)}
           />
         )}
-        {(isMessagesPage || messagesWidget !== "closed") && (
+        {(isMessagesView || messagesWidget !== "closed") && (
           <MessagingPanel
             api={messaging}
-            fullPage={isMessagesPage}
-            minimized={messagesWidget === "minimized" && !isMessagesPage}
+            fullPage={isMessagesView}
+            minimized={messagesWidget === "minimized" && !isMessagesView}
             onActiveConversationChange={setBubbleConversation}
             onClose={() => {
               updateMessagesWidget("closed");
-              if (isMessagesPage) router.push("/");
+              if (isMessagesView) router.push("/");
             }}
             onMinimize={() => {
-              updateMessagesWidget("minimized", isMessagesPage);
-              if (isMessagesPage) router.push("/");
+              updateMessagesWidget("minimized", isMessagesView);
+              if (isMessagesView) router.push("/");
             }}
             user={authUser}
           />
         )}
-        {messagesWidget === "minimized" && !isMessagesPage && (
+        {messagesWidget === "minimized" && !isMessagesView && (
           <div className="messenger-bubble-wrap">
             <button
               aria-label={
@@ -941,7 +950,10 @@ function StudybookFrame({ children }: { children: ReactNode }) {
               onClick={() => {
                 const reopenMessagesPage = messagesMinimizedFromPage;
                 updateMessagesWidget("open");
-                if (reopenMessagesPage) router.push("/messages");
+                if (reopenMessagesPage) {
+                  setMessagesPagePending(true);
+                  router.push("/messages");
+                }
               }}
               type="button"
             >
