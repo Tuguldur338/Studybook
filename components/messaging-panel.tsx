@@ -358,11 +358,7 @@ export default function MessagingPanel({
   }, [minimized, onMinimize, reactionPicker]);
 
   useEffect(() => {
-    if (
-      minimized ||
-      (fullPage && isWidgetMinimized) ||
-      !activeConversationId
-    ) {
+    if (minimized || (fullPage && isWidgetMinimized) || !activeConversationId) {
       return;
     }
     void markConversationRead(activeConversationId);
@@ -375,11 +371,7 @@ export default function MessagingPanel({
   ]);
 
   useEffect(() => {
-    if (
-      minimized ||
-      (fullPage && isWidgetMinimized) ||
-      !activeConversationId
-    ) {
+    if (minimized || (fullPage && isWidgetMinimized) || !activeConversationId) {
       return;
     }
     const hasUnread = thread.some(

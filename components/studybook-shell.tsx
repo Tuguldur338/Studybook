@@ -95,6 +95,10 @@ const MESSAGES_WIDGET_KEY = "studybook-messages-widget-v1";
 const MESSAGES_MINIMIZED_FROM_PAGE_KEY =
   "studybook-messages-minimized-from-page-v1";
 
+function isPhoneViewport() {
+  return window.matchMedia("(max-width: 640px)").matches;
+}
+
 function initials(name: string) {
   return (
     name
@@ -809,7 +813,11 @@ function StudybookFrame({ children }: { children: ReactNode }) {
               aria-current={isMessagesPage ? "page" : undefined}
               className={`nav-link nav-button${isMessagesPage ? " active" : ""}`}
               onClick={() => {
-                updateMessagesWidget("open");
+                const keepChatMinimized =
+                  messagesWidget === "minimized" &&
+                  messagesMinimizedFromPage &&
+                  !isPhoneViewport();
+                if (!keepChatMinimized) updateMessagesWidget("open");
                 setMobileMenuOpen(false);
                 void messaging.refresh();
                 if (!isMessagesPage) setMessagesPagePending(true);
@@ -994,7 +1002,11 @@ function StudybookFrame({ children }: { children: ReactNode }) {
               onClick={() => {
                 const reopenMessagesPage = messagesMinimizedFromPage;
                 updateMessagesWidget("open");
-                if (reopenMessagesPage && !isMessagesView) {
+                if (
+                  reopenMessagesPage &&
+                  !isMessagesView &&
+                  isPhoneViewport()
+                ) {
                   setMessagesPagePending(true);
                   router.push("/messages");
                 }
