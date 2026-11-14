@@ -91,6 +91,8 @@ const pageNames: Record<string, string> = {
 type MessagesWidget = "closed" | "open" | "minimized";
 
 const MESSAGES_WIDGET_KEY = "studybook-messages-widget-v1";
+const MESSAGES_MINIMIZED_FROM_PAGE_KEY =
+  "studybook-messages-minimized-from-page-v1";
 
 function initials(name: string) {
   return (
@@ -431,6 +433,8 @@ function StudybookFrame({ children }: { children: ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [messagesWidget, setMessagesWidget] =
     useState<MessagesWidget>("closed");
+  const [messagesMinimizedFromPage, setMessagesMinimizedFromPage] =
+    useState(false);
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [authError, setAuthError] = useState("");
   const [username, setUsername] = useState("");
@@ -652,14 +656,27 @@ function StudybookFrame({ children }: { children: ReactNode }) {
       if (saved === "open" || saved === "minimized" || saved === "closed") {
         setMessagesWidget(saved);
       }
+      setMessagesMinimizedFromPage(
+        window.localStorage.getItem(MESSAGES_MINIMIZED_FROM_PAGE_KEY) ===
+          "true",
+      );
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
 
-  function updateMessagesWidget(next: MessagesWidget) {
+  function updateMessagesWidget(
+    next: MessagesWidget,
+    minimizedFromPage = false,
+  ) {
     setMessagesWidget(next);
+    const shouldReopenPage = next === "minimized" && minimizedFromPage;
+    setMessagesMinimizedFromPage(shouldReopenPage);
     try {
       window.localStorage.setItem(MESSAGES_WIDGET_KEY, next);
+      window.localStorage.setItem(
+        MESSAGES_MINIMIZED_FROM_PAGE_KEY,
+        String(shouldReopenPage),
+      );
     } catch {
       // If storage is unavailable the widget still works for this visit.
     }
@@ -904,7 +921,7 @@ function StudybookFrame({ children }: { children: ReactNode }) {
               if (isMessagesPage) router.push("/");
             }}
             onMinimize={() => {
-              updateMessagesWidget("minimized");
+              updateMessagesWidget("minimized", isMessagesPage);
               if (isMessagesPage) router.push("/");
             }}
             user={authUser}
@@ -921,7 +938,11 @@ function StudybookFrame({ children }: { children: ReactNode }) {
                     : "Open messages"
               }
               className="messenger-bubble"
-              onClick={() => updateMessagesWidget("open")}
+              onClick={() => {
+                const reopenMessagesPage = messagesMinimizedFromPage;
+                updateMessagesWidget("open");
+                if (reopenMessagesPage) router.push("/messages");
+              }}
               type="button"
             >
               <span
