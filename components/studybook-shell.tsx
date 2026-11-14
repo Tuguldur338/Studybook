@@ -966,6 +966,7 @@ function StudybookFrame({ children }: { children: ReactNode }) {
           <MessagingPanel
             api={messaging}
             fullPage={isMessagesView}
+            isWidgetMinimized={messagesWidget === "minimized"}
             minimized={messagesWidget === "minimized" && !isMessagesView}
             onActiveConversationChange={setBubbleConversation}
             onClose={() => {
@@ -974,12 +975,12 @@ function StudybookFrame({ children }: { children: ReactNode }) {
             }}
             onMinimize={() => {
               updateMessagesWidget("minimized", isMessagesView);
-              if (isMessagesView) router.push("/");
             }}
+            onRestoreMinimized={() => updateMessagesWidget("open")}
             user={authUser}
           />
         )}
-        {messagesWidget === "minimized" && !isMessagesView && (
+        {messagesWidget === "minimized" && (
           <div className="messenger-bubble-wrap">
             <button
               aria-label={
@@ -993,7 +994,7 @@ function StudybookFrame({ children }: { children: ReactNode }) {
               onClick={() => {
                 const reopenMessagesPage = messagesMinimizedFromPage;
                 updateMessagesWidget("open");
-                if (reopenMessagesPage) {
+                if (reopenMessagesPage && !isMessagesView) {
                   setMessagesPagePending(true);
                   router.push("/messages");
                 }
@@ -1025,7 +1026,10 @@ function StudybookFrame({ children }: { children: ReactNode }) {
             <button
               aria-label="Close messages"
               className="messenger-bubble-close"
-              onClick={() => updateMessagesWidget("closed")}
+              onClick={() => {
+                updateMessagesWidget("closed");
+                if (isMessagesView) router.push("/");
+              }}
               type="button"
             >
               <LuX size={12} />

@@ -192,20 +192,24 @@ function summarizeReactions(reactions: MessageReaction[], userId: string) {
 export default function MessagingPanel({
   api,
   fullPage = false,
+  isWidgetMinimized,
   minimized,
   onActiveConversationChange,
   onClose,
   onMinimize,
+  onRestoreMinimized,
   user,
 }: {
   api: MessagingApi;
   fullPage?: boolean;
+  isWidgetMinimized: boolean;
   minimized: boolean;
   onActiveConversationChange?: (
     conversation: ConversationSummary | null,
   ) => void;
   onClose: () => void;
   onMinimize: () => void;
+  onRestoreMinimized: () => void;
   user: User | null;
 }) {
   const [activeConversationId, setActiveConversationId] = useState<
@@ -238,11 +242,13 @@ export default function MessagingPanel({
   const fileRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const activeConversation = activeConversationId
+  const selectedConversation = activeConversationId
     ? (api.conversations.find((item) => item.id === activeConversationId) ??
       null)
     : null;
-  const thread = api.messagesFor(activeConversationId);
+  const activeConversation =
+    fullPage && isWidgetMinimized ? null : selectedConversation;
+  const thread = api.messagesFor(activeConversation?.id ?? null);
   const { markConversationRead } = api;
   const activeColor =
     CHAT_COLORS.find((color) => color.id === chatColor) ?? CHAT_COLORS[0];
@@ -264,8 +270,8 @@ export default function MessagingPanel({
     : [];
 
   useEffect(() => {
-    onActiveConversationChange?.(activeConversation);
-  }, [activeConversation, onActiveConversationChange]);
+    onActiveConversationChange?.(selectedConversation);
+  }, [onActiveConversationChange, selectedConversation]);
 
   useEffect(() => {
     if (hideSuggestions) {
@@ -352,12 +358,30 @@ export default function MessagingPanel({
   }, [minimized, onMinimize, reactionPicker]);
 
   useEffect(() => {
-    if (minimized || !activeConversationId) return;
+    if (
+      minimized ||
+      (fullPage && isWidgetMinimized) ||
+      !activeConversationId
+    ) {
+      return;
+    }
     void markConversationRead(activeConversationId);
-  }, [activeConversationId, markConversationRead, minimized]);
+  }, [
+    activeConversationId,
+    fullPage,
+    isWidgetMinimized,
+    markConversationRead,
+    minimized,
+  ]);
 
   useEffect(() => {
-    if (minimized || !activeConversationId) return;
+    if (
+      minimized ||
+      (fullPage && isWidgetMinimized) ||
+      !activeConversationId
+    ) {
+      return;
+    }
     const hasUnread = thread.some(
       (message) =>
         user &&
@@ -368,6 +392,8 @@ export default function MessagingPanel({
   }, [
     activeConversation?.unread,
     activeConversationId,
+    fullPage,
+    isWidgetMinimized,
     markConversationRead,
     minimized,
     thread,
@@ -416,6 +442,7 @@ export default function MessagingPanel({
     try {
       const conversationId = await api.startDirectChat(friendId);
       setActiveConversationId(conversationId);
+      if (fullPage && isWidgetMinimized) onRestoreMinimized();
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "Could not open the chat.",
@@ -720,7 +747,15 @@ export default function MessagingPanel({
           <button
             aria-label="Minimize messages"
             className="icon-button"
-            onClick={onMinimize}
+            onClick={() => {
+              if (fullPage) {
+                setSettingsOpen(false);
+                setCreatingGroup(false);
+                setReactionPicker(null);
+                setError("");
+              }
+              onMinimize();
+            }}
             title="Minimize"
             type="button"
           >
@@ -1208,6 +1243,9 @@ export default function MessagingPanel({
                   className="text-button"
                   onClick={() => {
                     setCreatingGroup(true);
+                    if (fullPage && isWidgetMinimized) {
+                      onRestoreMinimized();
+                    }
                     setError("");
                   }}
                   type="button"
@@ -1227,6 +1265,9 @@ export default function MessagingPanel({
                   key={conversation.id}
                   onClick={() => {
                     setActiveConversationId(conversation.id);
+                    if (fullPage && isWidgetMinimized) {
+                      onRestoreMinimized();
+                    }
                     setError("");
                   }}
                   type="button"
