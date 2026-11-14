@@ -815,8 +815,7 @@ function StudybookFrame({ children }: { children: ReactNode }) {
               onClick={() => {
                 const keepChatMinimized =
                   messagesWidget === "minimized" &&
-                  messagesMinimizedFromPage &&
-                  !isPhoneViewport();
+                  messagesMinimizedFromPage;
                 if (!keepChatMinimized) updateMessagesWidget("open");
                 setMobileMenuOpen(false);
                 void messaging.refresh();
