@@ -2360,6 +2360,10 @@ a {
   bottom: 20px;
   width: min(380px, calc(100vw - 32px));
   height: min(620px, calc(100dvh - 110px));
+  animation: none;
+}
+
+html[data-message-motion="on"] .messenger-docked {
   animation: messenger-in 220ms cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
@@ -2440,6 +2444,17 @@ a {
 }
 
 .messenger-bubble:hover {
+  transform: none;
+  box-shadow: var(--shadow);
+}
+
+html[data-message-motion="on"] .messenger-bubble {
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+html[data-message-motion="on"] .messenger-bubble:hover {
   transform: translateY(-2px) scale(1.03);
   box-shadow: var(--shadow-lg);
 }
@@ -10491,6 +10506,10 @@ button.messenger-row:hover {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+html:not([data-message-motion="on"]) .messenger-bubble {
+  transition: none;
 }
 
 /* Keep native dropdown indicators still on press; animate the chevron itself. */

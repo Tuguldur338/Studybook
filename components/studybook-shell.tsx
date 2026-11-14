@@ -60,6 +60,7 @@ import {
   isSupabaseConfigured,
 } from "@/lib/supabase/client";
 import { borderClass } from "@/lib/borders";
+import { MESSAGE_MOTION_STORAGE_KEY } from "@/lib/message-motion";
 
 const navigation = [
   { label: "Overview", href: "/", icon: LuHouse },
@@ -670,6 +671,17 @@ function StudybookFrame({ children }: { children: ReactNode }) {
       );
     }, 0);
     return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    try {
+      document.documentElement.dataset.messageMotion =
+        window.localStorage.getItem(MESSAGE_MOTION_STORAGE_KEY) === "true"
+          ? "on"
+          : "off";
+    } catch {
+      document.documentElement.dataset.messageMotion = "off";
+    }
   }, []);
 
   function updateMessagesWidget(

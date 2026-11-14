@@ -68,6 +68,7 @@ import { embedUrlFor } from "@/lib/music-embed";
 import { fetchRemoteTrackTitle } from "@/lib/music-embed";
 import { HALLOWEEN_THEME_TRACK } from "@/lib/music-specials";
 import { PALETTES } from "@/lib/palettes";
+import { MESSAGE_MOTION_STORAGE_KEY } from "@/lib/message-motion";
 import LoopButton from "@/components/loop-button";
 import PWAInstallCard from "@/components/pwa-install-card";
 import {
@@ -3632,6 +3633,45 @@ export function SettingsView() {
     theme,
   } = useStudybook();
   const { upcoming } = useMusic();
+  const [messageMotionEnabled, setMessageMotionEnabled] = useState(false);
+  const [messageMotionError, setMessageMotionError] = useState("");
+
+  useEffect(() => {
+    let enabled = false;
+    let failedToRead = false;
+    try {
+      enabled =
+        window.localStorage.getItem(MESSAGE_MOTION_STORAGE_KEY) === "true";
+    } catch {
+      failedToRead = true;
+    }
+    document.documentElement.dataset.messageMotion = enabled ? "on" : "off";
+    const timer = window.setTimeout(() => {
+      setMessageMotionEnabled(enabled);
+      if (failedToRead) {
+        setMessageMotionError(
+          "Could not read the message motion preference.",
+        );
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  function handleMessageMotionChange(enabled: boolean) {
+    setMessageMotionEnabled(enabled);
+    document.documentElement.dataset.messageMotion = enabled ? "on" : "off";
+    setMessageMotionError("");
+    try {
+      window.localStorage.setItem(
+        MESSAGE_MOTION_STORAGE_KEY,
+        String(enabled),
+      );
+    } catch {
+      setMessageMotionError(
+        "Motion changed for this visit, but the preference could not be saved.",
+      );
+    }
+  }
 
   return (
     <>
@@ -3797,6 +3837,36 @@ export function SettingsView() {
                   : "Preview effects"}
               </button>
             </div>
+          </div>
+        </section>
+
+        <section className="panel settings-wide">
+          <div className="panel-heading">
+            <h2 className="panel-title">Messaging</h2>
+          </div>
+          <div className="panel-body">
+            <label className="setting-toggle">
+              <input
+                checked={messageMotionEnabled}
+                onChange={(event) =>
+                  handleMessageMotionChange(event.target.checked)
+                }
+                type="checkbox"
+              />
+              <span aria-hidden="true" className="setting-toggle-track" />
+              <span className="setting-toggle-copy">
+                <strong>Message panel motion</strong>
+                <span>
+                  Animate the message panel and bubble when they open or are
+                  hovered. This is off by default and is saved on this device.
+                </span>
+              </span>
+            </label>
+            {messageMotionError && (
+              <p aria-live="polite" className="panel-hint">
+                {messageMotionError}
+              </p>
+            )}
           </div>
         </section>
       </div>
