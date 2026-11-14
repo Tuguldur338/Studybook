@@ -62,7 +62,7 @@ import { useMusic } from "@/components/music-context";
 import { useSupabaseUser } from "@/components/use-supabase-user";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { HOLIDAYS } from "@/lib/holidays";
-import { awardTaskPoints } from "@/lib/leaderboard";
+import { awardTaskPoints, LATE_TASK_PENALTY } from "@/lib/leaderboard";
 import { isPlayableSource, type MusicTrack } from "@/lib/music-store";
 import { embedUrlFor } from "@/lib/music-embed";
 import { fetchRemoteTrackTitle } from "@/lib/music-embed";
@@ -2139,7 +2139,15 @@ export function ToDoListView() {
           <button
             aria-label={`Delete ${task.title}`}
             className="small-icon-button danger"
-            onClick={() => setDeleteId(task.id)}
+            disabled={overdue}
+            onClick={() => {
+              if (isOverdue(task, toISODate(new Date()))) {
+                notify("Overdue tasks cannot be deleted.");
+                return;
+              }
+              setDeleteId(task.id);
+            }}
+            title={overdue ? "Overdue tasks cannot be deleted." : undefined}
             type="button"
           >
             <LuTrash2 size={13} />
@@ -2165,7 +2173,7 @@ export function ToDoListView() {
           </button>
         }
         eyebrow="One thing at a time"
-        subtitle="Keep track of homework, projects, and the little things you don't want to forget. Tasks can't be edited after adding, and late completions earn half points."
+        subtitle={`Keep track of homework, projects, and the little things you don't want to forget. Tasks can't be edited after adding, and completing an overdue task deducts ${LATE_TASK_PENALTY} points.`}
         title="To-do list"
       />
       {formOpen && (
@@ -2329,7 +2337,17 @@ export function ToDoListView() {
           copy="This task will be permanently removed from your list."
           onCancel={() => setDeleteId(null)}
           onConfirm={() => {
-            if (deleteId) deleteTasks([deleteId]);
+            const task = tasks.find((item) => item.id === deleteId);
+            if (!task) {
+              setDeleteId(null);
+              return;
+            }
+            if (isOverdue(task, toISODate(new Date()))) {
+              setDeleteId(null);
+              notify("Overdue tasks cannot be deleted.");
+              return;
+            }
+            deleteTasks([task.id]);
             setDeleteId(null);
             notify("Task removed.");
           }}
@@ -3421,7 +3439,16 @@ export function ProfileView() {
                       <div className="task-title completed">{task.title}</div>
                       <div className="task-meta">
                         <span>{task.course || "Personal"}</span>
-                        <span>{formatDate(task.dueDate)}</span>
+                        <span>
+                          {task.completedLate ? (
+                            <span className="overdue-label">
+                              <LuClock size={12} /> Completed late ·{" "}
+                              {formatDate(task.dueDate)}
+                            </span>
+                          ) : (
+                            formatDate(task.dueDate)
+                          )}
+                        </span>
                       </div>
                     </div>
                     <span className={`priority-badge ${task.priority}`}>

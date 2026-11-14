@@ -6,6 +6,8 @@ export const TASK_POINTS = {
   high: 30,
 } as const;
 
+export const LATE_TASK_PENALTY = 20;
+
 export type AwardTaskPointsResult = {
   ok: boolean;
   delta: number;
@@ -78,6 +80,8 @@ export async function awardTaskPoints(
   direction: 1 | -1,
   late = false,
 ): Promise<AwardTaskPointsResult> {
-  const amount = TASK_POINTS[priority] * direction;
-  return awardPoints(late ? amount / 2 : amount);
+  const amount = late
+    ? -LATE_TASK_PENALTY * direction
+    : TASK_POINTS[priority] * direction;
+  return awardPoints(amount);
 }

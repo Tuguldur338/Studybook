@@ -3,7 +3,7 @@
 -- Tasks live in the browser, so the client awards points when a task is
 -- checked off. The allowlist below ties an amount to a priority:
 --   high +30, medium +20, low +10 (and the matching negatives when un-checked).
---   Completing after the due date awards half: 5, 10, or 15.
+--   Completing an overdue task deducts 20 points (restored if unchecked).
 --
 -- The profiles table only lets a user read their own row, so the leaderboard
 -- is exposed through a security-definer function that returns just the public
