@@ -28,6 +28,7 @@ import {
   LuUsers,
   LuX,
 } from "react-icons/lu";
+import EmojiPicker from "emoji-picker-react";
 import type {
   ChatMessage,
   ConversationSummary,
@@ -111,30 +112,7 @@ type ChatColorId = (typeof CHAT_COLORS)[number]["id"];
 
 const CHAT_COLORS_KEY = "studybook-chat-colors-v1";
 
-const CHAT_EMOJIS = [
-  "😀",
-  "😂",
-  "🥰",
-  "😎",
-  "🤔",
-  "😭",
-  "🔥",
-  "✨",
-  "🎉",
-  "💀",
-  "👻",
-  "🎃",
-  "❤️",
-  "👍",
-  "🙏",
-  "💯",
-  "😅",
-  "🫶",
-  "🌙",
-  "☕",
-  "📚",
-  "✅",
-];
+
 
 function linkLabel(url: string) {
   try {
@@ -714,7 +692,7 @@ export default function MessagingPanel({
             <h3>Add friends</h3>
             {api.friends.length === 0 && (
               <p className="messenger-hint">
-                You need friends first — add someone by email below.
+                You need friends first â€” add someone by email below.
               </p>
             )}
             {api.friends.map((friend) => (
@@ -789,7 +767,7 @@ export default function MessagingPanel({
                   className="chat-color-preview-bubble"
                   style={{ background: activeColor.bg, color: activeColor.fg }}
                 >
-                  Hey! 🎃
+                  Hey! ðŸŽƒ
                 </span>
               </div>
             </section>
@@ -943,19 +921,16 @@ export default function MessagingPanel({
                   <LuSmile size={18} />
                 </button>
                 {emojiOpen && (
-                  <div aria-label="Emoji picker" className="emoji-popover">
-                    {CHAT_EMOJIS.map((emoji) => (
-                      <button
-                        aria-label={`Insert ${emoji}`}
-                        className="emoji-choice"
-                        key={emoji}
-                        onClick={() => insertEmoji(emoji)}
-                        type="button"
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
+                  <EmojiPicker
+                    aria-label="Emoji picker"
+                    className="emoji-popover"
+                    height={360}
+                    lazyLoadEmojis
+                    onEmojiClick={({ emoji }) => insertEmoji(emoji)}
+                    previewConfig={{ showPreview: false }}
+                    searchPlaceholder="Search emojis..."
+                    width={320}
+                  />
                 )}
               </div>
               <div className="composer-input">
@@ -1007,7 +982,7 @@ export default function MessagingPanel({
               aria-label="Search friends by name"
               className="input"
               onChange={(event) => setFriendQuery(event.target.value)}
-              placeholder="Search friends by name…"
+              placeholder="Search friends by nameâ€¦"
               type="search"
               value={friendQuery}
             />
@@ -1039,7 +1014,7 @@ export default function MessagingPanel({
                 ))
               ) : (
                 <p className="messenger-hint">
-                  No friends match “{friendQuery.trim()}”. Add them below.
+                  No friends match â€œ{friendQuery.trim()}â€. Add them below.
                 </p>
               )}
             </section>
@@ -1095,7 +1070,7 @@ export default function MessagingPanel({
                 + New group
               </button>
             </div>
-            {api.loading && <p className="messenger-hint">Loading…</p>}
+            {api.loading && <p className="messenger-hint">Loadingâ€¦</p>}
             {!api.loading && api.conversations.length === 0 && (
               <p className="messenger-hint">
                 No chats yet. Search a friend above or add one below.
@@ -1162,7 +1137,7 @@ export default function MessagingPanel({
                   >
                     {suggestLoading && suggestions.length === 0 ? (
                       <span className="friend-suggestions-empty">
-                        Searching people…
+                        Searching peopleâ€¦
                       </span>
                     ) : (
                       suggestions.map((person) => (

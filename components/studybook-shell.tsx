@@ -100,6 +100,13 @@ function initials(name: string) {
   );
 }
 
+function toISODate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function ProfileAvatar({
   name,
   image,
@@ -423,7 +430,18 @@ function StudybookFrame({ children }: { children: ReactNode }) {
   const [authError, setAuthError] = useState("");
   const [username, setUsername] = useState("");
   const [equippedBorder, setEquippedBorder] = useState<string | null>(null);
+  const [todayStr, setTodayStr] = useState("");
   const avatarSyncedRef = useRef(false);
+
+  useEffect(() => {
+    const updateToday = () => setTodayStr(toISODate(new Date()));
+    const frame = window.requestAnimationFrame(updateToday);
+    const interval = window.setInterval(updateToday, 30_000);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     if (!authUser || !profile.avatar || avatarSyncedRef.current) return;
@@ -493,6 +511,13 @@ function StudybookFrame({ children }: { children: ReactNode }) {
   }, [titleUnread]);
 
   const pendingCount = tasks.filter((task) => !task.completed).length;
+  const overdueCount = tasks.filter(
+    (task) => !task.completed && task.dueDate && task.dueDate < todayStr,
+  ).length;
+  const todoNavigationLabel =
+    overdueCount > 0
+      ? `To-do list, ${pendingCount} tasks, ${overdueCount} overdue`
+      : `To-do list, ${pendingCount} tasks`;
 
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
@@ -683,7 +708,7 @@ function StudybookFrame({ children }: { children: ReactNode }) {
             {navigation.map(({ href, icon: Icon, label }) => (
               <Link
                 aria-current={pathname === href ? "page" : undefined}
-                aria-label={label}
+                aria-label={href === "/to-do-list" ? todoNavigationLabel : label}
                 className={`nav-link${pathname === href ? " active" : ""}`}
                 href={href}
                 key={href}
@@ -693,7 +718,14 @@ function StudybookFrame({ children }: { children: ReactNode }) {
                 <Icon size={18} />
                 <span className="nav-text">{label}</span>
                 {href === "/to-do-list" && pendingCount > 0 && (
-                  <span className="nav-badge">{pendingCount}</span>
+                  <span className="nav-badges">
+                    <span className="nav-badge">{pendingCount}</span>
+                    {overdueCount > 0 && (
+                      <span className="nav-badge nav-badge-overdue">
+                        {overdueCount}
+                      </span>
+                    )}
+                  </span>
                 )}
               </Link>
             ))}

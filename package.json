@@ -13,6 +13,7 @@
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.118.0",
     "bootstrap": "^5.3.8",
+    "emoji-picker-react": "^5.1.4",
     "next": "16.4.3",
     "react": "19.3.0",
     "react-bootstrap": "^2.10.10",

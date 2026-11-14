@@ -260,6 +260,23 @@ a {
   text-align: center;
 }
 
+.nav-badges {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+}
+
+.nav-badges .nav-badge {
+  margin-left: 0;
+}
+
+.nav-badge-overdue {
+  border: 1px solid var(--danger);
+  background: var(--danger);
+  color: var(--surface);
+}
+
 .sidebar-bottom {
   min-width: 220px;
   margin-top: auto;
@@ -388,6 +405,18 @@ a {
     border: 2px solid var(--surface);
     font-size: 0;
     line-height: 0;
+  }
+
+  .sidebar:not(:hover):not(:has(:focus-visible)) .nav-badges {
+    position: absolute;
+    top: 8px;
+    right: 6px;
+    gap: 0;
+    margin: 0;
+  }
+
+  .sidebar:not(:hover):not(:has(:focus-visible)) .nav-badges .nav-badge {
+    position: static;
   }
 
   .sidebar:not(:hover):not(:has(:focus-visible)) .sidebar-profile {
@@ -5592,39 +5621,25 @@ button.messenger-row:hover {
   z-index: 20;
   bottom: calc(100% + 8px);
   left: 0;
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 2px;
-  width: 230px;
-  padding: 8px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-}
-
-.emoji-choice {
-  display: grid;
-  width: 32px;
-  height: 32px;
-  place-items: center;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  font-size: 18px;
-  cursor: pointer;
-}
-
-.emoji-choice:hover {
-  background: var(--surface-muted);
+  --epr-bg-color: var(--surface);
+  --epr-category-label-bg-color: var(--surface);
+  --epr-text-color: var(--foreground);
+  --epr-highlight-color: var(--accent);
+  --epr-hover-bg-color: var(--surface-muted);
+  --epr-focus-bg-color: var(--accent-soft);
+  --epr-picker-border-color: var(--border);
+  --epr-search-input-bg-color: var(--surface-muted);
+  --epr-search-input-bg-color-active: var(--surface);
+  --epr-search-border-color: var(--border);
+  --epr-search-border-color-active: var(--accent);
 }
 
 @media (max-width: 640px) {
   .emoji-popover {
     left: auto;
     right: 0;
-    width: 216px;
-    grid-template-columns: repeat(6, 1fr);
+    max-width: min(320px, calc(100vw - 32px));
+    max-height: min(360px, calc(100dvh - 180px));
   }
 }
 
