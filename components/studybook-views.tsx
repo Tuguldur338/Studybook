@@ -544,13 +544,19 @@ export default function DashboardView() {
           </span>
           <div>
             <div className="stat-label">To-dos to finish</div>
-            <div className="stat-value">{pendingTasks.length}</div>
+            <div className="stat-value stat-value-with-overdue">
+              {pendingTasks.length}
+              {overdueCount > 0 && (
+                <span
+                  aria-label={`${overdueCount} overdue tasks`}
+                  className="overdue-count"
+                >
+                  {overdueCount} overdue
+                </span>
+              )}
+            </div>
             <div className="stat-note">
-              {overdueCount > 0
-                ? `${overdueCount} overdue`
-                : pendingTasks.length === 1
-                  ? "One step at a time"
-                  : "Keep it up"}
+              {pendingTasks.length === 1 ? "One step at a time" : "Keep it up"}
             </div>
           </div>
         </div>
@@ -633,38 +639,44 @@ export default function DashboardView() {
           <div className="panel-body">
             {nextTasks.length ? (
               <div className="task-list">
-                {nextTasks.map((task) => (
-                  <div
-                    className={`task-row${isOverdue(task, todayStr) ? " overdue" : ""}`}
-                    key={task.id}
-                  >
-                    <button
-                      aria-label={`Complete ${task.title}`}
-                      className="task-check dashboard-task-check"
-                      onClick={() => completeTask(task)}
-                      type="button"
-                    />
-                    <div className="task-main">
-                      <div className="task-title">{task.title}</div>
-                      <div className="task-meta">
-                        {task.course || "Personal"}
-                        <span>
-                          {isOverdue(task, todayStr) ? (
-                            <span className="overdue-label">
-                              <LuClock size={12} /> Overdue ·{" "}
-                              {formatDate(task.dueDate)}
-                            </span>
-                          ) : (
-                            formatDate(task.dueDate)
-                          )}
-                        </span>
+                {nextTasks.map((task) => {
+                  const overdue = isOverdue(task, todayStr);
+                  const priority = getTaskPriority(task, todayStr);
+                  return (
+                    <div
+                      className={`task-row${overdue ? " overdue" : ""}`}
+                      key={task.id}
+                    >
+                      <button
+                        aria-label={`Complete ${task.title}`}
+                        className="task-check dashboard-task-check"
+                        onClick={() => completeTask(task)}
+                        type="button"
+                      />
+                      <div className="task-main">
+                        <div className="task-title">{task.title}</div>
+                        <div className="task-meta">
+                          {task.course || "Personal"}
+                          <span>
+                            {overdue ? (
+                              <span className="overdue-label">
+                                <LuClock size={12} /> Overdue ·{" "}
+                                {formatDate(task.dueDate)}
+                              </span>
+                            ) : (
+                              formatDate(task.dueDate)
+                            )}
+                          </span>
+                        </div>
                       </div>
+                      <span
+                        className={`priority-badge ${overdue ? "overdue" : priority}`}
+                      >
+                        {overdue ? "Overdue" : priority}
+                      </span>
                     </div>
-                    <span className={`priority-badge ${getTaskPriority(task, todayStr)}`}>
-                      {getTaskPriority(task, todayStr)}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <EmptyState
@@ -2134,7 +2146,9 @@ export function ToDoListView() {
             )}
           </div>
         </div>
-        <span className={`priority-badge ${priority}`}>{priority}</span>
+        <span className={`priority-badge ${overdue ? "overdue" : priority}`}>
+          {overdue ? "Overdue" : priority}
+        </span>
         <div className="inline-actions">
           <button
             aria-label={`Delete ${task.title}`}
