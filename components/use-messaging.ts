@@ -110,6 +110,77 @@ export function useMessaging(user: User | null): MessagingApi {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const knownPeople = useRef<Set<string>>(new Set());
+  const memberConversationIds = useRef<Set<string>>(new Set());
+  const audioContext = useRef<AudioContext | null>(null);
+
+  const playIncomingMessageSound = useCallback(async () => {
+    type AudioContextConstructor = new () => AudioContext;
+    const AudioContextClass =
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext?: AudioContextConstructor })
+        .webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    try {
+      if (!audioContext.current || audioContext.current.state === "closed") {
+        audioContext.current = new AudioContextClass();
+      }
+
+      const context = audioContext.current;
+      await context.resume();
+
+      [880, 660].forEach((frequency, index) => {
+        const startTime = context.currentTime + 0.02 + index * 0.28;
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        oscillator.type = "sine";
+        oscillator.frequency.value = frequency;
+        gain.gain.setValueAtTime(0.0001, startTime);
+        gain.gain.exponentialRampToValueAtTime(0.14, startTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.24);
+        oscillator.connect(gain);
+        gain.connect(context.destination);
+        oscillator.start(startTime);
+        oscillator.stop(startTime + 0.25);
+      });
+    } catch (cause) {
+      console.warn("Could not play the incoming message sound.", cause);
+    }
+  }, []);
+
+  const unlockIncomingMessageSound = useCallback(() => {
+    type AudioContextConstructor = new () => AudioContext;
+    const AudioContextClass =
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext?: AudioContextConstructor })
+        .webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    try {
+      if (!audioContext.current || audioContext.current.state === "closed") {
+        audioContext.current = new AudioContextClass();
+      }
+      void audioContext.current.resume().catch((cause: unknown) => {
+        console.warn("Could not enable the incoming message sound.", cause);
+      });
+    } catch (cause) {
+      console.warn("Could not enable the incoming message sound.", cause);
+    }
+  }, []);
+
+  useEffect(() => {
+    const unlock = () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+      unlockIncomingMessageSound();
+    };
+    window.addEventListener("pointerdown", unlock);
+    window.addEventListener("keydown", unlock);
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
+  }, [unlockIncomingMessageSound]);
 
   const loadPeople = useCallback(
     async (ids: string[]) => {
@@ -188,6 +259,11 @@ export function useMessaging(user: User | null): MessagingApi {
       setFriendships(nextFriendships);
       setConversations(nextConversations);
       setMembers(nextMembers);
+      memberConversationIds.current = new Set(
+        nextMembers
+          .filter((member) => member.user_id === userId)
+          .map((member) => member.conversation_id),
+      );
       setMessages(nextMessages);
 
       const ids = new Set<string>();
@@ -229,8 +305,13 @@ export function useMessaging(user: User | null): MessagingApi {
               ? current
               : [...current, row],
           );
-          if (row.sender_id !== userId && !knownPeople.current.has(row.sender_id)) {
-            void loadPeople([row.sender_id]);
+          if (row.sender_id !== userId) {
+            if (memberConversationIds.current.has(row.conversation_id)) {
+              void playIncomingMessageSound();
+            }
+            if (!knownPeople.current.has(row.sender_id)) {
+              void loadPeople([row.sender_id]);
+            }
           }
         },
       )
@@ -266,7 +347,7 @@ export function useMessaging(user: User | null): MessagingApi {
       window.clearTimeout(initialLoad);
       void supabase.removeChannel(channel);
     };
-  }, [configured, loadPeople, refresh, userId]);
+  }, [configured, loadPeople, playIncomingMessageSound, refresh, userId]);
 
   const person = useCallback(
     (id: string): PersonInfo =>

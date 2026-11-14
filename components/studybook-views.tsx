@@ -151,6 +151,25 @@ function isOverdue(task: StudyTask, todayStr: string) {
   return !task.completed && !!task.dueDate && task.dueDate < todayStr;
 }
 
+function getTaskPriority(
+  task: Pick<StudyTask, "dueDate"> &
+    Partial<Pick<StudyTask, "completed" | "priority">>,
+  todayStr: string,
+): StudyTask["priority"] {
+  if (task.completed && task.priority) return task.priority;
+  if (!task.dueDate) return "low";
+
+  const today = todayStr || toISODate(new Date());
+  const dueTime = Date.parse(`${task.dueDate}T00:00:00Z`);
+  const todayTime = Date.parse(`${today}T00:00:00Z`);
+  if (Number.isNaN(dueTime) || Number.isNaN(todayTime)) return "low";
+
+  const daysUntilDue = Math.ceil((dueTime - todayTime) / 86_400_000);
+  if (daysUntilDue <= 3) return "high";
+  if (daysUntilDue <= 7) return "medium";
+  return "low";
+}
+
 function getGreeting(hour: number) {
   if (hour < 5) return "Working late";
   if (hour < 12) return "Good morning";
@@ -414,7 +433,7 @@ export default function DashboardView() {
   const [todayStr, setTodayStr] = useState("");
 
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
+    const updateToday = () => {
       const now = new Date();
       setToday({
         day: (now.getDay() + 6) % 7,
@@ -426,8 +445,13 @@ export default function DashboardView() {
       });
       setGreeting(getGreeting(now.getHours()));
       setTodayStr(toISODate(now));
-    });
-    return () => window.cancelAnimationFrame(frame);
+    };
+    const frame = window.requestAnimationFrame(updateToday);
+    const interval = window.setInterval(updateToday, 30_000);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearInterval(interval);
+    };
   }, []);
 
   const todaysClasses =
@@ -458,6 +482,10 @@ export default function DashboardView() {
   function completeTask(task: StudyTask) {
     const changedAt = new Date().toISOString();
     const late = isOverdue(task, todayStr);
+    const taskAtCompletion = {
+      ...task,
+      priority: getTaskPriority(task, todayStr),
+    };
     setTasks((current) =>
       current.map((item) =>
         item.id === task.id
@@ -465,13 +493,14 @@ export default function DashboardView() {
               ...item,
               completed: true,
               completedLate: late,
+              priority: taskAtCompletion.priority,
               updatedAt: changedAt,
             }
           : item,
       ),
     );
-    saveCompletedTask(task, late, changedAt, user?.id ?? null, notify);
-    void awardTaskPoints(task.priority, 1, late).then((result) =>
+    saveCompletedTask(taskAtCompletion, late, changedAt, user?.id ?? null, notify);
+    void awardTaskPoints(taskAtCompletion.priority, 1, late).then((result) =>
       notifyPointsResult(result, notify),
     );
   }
@@ -631,8 +660,8 @@ export default function DashboardView() {
                         </span>
                       </div>
                     </div>
-                    <span className={`priority-badge ${task.priority}`}>
-                      {task.priority}
+                    <span className={`priority-badge ${getTaskPriority(task, todayStr)}`}>
+                      {getTaskPriority(task, todayStr)}
                     </span>
                   </div>
                 ))}
@@ -1559,7 +1588,6 @@ const emptyTaskForm = {
   title: "",
   course: "",
   dueDate: "",
-  priority: "medium" as StudyTask["priority"],
 };
 
 type CalendarEventKind = "class" | "exam" | "task";
@@ -1960,10 +1988,13 @@ export function ToDoListView() {
   const [todayStr, setTodayStr] = useState("");
 
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      setTodayStr(toISODate(new Date()));
-    });
-    return () => window.cancelAnimationFrame(frame);
+    const updateToday = () => setTodayStr(toISODate(new Date()));
+    const frame = window.requestAnimationFrame(updateToday);
+    const interval = window.setInterval(updateToday, 30_000);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearInterval(interval);
+    };
   }, []);
 
   function closeForm() {
@@ -1977,7 +2008,7 @@ export function ToDoListView() {
       title: form.title.trim(),
       course: form.course.trim(),
       dueDate: form.dueDate,
-      priority: form.priority,
+      priority: getTaskPriority(form, todayStr),
       id: createId(),
       completed: false,
       updatedAt: new Date().toISOString(),
@@ -2013,14 +2044,14 @@ export function ToDoListView() {
       }
       if (sort === "priority") {
         return (
-          rank[a.priority] - rank[b.priority] ||
+          rank[getTaskPriority(a, todayStr)] - rank[getTaskPriority(b, todayStr)] ||
           (a.dueDate && b.dueDate ? a.dueDate.localeCompare(b.dueDate) : 0)
         );
       }
       return 0;
     });
     return list;
-  }, [tasks, query, filter, sort]);
+  }, [tasks, query, filter, sort, todayStr]);
 
   function clearCompleted() {
     const completedIds = tasks
@@ -2037,6 +2068,10 @@ export function ToDoListView() {
     const nextCompleted = !task.completed;
     const changedAt = new Date().toISOString();
     const late = nextCompleted ? isOverdue(task, todayStr) : Boolean(task.completedLate);
+    const taskAtCurrentPriority = {
+      ...task,
+      priority: getTaskPriority(task, todayStr),
+    };
     setTasks((current) =>
       current.map((item) =>
         item.id === task.id
@@ -2044,21 +2079,33 @@ export function ToDoListView() {
               ...item,
               completed: nextCompleted,
               completedLate: nextCompleted ? late : task.completedLate,
+              priority: nextCompleted
+                ? taskAtCurrentPriority.priority
+                : item.priority,
               updatedAt: changedAt,
             }
           : item,
       ),
     );
     if (nextCompleted) {
-      saveCompletedTask(task, late, changedAt, user?.id ?? null, notify);
+      saveCompletedTask(
+        taskAtCurrentPriority,
+        late,
+        changedAt,
+        user?.id ?? null,
+        notify,
+      );
     }
-    void awardTaskPoints(task.priority, nextCompleted ? 1 : -1, late).then(
-      (result) => notifyPointsResult(result, notify),
-    );
+    void awardTaskPoints(
+      taskAtCurrentPriority.priority,
+      nextCompleted ? 1 : -1,
+      late,
+    ).then((result) => notifyPointsResult(result, notify));
   }
 
   function renderTask(task: StudyTask) {
     const overdue = isOverdue(task, todayStr);
+    const priority = getTaskPriority(task, todayStr);
     return (
       <div className={`task-row${overdue ? " overdue" : ""}`} key={task.id}>
         <input
@@ -2087,9 +2134,7 @@ export function ToDoListView() {
             )}
           </div>
         </div>
-        <span className={`priority-badge ${task.priority}`}>
-          {task.priority}
-        </span>
+        <span className={`priority-badge ${priority}`}>{priority}</span>
         <div className="inline-actions">
           <button
             aria-label={`Delete ${task.title}`}
@@ -2166,29 +2211,6 @@ export function ToDoListView() {
                 type="date"
                 value={form.dueDate}
               />
-            </div>
-            <div className="field">
-              <label htmlFor="task-priority">Priority</label>
-              <div className="select-wrap">
-                <select
-                  className="select"
-                  id="task-priority"
-                  onChange={(event) =>
-                    setForm({
-                      ...form,
-                      priority: event.target.value as StudyTask["priority"],
-                    })
-                  }
-                  value={form.priority}
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-                <span aria-hidden="true" className="select-chevron">
-                  <LuChevronDown size={15} strokeWidth={2.5} />
-                </span>
-              </div>
             </div>
           </div>
           <div className="form-actions">
