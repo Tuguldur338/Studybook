@@ -486,6 +486,25 @@ function StudybookFrame({ children }: { children: ReactNode }) {
     ? messaging.totalUnread + messaging.incomingRequests.length
     : 0;
   const [titleUnread, setTitleUnread] = useState(0);
+  const previousPathnameRef = useRef(pathname);
+
+  useEffect(() => {
+    const exitedMessagesPage =
+      previousPathnameRef.current === "/messages" && pathname !== "/messages";
+    previousPathnameRef.current = pathname;
+    if (
+      !exitedMessagesPage ||
+      messagesWidget !== "open" ||
+      document.documentElement.dataset.messageMotion === "on"
+    ) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      updateMessagesWidget("closed");
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [messagesWidget, pathname]);
 
   useEffect(() => {
     if (!isMessagesPage) return;
@@ -702,6 +721,18 @@ function StudybookFrame({ children }: { children: ReactNode }) {
     }
   }
 
+  function handleSidebarNavigation(href: string) {
+    setMobileMenuOpen(false);
+    if (
+      isMessagesPage &&
+      href !== "/messages" &&
+      messagesWidget === "open" &&
+      document.documentElement.dataset.messageMotion !== "on"
+    ) {
+      updateMessagesWidget("closed");
+    }
+  }
+
   function toggleTheme() {    const nextTheme = theme === "light" ? "dark" : "light";
     document.documentElement.dataset.theme = nextTheme;
     setTheme(nextTheme);
@@ -738,7 +769,7 @@ function StudybookFrame({ children }: { children: ReactNode }) {
             aria-label="Studybook home"
             className="brand"
             href="/"
-            onClick={() => setMobileMenuOpen(false)}
+            onClick={() => handleSidebarNavigation("/")}
           >
             <span className="brand-mark">
               <LuBookOpen size={19} />
@@ -757,7 +788,7 @@ function StudybookFrame({ children }: { children: ReactNode }) {
                 className={`nav-link${pathname === href ? " active" : ""}`}
                 href={href}
                 key={href}
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={() => handleSidebarNavigation(href)}
                 title={label}
               >
                 <Icon size={18} />
@@ -815,7 +846,7 @@ function StudybookFrame({ children }: { children: ReactNode }) {
               aria-label="Account"
               className={`nav-link sidebar-account${pathname === "/profile" ? " active" : ""}`}
               href="/profile"
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={() => handleSidebarNavigation("/profile")}
               title="Account"
             >
               <LuFolderOpen size={18} />
@@ -830,7 +861,7 @@ function StudybookFrame({ children }: { children: ReactNode }) {
               aria-label={`${profile.name || "Student"}'s profile`}
               className="sidebar-profile"
               href="/profile"
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={() => handleSidebarNavigation("/profile")}
               title="View profile"
             >
               <ProfileAvatar
