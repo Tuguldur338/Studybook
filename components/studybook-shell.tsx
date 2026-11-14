@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   useEffect,
   useRef,
@@ -51,7 +51,10 @@ import HalloweenChallenge from "@/components/halloween-challenge";
 import { MusicProvider } from "@/components/music-context";
 import MusicPlayer from "@/components/music-player";
 import MusicEmbedPlayer from "@/components/music-embed-player";
-import { useMessaging } from "@/components/use-messaging";
+import {
+  useMessaging,
+  type ConversationSummary,
+} from "@/components/use-messaging";
 import {
   getSupabaseBrowserClient,
   isSupabaseConfigured,
@@ -74,6 +77,7 @@ const pageNames: Record<string, string> = {
   "/": "Overview",
   "/schedule": "Weekly schedule",
   "/calendar": "Calendar",
+  "/messages": "Messages",
   "/to-do-list": "To-do list",
   "/routine": "Daily routine",
   "/notes": "My notes",
@@ -411,6 +415,7 @@ function AuthModal({
 }
 function StudybookFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const {
     profile,
     setProfile,
@@ -430,6 +435,8 @@ function StudybookFrame({ children }: { children: ReactNode }) {
   const [authError, setAuthError] = useState("");
   const [username, setUsername] = useState("");
   const [equippedBorder, setEquippedBorder] = useState<string | null>(null);
+  const [bubbleConversation, setBubbleConversation] =
+    useState<ConversationSummary | null>(null);
   const [todayStr, setTodayStr] = useState("");
   const avatarSyncedRef = useRef(false);
 
@@ -467,6 +474,7 @@ function StudybookFrame({ children }: { children: ReactNode }) {
   }, []);
 
   const messaging = useMessaging(authUser);
+  const isMessagesPage = pathname === "/messages";
   const messagesBadge = authUser
     ? messaging.totalUnread + messaging.incomingRequests.length
     : 0;
@@ -730,11 +738,13 @@ function StudybookFrame({ children }: { children: ReactNode }) {
               </Link>
             ))}
             <button
-              className="nav-link nav-button"
+              aria-current={isMessagesPage ? "page" : undefined}
+              className={`nav-link nav-button${isMessagesPage ? " active" : ""}`}
               onClick={() => {
                 updateMessagesWidget("open");
                 setMobileMenuOpen(false);
                 void messaging.refresh();
+                router.push("/messages");
               }}
               title="Messages"
               type="button"
@@ -883,28 +893,55 @@ function StudybookFrame({ children }: { children: ReactNode }) {
             onClose={() => setAuthMode(null)}
           />
         )}
-        {messagesWidget !== "closed" && (
+        {(isMessagesPage || messagesWidget !== "closed") && (
           <MessagingPanel
             api={messaging}
-            minimized={messagesWidget === "minimized"}
-            onClose={() => updateMessagesWidget("closed")}
-            onMinimize={() => updateMessagesWidget("minimized")}
+            fullPage={isMessagesPage}
+            minimized={messagesWidget === "minimized" && !isMessagesPage}
+            onActiveConversationChange={setBubbleConversation}
+            onClose={() => {
+              updateMessagesWidget("closed");
+              if (isMessagesPage) router.push("/");
+            }}
+            onMinimize={() => {
+              updateMessagesWidget("minimized");
+              if (isMessagesPage) router.push("/");
+            }}
             user={authUser}
           />
         )}
-        {messagesWidget === "minimized" && (
+        {messagesWidget === "minimized" && !isMessagesPage && (
           <div className="messenger-bubble-wrap">
             <button
               aria-label={
-                messagesBadge > 0
-                  ? `Open messages, ${messagesBadge} unread`
-                  : "Open messages"
+                bubbleConversation
+                  ? `Open chat with ${bubbleConversation.title}${messagesBadge > 0 ? `, ${messagesBadge} unread` : ""}`
+                  : messagesBadge > 0
+                    ? `Open messages, ${messagesBadge} unread`
+                    : "Open messages"
               }
               className="messenger-bubble"
               onClick={() => updateMessagesWidget("open")}
               type="button"
             >
-              <LuMessageCircle size={22} />
+              <span
+                aria-hidden="true"
+                className={`messenger-bubble-avatar${bubbleConversation?.avatar ? " has-image" : ""}`}
+                style={
+                  bubbleConversation?.avatar
+                    ? {
+                        backgroundImage: `url("${bubbleConversation.avatar}")`,
+                      }
+                    : undefined
+                }
+              >
+                {!bubbleConversation?.avatar &&
+                  (bubbleConversation ? (
+                    initials(bubbleConversation.title)
+                  ) : (
+                    <LuMessageCircle size={22} />
+                  ))}
+              </span>
               {messagesBadge > 0 && (
                 <span className="messenger-bubble-badge">{messagesBadge}</span>
               )}

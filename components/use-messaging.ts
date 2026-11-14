@@ -48,6 +48,12 @@ export type ChatMessage = {
   created_at: string;
 };
 
+export type MessageReaction = {
+  message_id: string;
+  user_id: string;
+  emoji: string;
+};
+
 export type PersonInfo = {
   id: string;
   name: string;
@@ -78,6 +84,7 @@ export type MessagingApi = {
   totalUnread: number;
   person: (id: string) => PersonInfo;
   messagesFor: (conversationId: string | null) => ChatMessage[];
+  reactionsFor: (messageId: string) => MessageReaction[];
   refresh: () => Promise<void>;
   sendFriendRequest: (login: string) => Promise<string>;
   searchPeople: (query: string) => Promise<PersonInfo[]>;
@@ -95,6 +102,7 @@ export type MessagingApi = {
     body: string,
     image?: File | null,
   ) => Promise<void>;
+  toggleMessageReaction: (messageId: string, emoji: string) => Promise<void>;
   markConversationRead: (conversationId: string) => Promise<void>;
 };
 
@@ -106,6 +114,9 @@ export function useMessaging(user: User | null): MessagingApi {
   const [conversations, setConversations] = useState<ConversationRow[]>([]);
   const [members, setMembers] = useState<ConversationMember[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messageReactions, setMessageReactions] = useState<MessageReaction[]>(
+    [],
+  );
   const [people, setPeople] = useState<Record<string, PersonInfo>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -255,6 +266,23 @@ export function useMessaging(user: User | null): MessagingApi {
       const nextMessages = (
         (messageResult.data ?? []) as ChatMessage[]
       ).reverse();
+      const nextMessageReactions: MessageReaction[] = [];
+      if (nextMessages.length) {
+        const messageIds = nextMessages.map((message) => message.id);
+        const pageSize = 500;
+        for (let offset = 0; ; offset += pageSize) {
+          const { data, error: reactionError } = await supabase
+            .from("message_reactions")
+            .select("message_id, user_id, emoji")
+            .in("message_id", messageIds)
+            .range(offset, offset + pageSize - 1);
+          if (reactionError) throw reactionError;
+
+          const page = (data ?? []) as MessageReaction[];
+          nextMessageReactions.push(...page);
+          if (page.length < pageSize) break;
+        }
+      }
 
       setFriendships(nextFriendships);
       setConversations(nextConversations);
@@ -265,6 +293,7 @@ export function useMessaging(user: User | null): MessagingApi {
           .map((member) => member.conversation_id),
       );
       setMessages(nextMessages);
+      setMessageReactions(nextMessageReactions);
 
       const ids = new Set<string>();
       for (const row of nextFriendships) {
@@ -312,6 +341,39 @@ export function useMessaging(user: User | null): MessagingApi {
             if (!knownPeople.current.has(row.sender_id)) {
               void loadPeople([row.sender_id]);
             }
+          }
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "message_reactions",
+        },
+        (payload: RealtimePostgresChangesPayload<MessageReaction>) => {
+          if (payload.eventType === "INSERT") {
+            const row = payload.new as MessageReaction;
+            setMessageReactions((current) =>
+              current.some(
+                (reaction) =>
+                  reaction.message_id === row.message_id &&
+                  reaction.user_id === row.user_id &&
+                  reaction.emoji === row.emoji,
+              )
+                ? current
+                : [...current, row],
+            );
+          } else if (payload.eventType === "DELETE") {
+            const row = payload.old as MessageReaction;
+            setMessageReactions((current) =>
+              current.filter(
+                (reaction) =>
+                  reaction.message_id !== row.message_id ||
+                  reaction.user_id !== row.user_id ||
+                  reaction.emoji !== row.emoji,
+              ),
+            );
           }
         },
       )
@@ -453,6 +515,12 @@ export function useMessaging(user: User | null): MessagingApi {
       );
     },
     [messages],
+  );
+
+  const reactionsFor = useCallback(
+    (messageId: string) =>
+      messageReactions.filter((reaction) => reaction.message_id === messageId),
+    [messageReactions],
   );
 
   const sendFriendRequest = useCallback(
@@ -689,6 +757,58 @@ export function useMessaging(user: User | null): MessagingApi {
     [configured, userId],
   );
 
+  const toggleMessageReaction = useCallback(
+    async (messageId: string, emoji: string) => {
+      if (!configured || !userId) throw new Error("Sign in to react to messages.");
+      const supabase = getSupabaseBrowserClient();
+      const existing = messageReactions.some(
+        (reaction) =>
+          reaction.message_id === messageId &&
+          reaction.user_id === userId &&
+          reaction.emoji === emoji,
+      );
+
+      if (existing) {
+        const { error: deleteError } = await supabase
+          .from("message_reactions")
+          .delete()
+          .eq("message_id", messageId)
+          .eq("user_id", userId)
+          .eq("emoji", emoji);
+        if (deleteError) throw deleteError;
+        setMessageReactions((current) =>
+          current.filter(
+            (reaction) =>
+              reaction.message_id !== messageId ||
+              reaction.user_id !== userId ||
+              reaction.emoji !== emoji,
+          ),
+        );
+        return;
+      }
+
+      const reaction = { message_id: messageId, user_id: userId, emoji };
+      const { error: insertError } = await supabase
+        .from("message_reactions")
+        .upsert(reaction, {
+          onConflict: "message_id,user_id,emoji",
+          ignoreDuplicates: true,
+        });
+      if (insertError) throw insertError;
+      setMessageReactions((current) =>
+        current.some(
+          (item) =>
+            item.message_id === messageId &&
+            item.user_id === userId &&
+            item.emoji === emoji,
+        )
+          ? current
+          : [...current, reaction],
+      );
+    },
+    [configured, messageReactions, userId],
+  );
+
   const markConversationRead = useCallback(
     async (conversationId: string) => {
       if (!configured || !userId) return;
@@ -735,6 +855,7 @@ export function useMessaging(user: User | null): MessagingApi {
     totalUnread,
     person,
     messagesFor,
+    reactionsFor,
     refresh,
     sendFriendRequest,
     searchPeople,
@@ -745,6 +866,7 @@ export function useMessaging(user: User | null): MessagingApi {
     addGroupMembers,
     leaveConversation,
     sendMessage,
+    toggleMessageReaction,
     markConversationRead,
   };
 }
