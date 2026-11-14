@@ -10508,8 +10508,11 @@ button.messenger-row:hover {
   }
 }
 
+html:not([data-message-motion="on"]) .messenger,
 html:not([data-message-motion="on"]) .messenger-bubble {
-  transition: none;
+  animation: none !important;
+  transition: none !important;
+  transform: none !important;
 }
 
 /* Keep native dropdown indicators still on press; animate the chevron itself. */

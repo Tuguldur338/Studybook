@@ -3857,8 +3857,8 @@ export function SettingsView() {
               <span className="setting-toggle-copy">
                 <strong>Message panel motion</strong>
                 <span>
-                  Animate the message panel and bubble when they open or are
-                  hovered. This is off by default and is saved on this device.
+                  Animate the message panel and bubble when opening, resizing,
+                  or hovering. This is off by default and saved on this device.
                 </span>
               </span>
             </label>
