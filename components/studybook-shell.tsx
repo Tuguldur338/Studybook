@@ -558,8 +558,11 @@ function StudybookFrame({ children }: { children: ReactNode }) {
   }, [titleUnread]);
 
   useEffect(() => {
+    const isInstalledApp =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      ("standalone" in navigator && navigator.standalone === true);
     if (
-      !window.matchMedia("(display-mode: standalone)").matches ||
+      !isInstalledApp ||
       typeof navigator.setAppBadge !== "function" ||
       typeof navigator.clearAppBadge !== "function"
     ) {
