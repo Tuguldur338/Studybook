@@ -137,6 +137,9 @@ function ProfileAvatar({
       role="img"
     >
       {!image && initials(name)}
+      {borderClass && (
+        <span aria-hidden="true" className="avatar-frame-decoration" />
+      )}
     </span>
   );
 }
@@ -553,6 +556,24 @@ function StudybookFrame({ children }: { children: ReactNode }) {
       document.title = "Studybook";
     };
   }, [titleUnread]);
+
+  useEffect(() => {
+    if (
+      !window.matchMedia("(display-mode: standalone)").matches ||
+      typeof navigator.setAppBadge !== "function" ||
+      typeof navigator.clearAppBadge !== "function"
+    ) {
+      return;
+    }
+
+    const updateBadge =
+      authUser && messaging.totalUnread > 0
+        ? navigator.setAppBadge(messaging.totalUnread)
+        : navigator.clearAppBadge();
+    void updateBadge.catch((cause: unknown) => {
+      console.error("Could not update the Studybook app icon badge:", cause);
+    });
+  }, [authUser, messaging.totalUnread]);
 
   const pendingCount = tasks.filter((task) => !task.completed).length;
   const overdueCount = tasks.filter(

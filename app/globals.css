@@ -7649,33 +7649,38 @@ button.reaction-chip,
 
 .border-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 9px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr));
+  gap: 12px;
 }
 
 .border-card {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  position: relative;
+  display: grid;
+  min-height: 178px;
+  justify-items: center;
+  align-content: center;
+  gap: 8px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 16px;
   background: var(--surface);
-  padding: 10px;
+  padding: 14px 10px;
   color: var(--foreground);
-  text-align: left;
+  text-align: center;
 }
 
 .border-card-main {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 12px;
   flex: 1;
   min-width: 0;
+  width: 100%;
   border: 0;
   background: transparent;
-  padding: 0;
+  padding: 4px 0;
   color: inherit;
-  text-align: left;
+  text-align: center;
   cursor: pointer;
 }
 
@@ -7690,6 +7695,9 @@ button.reaction-chip,
 }
 
 .border-unequip {
+  position: absolute;
+  top: 7px;
+  right: 7px;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
@@ -7719,10 +7727,10 @@ button.reaction-chip,
 }
 
 .border-preview {
-  width: 52px;
-  height: 52px;
-  flex: 0 0 52px;
-  border-radius: 50%;
+  width: 70px;
+  height: 70px;
+  flex: 0 0 70px;
+  border-radius: 22%;
   background: var(--surface-muted);
   color: var(--accent-strong);
   font-size: 17px;
@@ -7731,7 +7739,8 @@ button.reaction-chip,
 .border-card-copy {
   display: grid;
   min-width: 0;
-  gap: 1px;
+  gap: 5px;
+  justify-items: center;
 }
 
 .border-card-copy strong {
@@ -9798,8 +9807,9 @@ textarea.input:focus {
 .border-card[class*="celebration-"] .border-preview.avatar {
   --champion-ring: 5px;
   outline-width: 3px;
-  outline-offset: 3px;
+  outline: 0;
   border: 2px solid var(--surface);
+  border-radius: 22%;
   background:
     radial-gradient(
       circle at 34% 27%,
@@ -9816,12 +9826,16 @@ textarea.input:focus {
 .border-card[class*="champion-"] .border-preview.avatar::before,
 .border-card[class*="exclusive-"] .border-preview.avatar::before,
 .border-card[class*="celebration-"] .border-preview.avatar::before {
-  right: -7px;
-  bottom: -6px;
-  width: 19px;
-  height: 19px;
+  top: -9px;
+  right: auto;
+  bottom: auto;
+  left: 50%;
+  width: 24px;
+  height: 13px;
+  transform: translateX(-50%);
   border-width: 2px;
-  font-size: 9px;
+  border-radius: 4px;
+  font-size: 8px;
   box-shadow:
     0 0 0 2px color-mix(in srgb, var(--champion) 34%, transparent),
     0 3px 9px rgb(0 0 0 / 45%);
@@ -9856,6 +9870,150 @@ textarea.input:focus {
   .border-card[class*="exclusive-"]:hover,
   .border-card[class*="celebration-"]:hover {
     transform: none;
+  }
+}
+
+.avatar[class*="champion-"],
+.avatar[class*="exclusive-"],
+.avatar[class*="celebration-"] {
+  --frame-radius: 22%;
+  border-radius: var(--frame-radius);
+  outline: 0;
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb, var(--champion-2) 58%, transparent),
+    0 0 0 2px color-mix(in srgb, var(--champion) 88%, transparent),
+    0 0 14px color-mix(in srgb, var(--champion) 38%, transparent);
+}
+
+.avatar[class*="champion-"]::before,
+.avatar[class*="exclusive-"]::before,
+.avatar[class*="celebration-"]::before {
+  top: -9px;
+  right: auto;
+  bottom: auto;
+  left: 50%;
+  width: 22px;
+  height: 13px;
+  transform: translateX(-50%);
+  border-radius: 4px;
+  font-size: 8px;
+}
+
+.avatar[class*="champion-"]::after,
+.avatar[class*="exclusive-"]::after,
+.avatar[class*="celebration-"]::after {
+  border-radius: var(--frame-radius);
+}
+
+.border-card[class*="champion-"] .border-preview.avatar,
+.border-card[class*="exclusive-"] .border-preview.avatar,
+.border-card[class*="celebration-"] .border-preview.avatar {
+  border-radius: var(--frame-radius);
+}
+
+.avatar-frame-decoration {
+  position: absolute;
+  inset: -7px;
+  z-index: 1;
+  border: 2px solid color-mix(in srgb, var(--champion) 78%, var(--champion-2));
+  border-radius: calc(var(--frame-radius, 22%) + 4px);
+  background:
+    radial-gradient(circle at 0 0, var(--champion-2) 0 2px, transparent 2.8px),
+    radial-gradient(circle at 100% 0, var(--champion-2) 0 2px, transparent 2.8px),
+    radial-gradient(circle at 0 100%, var(--champion-2) 0 2px, transparent 2.8px),
+    radial-gradient(circle at 100% 100%, var(--champion-2) 0 2px, transparent 2.8px),
+    linear-gradient(90deg, var(--champion), var(--champion-2), var(--champion));
+  background-size:
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    100% 100%,
+    34% 4px;
+  background-position:
+    center,
+    center,
+    center,
+    center,
+    center top;
+  background-repeat: no-repeat;
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb, var(--champion-2) 32%, transparent),
+    0 3px 9px rgb(0 0 0 / 34%);
+  pointer-events: none;
+}
+
+.avatar-frame-decoration::before,
+.avatar-frame-decoration::after {
+  content: "";
+  position: absolute;
+  top: 27%;
+  bottom: 27%;
+  width: 4px;
+  border: 1px solid color-mix(in srgb, var(--champion-2) 74%, var(--champion));
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--champion-2), var(--champion));
+  box-shadow: 0 0 7px color-mix(in srgb, var(--champion) 54%, transparent);
+}
+
+.avatar-frame-decoration::before {
+  left: -5px;
+}
+
+.avatar-frame-decoration::after {
+  right: -5px;
+}
+
+.avatar.champion-1 {
+  --frame-radius: 13%;
+}
+
+.avatar.champion-2 {
+  --frame-radius: 30%;
+}
+
+.avatar.champion-3 {
+  --frame-radius: 18%;
+}
+
+.avatar.champion-4 {
+  --frame-radius: 8%;
+}
+
+.avatar.champion-5 {
+  --frame-radius: 26%;
+}
+
+.avatar.champion-6 {
+  --frame-radius: 12%;
+}
+
+.avatar.champion-7 {
+  --frame-radius: 34%;
+}
+
+.avatar.champion-8 {
+  --frame-radius: 16%;
+}
+
+.avatar.champion-9 {
+  --frame-radius: 10%;
+}
+
+.avatar.champion-10 {
+  --frame-radius: 24%;
+}
+
+.avatar.champion-11 {
+  --frame-radius: 14%;
+}
+
+.avatar.champion-12 {
+  --frame-radius: 20%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar-frame-decoration {
+    animation: none;
   }
 }
 

@@ -3530,6 +3530,7 @@ export function ProfileView() {
                         className={`border-preview avatar ${borderClass(borderId)}`}
                       >
                         {"\u2605"}
+                        <span className="avatar-frame-decoration" />
                       </span>
                       <span className="border-card-copy">
                         <strong>{borderLabel(borderId)}</strong>
