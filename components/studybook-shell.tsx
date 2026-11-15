@@ -493,6 +493,8 @@ function StudybookFrame({ children }: { children: ReactNode }) {
     ? messaging.totalUnread + messaging.incomingRequests.length
     : 0;
   const [titleUnread, setTitleUnread] = useState(0);
+  const [appBadgePermissionVersion, setAppBadgePermissionVersion] =
+    useState(0);
   const previousPathnameRef = useRef(pathname);
 
   useEffect(() => {
@@ -558,6 +560,22 @@ function StudybookFrame({ children }: { children: ReactNode }) {
   }, [titleUnread]);
 
   useEffect(() => {
+    function refreshAppBadge() {
+      setAppBadgePermissionVersion((version) => version + 1);
+    }
+
+    window.addEventListener(
+      "studybook:app-badge-permission-changed",
+      refreshAppBadge,
+    );
+    return () =>
+      window.removeEventListener(
+        "studybook:app-badge-permission-changed",
+        refreshAppBadge,
+      );
+  }, []);
+
+  useEffect(() => {
     const isInstalledApp =
       window.matchMedia("(display-mode: standalone)").matches ||
       ("standalone" in navigator && navigator.standalone === true);
@@ -576,7 +594,7 @@ function StudybookFrame({ children }: { children: ReactNode }) {
     void updateBadge.catch((cause: unknown) => {
       console.error("Could not update the Studybook app icon badge:", cause);
     });
-  }, [authUser, messaging.totalUnread]);
+  }, [appBadgePermissionVersion, authUser, messaging.totalUnread]);
 
   const pendingCount = tasks.filter((task) => !task.completed).length;
   const overdueCount = tasks.filter(
