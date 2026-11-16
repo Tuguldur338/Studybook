@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Studybook</string>
+    <string name="title_activity_main">Studybook</string>
+    <string name="package_name">com.tuguldur338.studybook</string>
+    <string name="custom_url_scheme">com.tuguldur338.studybook</string>
+</resources>

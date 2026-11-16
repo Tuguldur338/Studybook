@@ -45,6 +45,7 @@ export const metadata: Metadata = {
   title: "Studybook",
   description:
     "Your personal student planner for class schedules, assignments, notes, and study goals.",
+  manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     title: "Studybook",
