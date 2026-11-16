@@ -69,6 +69,15 @@ import { fetchRemoteTrackTitle } from "@/lib/music-embed";
 import { HALLOWEEN_THEME_TRACK } from "@/lib/music-specials";
 import { PALETTES } from "@/lib/palettes";
 import { MESSAGE_MOTION_STORAGE_KEY } from "@/lib/message-motion";
+import {
+  achievementErrorMessage,
+  getAchievementSummary,
+  recordCompletionEvent,
+  TASK_COMPLETION_ACHIEVEMENT_ID,
+  TASK_COMPLETION_ACHIEVEMENT_TARGET,
+  type AchievementSummary,
+  type CompletionSource,
+} from "@/lib/achievements";
 import LoopButton from "@/components/loop-button";
 import PWAInstallCard from "@/components/pwa-install-card";
 import {
@@ -117,24 +126,67 @@ function saveCompletedTask(
 ) {
   if (!userId) return;
 
-  void (async () => {
-    try {
-      const borders = await recordCompletedTask(
-        getSupabaseBrowserClient(),
-        {
-          ...task,
-          completedLate,
-          completedAt,
-        },
-      );
+  let supabase: ReturnType<typeof getSupabaseBrowserClient>;
+  try {
+    supabase = getSupabaseBrowserClient();
+  } catch (cause) {
+    notify(
+      `Could not connect your completed task to your account: ${borderDropErrorMessage(cause)}`,
+      "error",
+    );
+    return;
+  }
+  void recordCompletedTask(supabase, {
+    ...task,
+    completedLate,
+    completedAt,
+  })
+    .then((borders) => {
       window.dispatchEvent(new Event("studybook:task-history-updated"));
       if (borders.length) {
         notify(`You found the ${borders.map(borderLabel).join(" and ")} border!`);
         window.dispatchEvent(new Event("studybook:borders-updated"));
       }
-    } catch (cause) {
+    })
+    .catch((cause: unknown) => {
       notify(
         `Could not save completed task: ${borderDropErrorMessage(cause)}`,
+        "error",
+      );
+    });
+
+  void recordCompletionEvent(supabase, `todo:${task.id}`, "todo")
+    .then(({ unlockedAchievement }) => {
+      if (unlockedAchievement === TASK_COMPLETION_ACHIEVEMENT_ID) {
+        notify("Achievement unlocked: 50 tasks completed!");
+      }
+    })
+    .catch((cause: unknown) => {
+      notify(
+        `Could not update achievement progress: ${achievementErrorMessage(cause)}`,
+        "error",
+      );
+    });
+}
+
+function trackChecklistCompletion(
+  eventKey: string,
+  source: Exclude<CompletionSource, "todo">,
+  notify: NotifyFn,
+) {
+  void (async () => {
+    try {
+      const { unlockedAchievement } = await recordCompletionEvent(
+        getSupabaseBrowserClient(),
+        eventKey,
+        source,
+      );
+      if (unlockedAchievement === TASK_COMPLETION_ACHIEVEMENT_ID) {
+        notify("Achievement unlocked: 50 tasks completed!");
+      }
+    } catch (cause) {
+      notify(
+        `Could not update achievement progress: ${achievementErrorMessage(cause)}`,
         "error",
       );
     }
@@ -716,6 +768,7 @@ export function ScheduleView() {
     setClasses,
     setSavedClasses,
   } = useStudybook();
+  const { user } = useSupabaseUser();
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyClassForm);
@@ -943,10 +996,14 @@ export function ScheduleView() {
   function toggleCheck(id: string, kind: "classwork" | "homework") {
     if (!weekKey) return;
     const key = `${weekKey}:${id}`;
+    const currentlyCompleted = Boolean(classChecks[key]?.[kind]);
     setClassChecks((current) => {
       const entry = current[key] ?? { classwork: false, homework: false };
       return { ...current, [key]: { ...entry, [kind]: !entry[kind] } };
     });
+    if (!currentlyCompleted && user) {
+      trackChecklistCompletion(`schedule:${key}:${kind}`, "schedule", notify);
+    }
   }
 
   function renderChecks(session: ClassSession) {
@@ -3155,6 +3212,10 @@ export function ProfileView() {
     useState(false);
   const [completedTaskHistoryError, setCompletedTaskHistoryError] =
     useState("");
+  const [achievementSummary, setAchievementSummary] =
+    useState<AchievementSummary | null>(null);
+  const [achievementLoading, setAchievementLoading] = useState(false);
+  const [achievementError, setAchievementError] = useState("");
 
   useEffect(() => {
     if (!ready || !user) return;
@@ -3259,6 +3320,65 @@ export function ProfileView() {
       active = false;
       window.clearTimeout(timer);
       window.removeEventListener("studybook:borders-updated", refreshBorders);
+    };
+  }, [ready, user]);
+
+  useEffect(() => {
+    if (!ready || !user) {
+      const timer = window.setTimeout(() => {
+        setAchievementSummary(null);
+        setAchievementLoading(false);
+      }, 0);
+      return () => window.clearTimeout(timer);
+    }
+
+    let active = true;
+    const loadAchievementSummary = async () => {
+      setAchievementLoading(true);
+      try {
+        const summary = await getAchievementSummary(
+          getSupabaseBrowserClient(),
+          user.id,
+        );
+        if (!active) return;
+        setAchievementSummary(summary);
+        setAchievementError("");
+      } catch (cause) {
+        if (!active) return;
+        setAchievementError(achievementErrorMessage(cause));
+      } finally {
+        if (active) setAchievementLoading(false);
+      }
+    };
+
+    const timer = window.setTimeout(
+      () => void loadAchievementSummary(),
+      0,
+    );
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void loadAchievementSummary();
+      }
+    }, 15_000);
+    const refresh = () => {
+      if (document.visibilityState === "visible") {
+        void loadAchievementSummary();
+      }
+    };
+    window.addEventListener("studybook:achievement-progress-updated", refresh);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+      window.clearInterval(interval);
+      window.removeEventListener(
+        "studybook:achievement-progress-updated",
+        refresh,
+      );
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
     };
   }, [ready, user]);
 
@@ -3383,6 +3503,10 @@ export function ProfileView() {
     );
   }, [completed, completedTaskQuery]);
   const visibleCompletedTasks = matchingCompletedTasks.slice(0, 5);
+  const taskAchievementEarned =
+    achievementSummary?.achievements.includes(
+      TASK_COMPLETION_ACHIEVEMENT_ID,
+    ) ?? false;
 
   return (
     <>
@@ -3414,7 +3538,7 @@ export function ProfileView() {
           <div className="profile-stats">
             <div>
               <strong>{completed.length}</strong>
-              <span>tasks done</span>
+              <span>to-dos done</span>
             </div>
             <div>
               <strong>{classes.length}</strong>
@@ -3494,6 +3618,77 @@ export function ProfileView() {
           </div>
         </section>
       </div>
+
+      <section className="panel profile-achievements">
+        <div className="panel-heading">
+          <h2 className="panel-title">Achievements</h2>
+          {achievementSummary && (
+            <span className="panel-link">
+              {achievementSummary.achievements.length} earned
+            </span>
+          )}
+        </div>
+        <div className="panel-body">
+          {achievementError && (
+            <p aria-live="polite" className="notice">
+              Could not load achievements: {achievementError}
+            </p>
+          )}
+          {achievementLoading && !achievementSummary ? (
+            <p className="field-hint">Loading achievements…</p>
+          ) : !user ? (
+            <p className="field-hint">
+              Sign in to save achievements to your account and sync them across
+              devices.
+            </p>
+          ) : achievementSummary ? (
+            <div
+              className={`achievement-card${achievementSummary.achievements.includes(TASK_COMPLETION_ACHIEVEMENT_ID) ? " earned" : ""}`}
+            >
+              <span aria-hidden="true" className="achievement-icon">
+                <LuTrophy size={20} />
+              </span>
+              <div className="achievement-copy">
+                <strong>Task Champion</strong>
+                <span>
+                  {taskAchievementEarned
+                    ? "Unlocked — 50 study completions."
+                    : "Complete 50 to-dos, daily routine steps, or weekly classwork and homework checks."}
+                </span>
+                <div
+                  aria-label={`${Math.min(achievementSummary.completedCount, TASK_COMPLETION_ACHIEVEMENT_TARGET)} of ${TASK_COMPLETION_ACHIEVEMENT_TARGET} completions toward Task Champion`}
+                  className="achievement-progress"
+                  role="progressbar"
+                  aria-valuemax={TASK_COMPLETION_ACHIEVEMENT_TARGET}
+                  aria-valuemin={0}
+                  aria-valuenow={Math.min(
+                    achievementSummary.completedCount,
+                    TASK_COMPLETION_ACHIEVEMENT_TARGET,
+                  )}
+                >
+                  <span
+                    style={{
+                      width: `${Math.min(
+                        (achievementSummary.completedCount /
+                          TASK_COMPLETION_ACHIEVEMENT_TARGET) *
+                          100,
+                        100,
+                      )}%`,
+                    }}
+                  />
+                </div>
+              </div>
+              <strong className="achievement-count">
+                {Math.min(
+                  achievementSummary.completedCount,
+                  TASK_COMPLETION_ACHIEVEMENT_TARGET,
+                )}
+                /{TASK_COMPLETION_ACHIEVEMENT_TARGET}
+              </strong>
+            </div>
+          ) : null}
+        </div>
+      </section>
 
       <section className="panel profile-borders">
         <div className="panel-heading">
@@ -4662,6 +4857,7 @@ export function RoutineView() {
     setRoutine,
     setRoutineChecks,
   } = useStudybook();
+  const { user } = useSupabaseUser();
   const [today, setToday] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [time, setTime] = useState("");
@@ -4732,12 +4928,16 @@ export function RoutineView() {
   function toggleItem(id: string) {
     if (!today) return;
     const key = `${today}|${id}`;
+    const currentlyCompleted = Boolean(routineChecks[key]);
     setRoutineChecks((current) => {
       const next = { ...current };
       if (next[key]) delete next[key];
       else next[key] = true;
       return next;
     });
+    if (!currentlyCompleted && user) {
+      trackChecklistCompletion(`routine:${key}`, "routine", notify);
+    }
   }
 
   function handleAdd(event: FormEvent<HTMLFormElement>) {
@@ -4941,10 +5141,67 @@ export function LeaderboardView() {
   const { profile } = useStudybook();
   const { user, ready } = useSupabaseUser();
   const [rows, setRows] = useState<LeaderboardRow[]>([]);
+  const [selectedProfile, setSelectedProfile] =
+    useState<LeaderboardRow | null>(null);
+  const [selectedProfileSummary, setSelectedProfileSummary] =
+    useState<AchievementSummary | null>(null);
+  const [selectedProfileLoading, setSelectedProfileLoading] = useState(false);
+  const [selectedProfileError, setSelectedProfileError] = useState("");
   const [ownPoints, setOwnPoints] = useState<number | null>(null);
   const [seasonLabel, setSeasonLabel] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const profilePreviewRequest = useRef(0);
+
+  async function openProfile(row: LeaderboardRow) {
+    const requestId = ++profilePreviewRequest.current;
+    setSelectedProfile(row);
+    setSelectedProfileSummary(null);
+    setSelectedProfileLoading(true);
+    setSelectedProfileError("");
+    try {
+      const summary = await getAchievementSummary(
+        getSupabaseBrowserClient(),
+        row.id,
+      );
+      if (requestId === profilePreviewRequest.current) {
+        setSelectedProfileSummary(summary);
+      }
+    } catch (cause) {
+      if (requestId === profilePreviewRequest.current) {
+        setSelectedProfileError(
+          achievementErrorMessage(cause),
+        );
+      }
+    } finally {
+      if (requestId === profilePreviewRequest.current) {
+        setSelectedProfileLoading(false);
+      }
+    }
+  }
+
+  function closeProfile() {
+    profilePreviewRequest.current += 1;
+    setSelectedProfile(null);
+    setSelectedProfileSummary(null);
+    setSelectedProfileError("");
+    setSelectedProfileLoading(false);
+  }
+
+  useEffect(() => {
+    if (!selectedProfile) return;
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        profilePreviewRequest.current += 1;
+        setSelectedProfile(null);
+        setSelectedProfileSummary(null);
+        setSelectedProfileError("");
+        setSelectedProfileLoading(false);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedProfile]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -5080,9 +5337,19 @@ export function LeaderboardView() {
                 <>
                   <div className="leaderboard-podium">
                     {places.map(({ rank, row }) => (
-                      <div
+                      <button
+                        aria-label={
+                          row
+                            ? `View ${row.display_name || row.username || "Student"}'s profile`
+                            : undefined
+                        }
                         className={`podium-place place-${rank}${row?.id === user.id ? " me" : ""}`}
+                        disabled={!row}
                         key={rank}
+                        onClick={() => {
+                          if (row) void openProfile(row);
+                        }}
+                        type="button"
                       >
                         <div className="podium-person">
                           {row ? (
@@ -5121,7 +5388,7 @@ export function LeaderboardView() {
                             {rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉"}
                           </span>
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
 
@@ -5131,9 +5398,12 @@ export function LeaderboardView() {
                         4th place onward
                       </h3>
                       {rows.slice(3).map((row, index) => (
-                        <div
+                        <button
+                          aria-label={`View ${row.display_name || row.username || "Student"}'s profile, rank ${index + 4}`}
                           className={`leaderboard-row${row.id === user.id ? " me" : ""}`}
                           key={row.id}
+                          onClick={() => void openProfile(row)}
+                          type="button"
                         >
                           <span className="leaderboard-rank">
                             {index + 4}
@@ -5160,7 +5430,7 @@ export function LeaderboardView() {
                           <span className="leaderboard-points">
                             {row.points} pts
                           </span>
-                        </div>
+                        </button>
                       ))}
                     </div>
                   )}
@@ -5199,6 +5469,119 @@ export function LeaderboardView() {
             </div>
           </section>
         </>
+      )}
+      {selectedProfile && (
+        <div
+          className="modal-backdrop leaderboard-profile-backdrop"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) closeProfile();
+          }}
+          role="presentation"
+        >
+          <section
+            aria-labelledby="leaderboard-profile-title"
+            aria-modal="true"
+            className="modal leaderboard-profile-dialog"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <div className="modal-heading">
+              <div className="leaderboard-profile-identity">
+                <ProfileAvatar
+                  borderClass={borderClass(selectedProfile.equipped_border)}
+                  image={
+                    selectedProfile.id === user.id &&
+                    !selectedProfile.avatar_url
+                      ? profile.avatar
+                      : selectedProfile.avatar_url ?? ""
+                  }
+                  large
+                  name={
+                    selectedProfile.display_name ||
+                    selectedProfile.username ||
+                    "Student"
+                  }
+                />
+                <div>
+                  <h2
+                    className="modal-title"
+                    id="leaderboard-profile-title"
+                  >
+                    {selectedProfile.display_name ||
+                      (selectedProfile.username
+                        ? `@${selectedProfile.username}`
+                        : "Student")}
+                  </h2>
+                  {selectedProfile.username && (
+                    <p className="leaderboard-profile-username">
+                      @{selectedProfile.username}
+                    </p>
+                  )}
+                  <p className="leaderboard-profile-points">
+                    <LuTrophy aria-hidden="true" size={14} />
+                    {selectedProfile.points} leaderboard points
+                  </p>
+                </div>
+              </div>
+              <button
+                aria-label="Close profile"
+                autoFocus
+                className="icon-button"
+                onClick={closeProfile}
+                type="button"
+              >
+                <LuX aria-hidden="true" size={17} />
+              </button>
+            </div>
+            <section className="leaderboard-profile-activity">
+              <h3>Study achievements</h3>
+              {selectedProfileError && (
+                <p aria-live="polite" className="notice">
+                  Could not load achievements: {selectedProfileError}
+                </p>
+              )}
+              {selectedProfileLoading ? (
+                <p className="field-hint">Loading profile activity…</p>
+              ) : (
+                selectedProfileSummary && (
+                  <>
+                    <div className="leaderboard-profile-completed">
+                      <strong>
+                        {selectedProfileSummary.completedCount}
+                      </strong>
+                      <span>completed study tasks</span>
+                    </div>
+                    {selectedProfileSummary.achievements.includes(
+                      TASK_COMPLETION_ACHIEVEMENT_ID,
+                    ) ? (
+                      <div className="achievement-card earned">
+                        <span
+                          aria-hidden="true"
+                          className="achievement-icon"
+                        >
+                          <LuTrophy size={20} />
+                        </span>
+                        <div className="achievement-copy">
+                          <strong>Task Champion</strong>
+                          <span>Completed 50 study tasks.</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="field-hint">
+                        {Math.min(
+                          selectedProfileSummary.completedCount,
+                          TASK_COMPLETION_ACHIEVEMENT_TARGET,
+                        )}
+                        /{TASK_COMPLETION_ACHIEVEMENT_TARGET} toward Task
+                        Champion
+                      </p>
+                    )}
+                  </>
+                )
+              )}
+            </section>
+          </section>
+        </div>
       )}
     </>
   );
