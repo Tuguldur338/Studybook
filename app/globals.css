@@ -4423,6 +4423,13 @@ button.reaction-chip,
   margin-top: 16px;
 }
 
+.leaderboard-list-heading {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .leaderboard-row {
   display: flex;
   align-items: center;

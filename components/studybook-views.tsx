@@ -4967,11 +4967,13 @@ export function LeaderboardView() {
       const supabase = getSupabaseBrowserClient();
       const { data, error: boardError } = await supabase.rpc(
         "get_leaderboard",
-        { max_rows: 25 },
+        { max_rows: 100 },
       );
       if (boardError) throw boardError;
 
-      const nextRows = (data as LeaderboardRow[] | null) ?? [];
+      const nextRows = [...((data as LeaderboardRow[] | null) ?? [])].sort(
+        (a, b) => b.points - a.points,
+      );
       setRows(nextRows);
       setOwnPoints(nextRows.find((row) => row.id === user.id)?.points ?? 0);
     } catch (cause) {
@@ -5125,6 +5127,9 @@ export function LeaderboardView() {
 
                   {rows.length > 3 && (
                     <div className="leaderboard-list">
+                      <h3 className="leaderboard-list-heading">
+                        4th place onward
+                      </h3>
                       {rows.slice(3).map((row, index) => (
                         <div
                           className={`leaderboard-row${row.id === user.id ? " me" : ""}`}
