@@ -17,6 +17,9 @@ create index if not exists profiles_points_idx
   on public.profiles (points desc)
   where points > 0;
 
+create index if not exists profiles_points_all_idx
+  on public.profiles (points desc, username asc nulls last);
+
 create or replace function public.award_points(amount integer)
 returns integer
 language plpgsql
@@ -77,8 +80,7 @@ as $$
     p.points,
     p.equipped_border
   from public.profiles p
-  where p.points > 0
-    and (
+  where (
       p.id = auth.uid()
       or public.are_friends(auth.uid(), p.id)
     )
