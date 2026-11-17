@@ -41,6 +41,7 @@ import {
   LuTrash2,
   LuTrophy,
   LuUpload,
+  LuUserRound,
   LuVolume2,
   LuX,
 } from "react-icons/lu";
@@ -3724,7 +3725,12 @@ export function ProfileView() {
                         aria-hidden="true"
                         className={`border-preview avatar ${borderClass(borderId)}`}
                       >
-                        {"\u2605"}
+                        <LuUserRound
+                          aria-hidden="true"
+                          className="border-preview-profile"
+                          size={36}
+                          strokeWidth={1.8}
+                        />
                         <span className="avatar-frame-decoration" />
                       </span>
                       <span className="border-card-copy">

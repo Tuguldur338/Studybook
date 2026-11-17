@@ -10019,6 +10019,28 @@ textarea.input:focus {
     0 3px 9px rgb(0 0 0 / 45%);
 }
 
+.border-preview-profile {
+  position: relative;
+  z-index: 1;
+  color: var(--champion-ink, var(--champion));
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 20%));
+}
+
+.avatar.exclusive-blackhole:not(.border-preview)::before,
+.border-card .border-preview.avatar.exclusive-blackhole::before {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #d9c8ff;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, #05030a 0 28%, transparent 31%),
+    conic-gradient(from 25deg, #f1e8ff, #873fea, #171126, #c8a9ff, #f1e8ff);
+  color: transparent;
+  box-shadow:
+    0 0 0 2px rgb(141 91 232 / 35%),
+    0 0 12px rgb(141 91 232 / 90%);
+}
+
 .border-card[class*="champion-"]:hover,
 .border-card[class*="exclusive-"]:hover,
 .border-card[class*="celebration-"]:hover {
