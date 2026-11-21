@@ -334,6 +334,7 @@ function TeacherSchedule({
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ScheduleForm>(initialScheduleForm);
+  const [selectedDay, setSelectedDay] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -470,6 +471,10 @@ function TeacherSchedule({
     }
   }
 
+  const selectedDayEntries = entries.filter(
+    (entry) => entry.day === selectedDay,
+  );
+
   return (
     <>
       {onBack && (
@@ -487,7 +492,10 @@ function TeacherSchedule({
         subtitle={`@${teacher.username} · Class times are shown in your local time zone.`}
         title={teacher.display_name}
       />
-      <section aria-label={`${teacher.display_name}'s weekly schedule`} className="panel teacher-schedule">
+      <section
+        aria-label={`${teacher.display_name}'s weekly schedule`}
+        className="panel teacher-schedule"
+      >
         <div className="panel-heading">
           <h2 className="panel-title">Weekly timetable</h2>
           <span className="panel-link">
@@ -598,50 +606,112 @@ function TeacherSchedule({
           )}
 
           {error && <p className="notice">{error}</p>}
+          {!loading && (
+            <div
+              aria-label="Choose a weekday"
+              className="teacher-weekday-picker"
+              role="group"
+            >
+              {weekdays.map((day, index) => {
+                const classCount = entries.filter(
+                  (entry) => entry.day === index,
+                ).length;
+                const isSelected = selectedDay === index;
+
+                return (
+                  <button
+                    aria-label={`${day}, ${classCount} ${classCount === 1 ? "class" : "classes"}`}
+                    aria-pressed={isSelected}
+                    className={`teacher-weekday-button${isSelected ? " is-selected" : ""}`}
+                    key={day}
+                    onClick={() => setSelectedDay(index)}
+                    type="button"
+                  >
+                    <span className="teacher-weekday-topline">
+                      <span className="teacher-weekday-name">{day}</span>
+                    </span>
+                    <span className="teacher-weekday-count">
+                      <strong>{classCount}</strong>
+                      <span>{classCount === 1 ? "class" : "classes"}</span>
+                    </span>
+                    <span
+                      aria-hidden="true"
+                      className="teacher-weekday-indicator"
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          )}
           {loading ? (
             <p className="field-hint">Loading schedule...</p>
           ) : entries.length ? (
-            <div className="teacher-schedule-list">
-              {entries.map((entry) => (
-                <article className="teacher-schedule-entry" key={entry.id}>
-                  <div className="teacher-schedule-entry-time">
-                    <span>{weekdays[entry.day] ?? "Weekday"}</span>
-                    <strong>
-                      {formatTime(entry.start_time)} - {formatTime(entry.end_time)}
-                    </strong>
+            selectedDayEntries.length ? (
+              <>
+                <div className="teacher-selected-day-heading">
+                  <div>
+                    <p className="eyebrow">Daily classes</p>
+                    <h3>{weekdays[selectedDay]}</h3>
                   </div>
-                  <div className="teacher-schedule-entry-main">
-                    <strong>{entry.class_title}</strong>
-                    {entry.location && (
-                      <span>
-                        <LuMapPin aria-hidden="true" size={13} />
-                        {entry.location}
-                      </span>
-                    )}
-                  </div>
-                  {canEdit && (
-                    <div className="teacher-schedule-entry-actions">
-                      <button
-                        aria-label={`Edit ${entry.class_title}`}
-                        className="icon-button"
-                        onClick={() => startEditing(entry)}
-                        type="button"
-                      >
-                        <LuPencil aria-hidden="true" size={15} />
-                      </button>
-                      <button
-                        aria-label={`Delete ${entry.class_title}`}
-                        className="icon-button teacher-delete-button"
-                        onClick={() => void deleteEntry(entry.id)}
-                        type="button"
-                      >
-                        <LuTrash2 aria-hidden="true" size={15} />
-                      </button>
-                    </div>
-                  )}
-                </article>
-              ))}
-            </div>
+                  <span>
+                    {selectedDayEntries.length}{" "}
+                    {selectedDayEntries.length === 1 ? "class" : "classes"}
+                  </span>
+                </div>
+                <div className="teacher-schedule-list">
+                  {selectedDayEntries.map((entry) => (
+                    <article className="teacher-schedule-entry" key={entry.id}>
+                      <div className="teacher-schedule-entry-time">
+                        <span>{weekdays[entry.day]}</span>
+                        <strong>
+                          {formatTime(entry.start_time)} -{" "}
+                          {formatTime(entry.end_time)}
+                        </strong>
+                      </div>
+                      <div className="teacher-schedule-entry-main">
+                        <strong>{entry.class_title}</strong>
+                        {entry.location && (
+                          <span>
+                            <LuMapPin aria-hidden="true" size={13} />
+                            {entry.location}
+                          </span>
+                        )}
+                      </div>
+                      {canEdit && (
+                        <div className="teacher-schedule-entry-actions">
+                          <button
+                            aria-label={`Edit ${entry.class_title}`}
+                            className="icon-button"
+                            onClick={() => startEditing(entry)}
+                            type="button"
+                          >
+                            <LuPencil aria-hidden="true" size={15} />
+                          </button>
+                          <button
+                            aria-label={`Delete ${entry.class_title}`}
+                            className="icon-button teacher-delete-button"
+                            onClick={() => void deleteEntry(entry.id)}
+                            type="button"
+                          >
+                            <LuTrash2 aria-hidden="true" size={15} />
+                          </button>
+                        </div>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="teacher-day-empty-state">
+                <LuCalendarDays aria-hidden="true" size={22} />
+                <strong>No classes on {weekdays[selectedDay]}</strong>
+                <span>
+                  {canEdit
+                    ? "Choose another day or add a class to your timetable."
+                    : "Choose another day to see this teacher's classes."}
+                </span>
+              </div>
+            )
           ) : (
             <div className="teacher-empty-state">
               <LuClock3 aria-hidden="true" size={24} />
