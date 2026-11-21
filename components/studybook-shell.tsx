@@ -18,9 +18,11 @@ import {
   LuCircleAlert,
   LuCircleCheck,
   LuCircleHelp,
+  LuChevronDown,
   LuEye,
   LuEyeOff,
   LuFolderOpen,
+  LuGraduationCap,
   LuHouse,
   LuInfo,
   LuLogIn,
@@ -71,6 +73,7 @@ const navigation = [
   { label: "My notes", href: "/notes", icon: LuNotebookPen },
   { label: "Music", href: "/music", icon: LuMusic },
   { label: "Leaderboard", href: "/leaderboard", icon: LuTrophy },
+  { label: "Teachers", href: "/teachers", icon: LuGraduationCap },
   { label: "Settings", href: "/settings", icon: LuSettings },
 ];
 
@@ -84,6 +87,8 @@ const pageNames: Record<string, string> = {
   "/notes": "My notes",
   "/music": "Music",
   "/leaderboard": "Leaderboard",
+  "/teachers": "Teachers",
+  "/teacher": "Teacher schedule",
   "/settings": "Settings",
   "/account": "My account",
   "/profile": "Profile",
@@ -177,6 +182,8 @@ function AuthModal({
         const username = String(formData.get("username") ?? "")
           .trim()
           .toLowerCase();
+        const accountType =
+          formData.get("accountType") === "teacher" ? "teacher" : "student";
         const confirmation = String(formData.get("confirmPassword") ?? "");
         if (password !== confirmation) {
           setMessageType("error");
@@ -206,7 +213,11 @@ function AuthModal({
           email,
           password,
           options: {
-            data: { display_name: displayName, username },
+            data: {
+              display_name: displayName,
+              username,
+              account_type: accountType,
+            },
           },
         });
 
@@ -312,6 +323,25 @@ function AuthModal({
                 Your friends can add you with this. 3–30 characters: lowercase
                 letters, numbers, _ or -.
               </p>
+            </div>
+          )}
+          {isRegistering && (
+            <div className="field" style={{ marginTop: 13 }}>
+              <label htmlFor="register-account-type">Account type</label>
+              <div className="select-wrap">
+                <select
+                  className="select"
+                  defaultValue="student"
+                  id="register-account-type"
+                  name="accountType"
+                >
+                  <option value="student">Student</option>
+                  <option value="teacher">Teacher</option>
+                </select>
+                <span aria-hidden="true" className="select-chevron">
+                  <LuChevronDown size={15} />
+                </span>
+              </div>
             </div>
           )}
           <div className="field">
@@ -827,30 +857,39 @@ function StudybookFrame({ children }: { children: ReactNode }) {
           </Link>
           <p className="nav-label">Your workspace</p>
           <nav>
-            {navigation.map(({ href, icon: Icon, label }) => (
-              <Link
-                aria-current={pathname === href ? "page" : undefined}
-                aria-label={href === "/to-do-list" ? todoNavigationLabel : label}
-                className={`nav-link${pathname === href ? " active" : ""}`}
-                href={href}
-                key={href}
-                onClick={() => handleSidebarNavigation(href)}
-                title={label}
-              >
-                <Icon size={18} />
-                <span className="nav-text">{label}</span>
-                {href === "/to-do-list" && pendingCount > 0 && (
-                  <span className="nav-badges">
-                    <span className="nav-badge">{pendingCount}</span>
-                    {overdueCount > 0 && (
-                      <span className="nav-badge nav-badge-overdue">
-                        {overdueCount}
+            {navigation
+              .filter(({ href }) => href !== "/teachers" || Boolean(authUser))
+              .map(({ href, icon: Icon, label }) => {
+                const isActive =
+                  pathname === href ||
+                  (href === "/teachers" && pathname.startsWith("/teacher"));
+                return (
+                  <Link
+                    aria-current={isActive ? "page" : undefined}
+                    aria-label={
+                      href === "/to-do-list" ? todoNavigationLabel : label
+                    }
+                    className={`nav-link${isActive ? " active" : ""}`}
+                    href={href}
+                    key={href}
+                    onClick={() => handleSidebarNavigation(href)}
+                    title={label}
+                  >
+                    <Icon size={18} />
+                    <span className="nav-text">{label}</span>
+                    {href === "/to-do-list" && pendingCount > 0 && (
+                      <span className="nav-badges">
+                        <span className="nav-badge">{pendingCount}</span>
+                        {overdueCount > 0 && (
+                          <span className="nav-badge nav-badge-overdue">
+                            {overdueCount}
+                          </span>
+                        )}
                       </span>
                     )}
-                  </span>
-                )}
-              </Link>
-            ))}
+                  </Link>
+                );
+              })}
             <button
               aria-current={isMessagesPage ? "page" : undefined}
               className={`nav-link nav-button${isMessagesPage ? " active" : ""}`}
@@ -947,7 +986,10 @@ function StudybookFrame({ children }: { children: ReactNode }) {
               </button>
               <span className="topbar-location">
                 Workspace <span aria-hidden="true">/</span>{" "}
-                {pageNames[pathname] ?? "Studybook"}
+                {pageNames[pathname] ??
+                  (pathname.startsWith("/teacher/")
+                    ? "Teacher schedule"
+                    : "Studybook")}
               </span>
             </div>
             <div className="topbar-actions">

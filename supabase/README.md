@@ -116,6 +116,18 @@ Accounts created before this migration can set a username from **My account →
 Sign-in details**. That section also changes the password (the current password
 is verified first) alongside the profile picture that was already editable.
 
+## Teacher accounts and schedules
+
+Apply [`migrations/teacher-accounts-and-schedules.sql`](./migrations/teacher-accounts-and-schedules.sql)
+after `usernames.sql`. New users can choose Student or Teacher during
+registration. The signed-in Teachers directory lists teacher accounts, and
+teacher pages use `/teacher/<username>`. Teacher schedules are stored separately
+from students' private schedules: signed-in users can view them, but only the
+teacher who owns a schedule can add, edit, or delete its entries. Each entry
+uses a class title such as `11A`, a weekday, start/end time, and an optional
+room. In the Capacitor app, selecting a teacher opens the profile within the
+Teachers page so the static mobile export remains compatible.
+
 ## Messaging and friend requests
 
 Messaging uses Supabase Realtime on top of these tables:
