@@ -7,6 +7,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import {
   LuArrowLeft,
   LuCalendarDays,
+  LuChevronDown,
   LuClock3,
   LuMapPin,
   LuPencil,
@@ -335,6 +336,9 @@ function TeacherSchedule({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ScheduleForm>(initialScheduleForm);
   const [selectedDay, setSelectedDay] = useState(0);
+  const [hoveredPreviewId, setHoveredPreviewId] = useState<string | null>(null);
+  const [clickedPreviewId, setClickedPreviewId] = useState<string | null>(null);
+  const [focusedPreviewId, setFocusedPreviewId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -659,46 +663,136 @@ function TeacherSchedule({
                   </span>
                 </div>
                 <div className="teacher-schedule-list">
-                  {selectedDayEntries.map((entry) => (
-                    <article className="teacher-schedule-entry" key={entry.id}>
-                      <div className="teacher-schedule-entry-time">
-                        <span>{weekdays[entry.day]}</span>
-                        <strong>
-                          {formatTime(entry.start_time)} -{" "}
-                          {formatTime(entry.end_time)}
-                        </strong>
-                      </div>
-                      <div className="teacher-schedule-entry-main">
-                        <strong>{entry.class_title}</strong>
-                        {entry.location && (
-                          <span>
-                            <LuMapPin aria-hidden="true" size={13} />
-                            {entry.location}
-                          </span>
-                        )}
-                      </div>
-                      {canEdit && (
-                        <div className="teacher-schedule-entry-actions">
-                          <button
-                            aria-label={`Edit ${entry.class_title}`}
-                            className="icon-button"
-                            onClick={() => startEditing(entry)}
-                            type="button"
-                          >
-                            <LuPencil aria-hidden="true" size={15} />
-                          </button>
-                          <button
-                            aria-label={`Delete ${entry.class_title}`}
-                            className="icon-button teacher-delete-button"
-                            onClick={() => void deleteEntry(entry.id)}
-                            type="button"
-                          >
-                            <LuTrash2 aria-hidden="true" size={15} />
-                          </button>
+                  {selectedDayEntries.map((entry) => {
+                    const previewOpen =
+                      hoveredPreviewId === entry.id ||
+                      clickedPreviewId === entry.id ||
+                      focusedPreviewId === entry.id;
+
+                    return (
+                      <article
+                        className={`teacher-schedule-entry${previewOpen ? " has-preview" : ""}`}
+                        key={entry.id}
+                      >
+                        <div className="teacher-schedule-entry-time">
+                          <span>{weekdays[entry.day]}</span>
+                          <strong>
+                            {formatTime(entry.start_time)} -{" "}
+                            {formatTime(entry.end_time)}
+                          </strong>
                         </div>
-                      )}
-                    </article>
-                  ))}
+                        <div className="teacher-schedule-entry-main">
+                          <div
+                            className={`teacher-schedule-subject-preview${previewOpen ? " is-open" : ""}`}
+                            onPointerEnter={(event) => {
+                              if (event.pointerType === "touch") return;
+                              setHoveredPreviewId(entry.id);
+                              setClickedPreviewId(null);
+                            }}
+                            onPointerLeave={(event) => {
+                              if (event.pointerType === "touch") return;
+                              setHoveredPreviewId((current) =>
+                                current === entry.id ? null : current,
+                              );
+                              setClickedPreviewId((current) =>
+                                current === entry.id ? null : current,
+                              );
+                              setFocusedPreviewId((current) =>
+                                current === entry.id ? null : current,
+                              );
+                            }}
+                          >
+                            <button
+                              aria-controls={`teacher-schedule-details-${entry.id}`}
+                              aria-expanded={previewOpen}
+                              className="teacher-schedule-subject"
+                              onBlur={() => {
+                                setFocusedPreviewId((current) =>
+                                  current === entry.id ? null : current,
+                                );
+                                setClickedPreviewId((current) =>
+                                  current === entry.id ? null : current,
+                                );
+                              }}
+                              onClick={() =>
+                                setClickedPreviewId((current) =>
+                                  current === entry.id ? null : entry.id,
+                                )
+                              }
+                              onFocus={(event) => {
+                                if (event.currentTarget.matches(":focus-visible")) {
+                                  setFocusedPreviewId(entry.id);
+                                }
+                              }}
+                              type="button"
+                            >
+                              <strong>{entry.class_title}</strong>
+                              <LuChevronDown aria-hidden="true" size={14} />
+                            </button>
+                            <div
+                              aria-hidden={!previewOpen}
+                              aria-label={`${entry.class_title} class details`}
+                              className={`teacher-schedule-details${previewOpen ? " is-open" : ""}`}
+                              id={`teacher-schedule-details-${entry.id}`}
+                              role="region"
+                            >
+                              <p className="eyebrow">Class details</p>
+                              <strong className="teacher-schedule-details-title">
+                                {entry.class_title}
+                              </strong>
+                              <dl>
+                                <div>
+                                  <dt>Teacher</dt>
+                                  <dd>{teacher.display_name}</dd>
+                                </div>
+                                <div>
+                                  <dt>Day</dt>
+                                  <dd>{weekdays[entry.day] ?? "Weekday"}</dd>
+                                </div>
+                                <div>
+                                  <dt>Time</dt>
+                                  <dd>
+                                    {formatTime(entry.start_time)} -{" "}
+                                    {formatTime(entry.end_time)}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt>Room</dt>
+                                  <dd>{entry.location || "Not specified"}</dd>
+                                </div>
+                              </dl>
+                            </div>
+                          </div>
+                          {entry.location && (
+                            <span>
+                              <LuMapPin aria-hidden="true" size={13} />
+                              {entry.location}
+                            </span>
+                          )}
+                        </div>
+                        {canEdit && (
+                          <div className="teacher-schedule-entry-actions">
+                            <button
+                              aria-label={`Edit ${entry.class_title}`}
+                              className="icon-button"
+                              onClick={() => startEditing(entry)}
+                              type="button"
+                            >
+                              <LuPencil aria-hidden="true" size={15} />
+                            </button>
+                            <button
+                              aria-label={`Delete ${entry.class_title}`}
+                              className="icon-button teacher-delete-button"
+                              onClick={() => void deleteEntry(entry.id)}
+                              type="button"
+                            >
+                              <LuTrash2 aria-hidden="true" size={15} />
+                            </button>
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
                 </div>
               </>
             ) : (

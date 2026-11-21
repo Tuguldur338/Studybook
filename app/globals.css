@@ -11091,9 +11091,9 @@ html:not([data-message-motion="on"]) .messenger-bubble {
 }
 
 .teacher-weekday-button:hover {
-  transform: translateY(-3px);
+  transform: translateY(-2px);
   border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 13%, transparent);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 11%, transparent);
 }
 
 .teacher-weekday-button:focus-visible {
@@ -11159,6 +11159,14 @@ html:not([data-message-motion="on"]) .messenger-bubble {
 .teacher-weekday-button.is-selected .teacher-weekday-indicator {
   width: 30px;
   background: var(--accent-strong);
+}
+
+.teacher-weekday-button:hover .teacher-weekday-indicator {
+  width: 24px;
+}
+
+.teacher-weekday-button.is-selected:hover .teacher-weekday-indicator {
+  width: 34px;
 }
 
 .teacher-selected-day-heading {
@@ -11251,8 +11259,119 @@ html:not([data-message-motion="on"]) .messenger-bubble {
   gap: 4px;
 }
 
-.teacher-schedule-entry-main > strong {
+.teacher-schedule-subject-preview {
+  display: grid;
+  justify-items: start;
+  min-width: 0;
+}
+
+.teacher-schedule-subject {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  padding: 0;
+  color: var(--foreground);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.teacher-schedule-subject:hover,
+.teacher-schedule-subject:active {
+  background: transparent;
+  color: var(--foreground);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--accent) 65%, transparent);
+  text-underline-offset: 3px;
+}
+
+.teacher-schedule-subject:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 4px;
+}
+
+.teacher-schedule-subject > strong {
   font-size: 13px;
+}
+
+.teacher-schedule-subject > svg {
+  color: var(--muted);
+  transition:
+    color 150ms ease,
+    transform 150ms ease;
+}
+
+.teacher-schedule-subject-preview.is-open .teacher-schedule-subject > svg {
+  transform: rotate(180deg);
+  color: var(--accent-strong);
+}
+
+.teacher-schedule-details {
+  display: none;
+  width: min(360px, 100%);
+  gap: 7px;
+  margin-top: 9px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 12px;
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--foreground) 7%, transparent);
+}
+
+.teacher-schedule-details.is-open {
+  display: grid;
+  animation: teacher-schedule-details-enter 150ms ease-out both;
+}
+
+.teacher-schedule-details .eyebrow {
+  margin: 0;
+}
+
+.teacher-schedule-details-title {
+  font-size: 13px;
+}
+
+.teacher-schedule-details dl {
+  display: grid;
+  gap: 0;
+  margin: 2px 0 0;
+}
+
+.teacher-schedule-details dl > div {
+  display: grid;
+  grid-template-columns: 66px minmax(0, 1fr);
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  padding: 7px 0;
+}
+
+.teacher-schedule-details dt {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.teacher-schedule-details dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--foreground);
+  font-size: 11px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+@keyframes teacher-schedule-details-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .teacher-schedule-entry-main > span {
@@ -11272,6 +11391,10 @@ html:not([data-message-motion="on"]) .messenger-bubble {
 .teacher-schedule-entry-actions .icon-button {
   width: 32px;
   height: 32px;
+}
+
+.teacher-schedule-entry.has-preview {
+  align-items: flex-start;
 }
 
 .teacher-delete-button:hover {
@@ -11315,8 +11438,13 @@ html:not([data-message-motion="on"]) .messenger-bubble {
 @media (prefers-reduced-motion: reduce) {
   .teacher-directory-item,
   .teacher-weekday-button,
-  .teacher-weekday-indicator {
+  .teacher-weekday-indicator,
+  .teacher-schedule-subject > svg {
     transition: none;
+  }
+
+  .teacher-schedule-details.is-open {
+    animation: none;
   }
 
   .teacher-directory-item:hover,
