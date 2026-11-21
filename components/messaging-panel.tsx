@@ -801,7 +801,7 @@ export default function MessagingPanel({
               <h3>Add friends</h3>
               {api.friends.length === 0 && (
                 <p className="messenger-hint">
-                  You need friends first â€” add someone by email below.
+                  You need friends first - add someone by email below.
                 </p>
               )}
               {api.friends.map((friend) => (
@@ -1154,7 +1154,7 @@ export default function MessagingPanel({
                 aria-label="Search friends by name"
                 className="input"
                 onChange={(event) => setFriendQuery(event.target.value)}
-                placeholder="Search friends by nameâ€¦"
+                placeholder="Search friends by name..."
                 type="search"
                 value={friendQuery}
               />
@@ -1186,7 +1186,7 @@ export default function MessagingPanel({
                   ))
                 ) : (
                   <p className="messenger-hint">
-                    No friends match â€œ{friendQuery.trim()}â€. Add them below.
+                    No friends match {friendQuery.trim()}. Add them below.
                   </p>
                 )}
               </section>
@@ -1245,7 +1245,7 @@ export default function MessagingPanel({
                   + New group
                 </button>
               </div>
-              {api.loading && <p className="messenger-hint">Loadingâ€¦</p>}
+              {api.loading && <p className="messenger-hint">Loading...</p>}
               {!api.loading && api.conversations.length === 0 && (
                 <p className="messenger-hint">
                   No chats yet. Search a friend above or add one below.
@@ -1315,7 +1315,7 @@ export default function MessagingPanel({
                     >
                       {suggestLoading && suggestions.length === 0 ? (
                         <span className="friend-suggestions-empty">
-                          Searching peopleâ€¦
+                          Searching people...
                         </span>
                       ) : (
                         suggestions.map((person) => (
