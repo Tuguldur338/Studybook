@@ -775,6 +775,8 @@ export function ScheduleView() {
   const [form, setForm] = useState(emptyClassForm);
   const [formError, setFormError] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [showClassDetails, setShowClassDetails] = useState<string | null>(null);
+  const [focusedClassId, setFocusedClassId] = useState<string | null>(null);
   const [todayDay, setTodayDay] = useState<number | null>(null);
   const [weekAnchor, setWeekAnchor] = useState("");
   const [weekOffset, setWeekOffset] = useState(0);
