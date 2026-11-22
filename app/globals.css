@@ -1711,7 +1711,86 @@ a {
   padding: 22px;
 }
 
-/* Previously entered classes, kept so the form can be filled in one tap */
+/* Timetable day hover effect - slight extension on hover */
+.timetable-day:hover {
+  transform: translateY(-2px) scale(1.02);
+  z-index: 10;
+  box-shadow: var(--shadow-sm);
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+/* Active/pressed state for timetable day */
+.timetable-day:active {
+  transform: translateY(1px) scale(1);
+}
+
+/* Subject title hover effect - show details without background change */
+.time-block-title {
+  position: relative;
+  cursor: pointer;
+  transition: color 150ms ease;
+}
+
+.time-block-title:hover {
+  color: var(--accent-strong);
+}
+
+/* Tooltip details on subject title hover */
+.time-block-title::after {
+  content: attr(data-details);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--foreground);
+  font-size: 11px;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  width: max-content;
+  max-width: 280px;
+  z-index: 100;
+  transition: opacity 120ms ease, visibility 120ms ease, transform 120ms ease;
+}
+
+/* Show tooltip on hover */
+.time-block-title:hover::after {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(4px);
+}
+
+/* Tooltip arrow */
+.time-block-title:hover::after {
+  margin-bottom: 28px;
+}
+
+.time-block-title:hover::before {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: var(--surface) transparent transparent transparent;
+}
+
+/* Reduce tooltip delay on mouse leave */
+.time-block-title:hover::after {
+  transition: opacity 80ms ease, visibility 80ms ease, transform 80ms ease;
+}
+
+/* Hide tooltip immediately when leaving */
+.time-block-title:not(:hover)::after {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 50ms ease, visibility 50ms ease;
+}
 .saved-classes {
   margin-bottom: 18px;
   border-bottom: 1px dashed var(--border);
