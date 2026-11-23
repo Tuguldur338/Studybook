@@ -777,6 +777,24 @@ export function ScheduleView() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showClassDetails, setShowClassDetails] = useState<string | null>(null);
   const [focusedClassId, setFocusedClassId] = useState<string | null>(null);
+  const [hoveredDayIndex, setHoveredDayIndex] = useState<number | null>(null);
+  const dayColumnRefs = useRef<Map<string, React.RefObject<HTMLDivElement>>>(new Map());
+
+  function handleDayColumnMouseEnter(dayIndex: number) {
+    setHoveredDayIndex(dayIndex);
+  }
+
+  function handleDayColumnMouseLeave() {
+    setHoveredDayIndex(null);
+  }
+
+  function handleSubjectMouseEnter(sessionId: string) {
+    setFocusedClassId(sessionId);
+  }
+
+  function handleSubjectMouseLeave() {
+    setFocusedClassId(null);
+  }
   const [todayDay, setTodayDay] = useState<number | null>(null);
   const [weekAnchor, setWeekAnchor] = useState("");
   const [weekOffset, setWeekOffset] = useState(0);
@@ -1543,8 +1561,10 @@ export function ScheduleView() {
             ).length;
             return (
               <div
-                className={`day-column${todayDay === index && weekOffset === 0 ? " today" : ""}`}
+                className={`day-column${todayDay === index && weekOffset === 0 ? " today" : ""}${hoveredDayIndex === index ? " expanded" : ""}`}
                 key={day}
+                onMouseEnter={() => handleDayColumnMouseEnter(index)}
+                onMouseLeave={handleDayColumnMouseLeave}
               >
                 <div className="day-heading">
                   <div className="day-heading-copy">
@@ -1589,7 +1609,12 @@ export function ScheduleView() {
                 )}
                 {dayClasses.length ? (
                   dayClasses.map((session) => (
-                    <article className="day-class" key={session.id}>
+                    <article
+                      className="day-class"
+                      key={session.id}
+                      onMouseEnter={() => handleSubjectMouseEnter(session.id)}
+                      onMouseLeave={handleSubjectMouseLeave}
+                    >
                       <div className="day-class-title">{session.subject}</div>
                       <div className="day-class-time">
                         {formatTime(session.startTime)} –{" "}
