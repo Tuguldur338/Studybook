@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { createPortal } from "react-dom";
 import {
   useCallback,
   useEffect,
   useMemo,
+  useLayoutEffect,
   useRef,
   useState,
   type ChangeEvent,
@@ -756,6 +758,73 @@ const emptyClassForm = {
 
 const SAVED_CLASSES_SEEDED_KEY = "studybook-saved-classes-seeded-v1";
 
+/** Hover/press details card state for the desktop timetable. */
+function useDetailsCard() {
+  const [active, setActive] = useState<{
+    id: string;
+    rect: DOMRect;
+  } | null>(null);
+  const timerRef = useRef<number | null>(null);
+
+  const cancelClose = useCallback(() => {
+    if (timerRef.current !== null) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const open = useCallback(
+    (id: string, element: HTMLElement, delay = 0) => {
+      cancelClose();
+      const show = () =>
+        setActive({ id, rect: element.getBoundingClientRect() });
+      if (delay > 0) timerRef.current = window.setTimeout(show, delay);
+      else show();
+    },
+    [cancelClose],
+  );
+
+  // A short grace period lets the cursor travel from the subject onto the
+  // card without it closing in between.
+  const scheduleClose = useCallback(() => {
+    cancelClose();
+    timerRef.current = window.setTimeout(() => setActive(null), 180);
+  }, [cancelClose]);
+
+  const close = useCallback(() => {
+    cancelClose();
+    setActive(null);
+  }, [cancelClose]);
+
+  // Clear any pending timer when the page unmounts.
+  useEffect(() => cancelClose, [cancelClose]);
+
+  useEffect(() => {
+    if (!active) return;
+    const dismiss = () => setActive(null);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") dismiss();
+    };
+    // Tapping/clicking anywhere else dismisses it (needed on touch screens).
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Element | null;
+      if (!target?.closest?.(".time-block, .class-popover")) dismiss();
+    };
+    window.addEventListener("scroll", dismiss, true);
+    window.addEventListener("resize", dismiss);
+    window.addEventListener("keydown", onKeyDown);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      window.removeEventListener("scroll", dismiss, true);
+      window.removeEventListener("resize", dismiss);
+      window.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [active]);
+
+  return { active, open, close, scheduleClose, cancelClose };
+}
+
 export function ScheduleView() {
   const {
     classChecks,
@@ -775,26 +844,15 @@ export function ScheduleView() {
   const [form, setForm] = useState(emptyClassForm);
   const [formError, setFormError] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [showClassDetails, setShowClassDetails] = useState<string | null>(null);
-  const [focusedClassId, setFocusedClassId] = useState<string | null>(null);
-  const [hoveredDayIndex, setHoveredDayIndex] = useState<number | null>(null);
-  const dayColumnRefs = useRef<Map<string, React.RefObject<HTMLDivElement>>>(new Map());
+  const {
+    active: activeBlock,
+    open: openDetails,
+    close: closeDetails,
+    scheduleClose: scheduleCloseDetails,
+    cancelClose: clearPopoverTimer,
+  } = useDetailsCard();
 
-  function handleDayColumnMouseEnter(dayIndex: number) {
-    setHoveredDayIndex(dayIndex);
-  }
 
-  function handleDayColumnMouseLeave() {
-    setHoveredDayIndex(null);
-  }
-
-  function handleSubjectMouseEnter(sessionId: string) {
-    setFocusedClassId(sessionId);
-  }
-
-  function handleSubjectMouseLeave() {
-    setFocusedClassId(null);
-  }
   const [todayDay, setTodayDay] = useState<number | null>(null);
   const [weekAnchor, setWeekAnchor] = useState("");
   const [weekOffset, setWeekOffset] = useState(0);
@@ -1472,7 +1530,7 @@ export function ScheduleView() {
                       : undefined;
                     return (
                       <article
-                        className={`time-block${complete ? " complete" : ""}${layout.overlapCount ? " has-overlap" : ""}${height < 58 ? " compact" : ""}${height < 100 ? " tight" : ""}${layout.columnCount > 2 ? " dense" : ""}`}
+                        className={`time-block${complete ? " complete" : ""}${layout.overlapCount ? " has-overlap" : ""}${height < 58 ? " compact" : ""}${height < 100 ? " tight" : ""}${layout.columnCount > 2 ? " dense" : ""}${activeBlock?.id === session.id ? " is-open" : ""}`}
                         key={session.id}
                         style={{
                           height: `${height}px`,
@@ -1481,6 +1539,28 @@ export function ScheduleView() {
                           right: "auto",
                           width: `calc(${columnWidth}% - 8px)`,
                         }}
+                        onClick={(event) => {
+                          // Pressing the pencil/bin keeps its own behaviour.
+                          if ((event.target as Element).closest(".block-action"))
+                            return;
+                          openDetails(session.id, event.currentTarget);
+                        }}
+                        onFocus={(event) => {
+                          if (event.target === event.currentTarget)
+                            openDetails(session.id, event.currentTarget);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.target !== event.currentTarget) return;
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            openDetails(session.id, event.currentTarget);
+                          }
+                        }}
+                        onMouseEnter={(event) =>
+                          openDetails(session.id, event.currentTarget, 90)
+                        }
+                        onMouseLeave={scheduleCloseDetails}
+                        tabIndex={0}
                         title={overlapDescription}
                       >
                         <div className="time-block-head">
@@ -1561,10 +1641,8 @@ export function ScheduleView() {
             ).length;
             return (
               <div
-                className={`day-column${todayDay === index && weekOffset === 0 ? " today" : ""}${hoveredDayIndex === index ? " expanded" : ""}`}
+                className={`day-column${todayDay === index && weekOffset === 0 ? " today" : ""}`}
                 key={day}
-                onMouseEnter={() => handleDayColumnMouseEnter(index)}
-                onMouseLeave={handleDayColumnMouseLeave}
               >
                 <div className="day-heading">
                   <div className="day-heading-copy">
@@ -1612,8 +1690,6 @@ export function ScheduleView() {
                     <article
                       className="day-class"
                       key={session.id}
-                      onMouseEnter={() => handleSubjectMouseEnter(session.id)}
-                      onMouseLeave={handleSubjectMouseLeave}
                     >
                       <div className="day-class-title">{session.subject}</div>
                       <div className="day-class-time">
@@ -1679,7 +1755,153 @@ export function ScheduleView() {
           title="Delete this class?"
         />
       )}
+
+      {activeBlock &&
+        !deleteId &&
+        !formOpen &&
+        (() => {
+          const session = classes.find((item) => item.id === activeBlock.id);
+          if (!session) return null;
+          const overlapCount =
+            classLayoutsByDay[session.day]?.get(session.id)?.overlapCount ?? 0;
+          return createPortal(
+            <ClassDetailsPopover
+              anchor={activeBlock.rect}
+              checks={renderChecks(session)}
+              onDelete={() => {
+                closeDetails();
+                setDeleteId(session.id);
+              }}
+              onEdit={() => {
+                closeDetails();
+                startEditing(session);
+              }}
+              onPointerEnter={clearPopoverTimer}
+              onPointerLeave={scheduleCloseDetails}
+              overlapCount={overlapCount}
+              session={session}
+            />,
+            document.body,
+          );
+        })()}
     </>
+  );
+}
+
+/**
+ * Read-only details card for one timetable subject. It floats beside the
+ * subject (no backdrop, nothing behind it changes) and stays open for as long
+ * as the pointer is over the subject or over the card itself.
+ */
+function ClassDetailsPopover({
+  anchor,
+  checks,
+  onDelete,
+  onEdit,
+  onPointerEnter,
+  onPointerLeave,
+  overlapCount,
+  session,
+}: {
+  anchor: DOMRect;
+  checks: ReactNode;
+  onDelete: () => void;
+  onEdit: () => void;
+  onPointerEnter: () => void;
+  onPointerLeave: () => void;
+  overlapCount: number;
+  session: ClassSession;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Place it to the right of the subject, flip left near the screen edge, and
+  // keep it fully inside the viewport. Done before paint, so it never jumps.
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const { width, height } = element.getBoundingClientRect();
+    const gap = 2;
+    const margin = 8;
+    let left = anchor.right + gap;
+    if (left + width > window.innerWidth - margin) {
+      left = Math.max(margin, anchor.left - gap - width);
+    }
+    let top = anchor.top;
+    if (top + height > window.innerHeight - margin) {
+      top = Math.max(margin, window.innerHeight - margin - height);
+    }
+    element.style.left = `${left}px`;
+    element.style.top = `${top}px`;
+    element.style.visibility = "visible";
+  }, [anchor]);
+
+  const minutes =
+    minutesSinceMidnight(session.endTime) -
+    minutesSinceMidnight(session.startTime);
+  const duration =
+    minutes > 0
+      ? `${minutes >= 60 ? `${Math.floor(minutes / 60)} h ` : ""}${
+          minutes % 60 ? `${minutes % 60} min` : ""
+        }`.trim()
+      : "";
+
+  return (
+    <div
+      aria-label={`${session.subject} details`}
+      className="class-popover"
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={(event) => {
+        // Fingers "leave" on lift-off; only a real mouse leaving should close it.
+        if (event.pointerType === "mouse") onPointerLeave();
+      }}
+      ref={ref}
+      role="dialog"
+      style={{ left: 0, top: 0, visibility: "hidden" }}
+    >
+      <div className="class-popover-head">
+        <h3 className="class-popover-title">{session.subject}</h3>
+        <span className="class-popover-day">{weekdays[session.day]}</span>
+      </div>
+      <dl className="class-popover-list">
+        <div>
+          <dt>Time</dt>
+          <dd>
+            {formatTime(session.startTime)} – {formatTime(session.endTime)}
+            {duration ? ` (${duration})` : ""}
+          </dd>
+        </div>
+        <div>
+          <dt>Location</dt>
+          <dd>{session.location || "Not added"}</dd>
+        </div>
+        <div>
+          <dt>Instructor</dt>
+          <dd>{session.instructor || "Not added"}</dd>
+        </div>
+        {overlapCount > 0 && (
+          <div>
+            <dt>Conflict</dt>
+            <dd>
+              Overlaps with {overlapCount} other{" "}
+              {overlapCount === 1 ? "class" : "classes"}
+            </dd>
+          </div>
+        )}
+      </dl>
+      {checks}
+      <div className="class-popover-actions">
+        <button className="secondary-button" onClick={onEdit} type="button">
+          <LuPencil aria-hidden="true" size={13} /> Edit
+        </button>
+        <button
+          className="secondary-button class-popover-delete"
+          onClick={onDelete}
+          type="button"
+        >
+          <LuTrash2 aria-hidden="true" size={13} /> Delete
+        </button>
+      </div>
+    </div>
   );
 }
 const emptyTaskForm = {
