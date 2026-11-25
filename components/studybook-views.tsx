@@ -1973,6 +1973,10 @@ export function CalendarView() {
   const [monthStart, setMonthStart] = useState<Date | null>(null);
   const [selectedIso, setSelectedIso] = useState("");
   const [todayIso, setTodayIso] = useState("");
+  const [activeEvent, setActiveEvent] = useState<{
+    event: CalendarEvent;
+    rect: DOMRect;
+  } | null>(null);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -2109,6 +2113,41 @@ export function CalendarView() {
     setSelectedIso(toISODate(now));
   }
 
+  const openEventDetail = useCallback(
+    (event: CalendarEvent, element: HTMLElement) => {
+      setActiveEvent({ event, rect: element.getBoundingClientRect() });
+    },
+    [],
+  );
+
+  const closeEventDetail = useCallback(() => {
+    setActiveEvent(null);
+  }, []);
+
+  // Once opened by click, the detail stays visible until the user clicks a
+  // different element or subject. Moving the cursor away does not close it.
+  useEffect(() => {
+    if (!activeEvent) return;
+    const dismiss = () => closeEventDetail();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") dismiss();
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Element | null;
+      if (
+        !target?.closest?.(".calendar-chip, .calendar-event-detail")
+      ) {
+        dismiss();
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [activeEvent, closeEventDetail]);
+
   if (!monthStart) {
     return (
       <>
@@ -2231,6 +2270,9 @@ export function CalendarView() {
                             event.done ? " done" : ""
                           }`}
                           key={event.id}
+                          onClick={(ev) =>
+                            openEventDetail(event, ev.currentTarget)
+                          }
                           title={event.title}
                         >
                           <span className="calendar-chip-dot" />
@@ -2317,7 +2359,86 @@ export function CalendarView() {
           </div>
         </aside>
       </div>
+
+        {activeEvent &&
+          (() => {
+            const event = activeEvent.event;
+            return createPortal(
+              <CalendarEventDetail
+                anchor={activeEvent.rect}
+                event={event}
+              />,
+              document.body,
+            );
+          })()}
     </>
+  );
+}
+
+/**
+ * Persistent read-only detail card for one calendar subject. It floats beside
+ * the clicked chip, stays open while the pointer leaves it, and only closes
+ * when the user clicks a different element or subject.
+ */
+function CalendarEventDetail({
+  anchor,
+  event,
+}: {
+  anchor: DOMRect;
+  event: CalendarEvent;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Position beside the chip, flipping horizontally or vertically near the
+  // screen edges so the card always stays in the viewport.
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const { width, height } = element.getBoundingClientRect();
+    const gap = 8;
+    const margin = 8;
+    let left = anchor.right + gap;
+    if (left + width > window.innerWidth - margin) {
+      left = Math.max(margin, anchor.left - gap - width);
+    }
+    let top = anchor.top;
+    if (top + height > window.innerHeight - margin) {
+      top = Math.max(margin, anchor.top - gap - height);
+    }
+    element.style.left = `${left}px`;
+    element.style.top = `${top}px`;
+    element.style.visibility = "visible";
+  }, [anchor]);
+
+  return (
+    <div
+      ref={ref}
+      className="calendar-event-detail"
+      role="dialog"
+      aria-modal="true"
+      aria-label={event.title}
+      style={{ left: 0, top: 0, visibility: "hidden" }}
+    >
+      <div className="calendar-event-detail-head">
+        <span
+          className={`calendar-event-detail-kind ${event.kind}`}
+          aria-hidden="true"
+        >
+          {event.kind === "class" ? "Class" : event.kind === "exam" ? "Exam" : "Task"}
+        </span>
+        <h3 className="calendar-event-detail-title">{event.title}</h3>
+      </div>
+      <div className="calendar-event-detail-meta">
+        <div className="calendar-event-detail-row">
+          <span className="label">Time</span>
+          <span className="value">{event.time}</span>
+        </div>
+        <div className="calendar-event-detail-row">
+          <span className="label">Detail</span>
+          <span className="value">{event.detail}</span>
+        </div>
+      </div>
+    </div>
   );
 }
 

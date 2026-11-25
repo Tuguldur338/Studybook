@@ -5551,13 +5551,18 @@ button.reaction-chip,
   color: var(--foreground);
   cursor: pointer;
   text-align: left;
+  position: relative;
   transition:
     background 0.15s ease,
     border-color 0.15s ease,
-    box-shadow 0.15s ease;
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
 }
 
 .calendar-day:hover {
+  z-index: 4;
+  transform: translate(-2px, -2px) scale(1.02);
+  box-shadow: var(--shadow);
   border-color: var(--border-strong);
   background: var(--surface-muted);
 }
@@ -5835,6 +5840,96 @@ button.reaction-chip,
 
 .calendar-detail-empty span {
   font-size: 10px;
+}
+
+/* Persistent subject detail view opened from a calendar day chip. */
+.calendar-event-detail {
+  position: fixed;
+  z-index: 60;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--foreground);
+  font-size: 13px;
+  line-height: 1.5;
+  min-width: 220px;
+  max-width: 340px;
+  outline: none;
+  visibility: hidden;
+}
+
+.calendar-event-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.calendar-event-detail-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.calendar-event-detail-kind.class {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.calendar-event-detail-kind.exam {
+  background: var(--danger-soft);
+  color: var(--danger-strong);
+}
+
+.calendar-event-detail-kind.task {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.calendar-event-detail-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 750;
+  letter-spacing: -0.2px;
+  overflow-wrap: anywhere;
+}
+
+.calendar-event-detail-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+.calendar-event-detail-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.calendar-event-detail-row .label {
+  flex: 0 0 auto;
+  width: 56px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.calendar-event-detail-row .value {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
 }
 
 .calendar-loading {
