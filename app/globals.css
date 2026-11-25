@@ -11531,3 +11531,166 @@ html:not([data-message-motion="on"]) .messenger-bubble {
     transform: none;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Timetable subjects: press / hover for the full details card        */
+/* ------------------------------------------------------------------ */
+.time-block {
+  cursor: pointer;
+}
+
+/* Same background as always; only a hint that its card is open. */
+.time-block.is-open {
+  z-index: 5;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-sm);
+}
+
+.time-block:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.class-popover {
+  position: fixed;
+  z-index: 50;
+  width: 270px;
+  max-width: calc(100vw - 16px);
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border-strong);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: var(--shadow);
+  animation: class-popover-in 120ms ease-out;
+}
+
+@keyframes class-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .class-popover {
+    animation: none;
+  }
+}
+
+.class-popover-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.class-popover-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.class-popover-day {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.class-popover-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.class-popover-list > div {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 8px;
+  font-size: 12px;
+}
+
+.class-popover-list dt {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.class-popover-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.class-popover .class-checks {
+  margin: 0;
+}
+
+.class-popover-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.class-popover-actions .secondary-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.class-popover-delete:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* ------------------------------------------------------------------ */
+/* Week-grid (windows narrower than 1024px): same press-for-details   */
+/* ------------------------------------------------------------------ */
+.day-class {
+  cursor: pointer;
+}
+
+/* Same background as always; only a hint that its card is open. */
+.day-class.is-open {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-sm);
+}
+
+.day-class:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Day headings (Monday, Tuesday, ...): a small, contained lift on hover. */
+.day-heading {
+  position: relative;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    color 160ms ease;
+}
+
+.day-heading:hover {
+  z-index: 2;
+  transform: scale(1.04);
+  color: var(--accent-strong);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .day-heading {
+    transition: none;
+  }
+}

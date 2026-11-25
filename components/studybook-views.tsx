@@ -808,7 +808,8 @@ function useDetailsCard() {
     // Tapping/clicking anywhere else dismisses it (needed on touch screens).
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Element | null;
-      if (!target?.closest?.(".time-block, .class-popover")) dismiss();
+      if (!target?.closest?.(".time-block, .day-class, .class-popover"))
+        dismiss();
     };
     window.addEventListener("scroll", dismiss, true);
     window.addEventListener("resize", dismiss);
@@ -1688,8 +1689,34 @@ export function ScheduleView() {
                 {dayClasses.length ? (
                   dayClasses.map((session) => (
                     <article
-                      className="day-class"
+                      className={`day-class${activeBlock?.id === session.id ? " is-open" : ""}`}
                       key={session.id}
+                      onClick={(event) => {
+                        // Checkboxes and the pencil/bin keep their own behaviour.
+                        if (
+                          (event.target as Element).closest(
+                            "button, label, input, a",
+                          )
+                        )
+                          return;
+                        openDetails(session.id, event.currentTarget);
+                      }}
+                      onFocus={(event) => {
+                        if (event.target === event.currentTarget)
+                          openDetails(session.id, event.currentTarget);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.target !== event.currentTarget) return;
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          openDetails(session.id, event.currentTarget);
+                        }
+                      }}
+                      onMouseEnter={(event) =>
+                        openDetails(session.id, event.currentTarget, 90)
+                      }
+                      onMouseLeave={scheduleCloseDetails}
+                      tabIndex={0}
                     >
                       <div className="day-class-title">{session.subject}</div>
                       <div className="day-class-time">
