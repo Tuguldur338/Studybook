@@ -11698,7 +11698,7 @@ html:not([data-message-motion="on"]) .messenger-bubble {
 /* Timetable: the hovered day (header + subjects) widens together. */
 .timetable-head,
 .timetable-body {
-  transition: grid-template-columns 180ms ease;
+  transition: grid-template-columns 300ms ease-in-out;
 }
 
 .timetable[data-hover-day="0"] :is(.timetable-head, .timetable-body) {
