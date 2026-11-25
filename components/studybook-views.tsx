@@ -758,7 +758,7 @@ const emptyClassForm = {
 
 const SAVED_CLASSES_SEEDED_KEY = "studybook-saved-classes-seeded-v1";
 
-/** Hover/press details card state for the desktop timetable. */
+/** Click-to-open details card state for the timetable. */
 function useDetailsCard() {
   const [active, setActive] = useState<{
     id: string;
@@ -853,6 +853,13 @@ export function ScheduleView() {
     cancelClose: clearPopoverTimer,
   } = useDetailsCard();
 
+  // Day that is widened in the desktop timetable (header + subjects together).
+  // It stays widened while one of its cards is open.
+  const [hoverDay, setHoverDay] = useState<number | null>(null);
+  const activeDay = activeBlock
+    ? classes.find((item) => item.id === activeBlock.id)?.day
+    : undefined;
+  const expandedDay = activeDay ?? hoverDay;
 
   const [todayDay, setTodayDay] = useState<number | null>(null);
   const [weekAnchor, setWeekAnchor] = useState("");
@@ -1467,6 +1474,7 @@ export function ScheduleView() {
 
         <div
           className="timetable"
+          data-hover-day={expandedDay ?? undefined}
           style={
             {
               "--hour-height": `${HOUR_HEIGHT}px`,
@@ -1478,8 +1486,10 @@ export function ScheduleView() {
             <div aria-hidden="true" className="timetable-corner" />
             {weekdays.map((day, index) => (
               <div
-                className={`timetable-day${weekOffset === 0 && todayDay === index ? " today" : ""}`}
+                className={`timetable-day${weekOffset === 0 && todayDay === index ? " today" : ""}${expandedDay === index ? " is-hovered" : ""}`}
                 key={day}
+                onMouseEnter={() => setHoverDay(index)}
+                onMouseLeave={() => setHoverDay(null)}
               >
                 <span>{shortWeekdays[index]}</span>
                 <small>
@@ -1507,6 +1517,8 @@ export function ScheduleView() {
                   aria-label={day}
                   className={`day-lane${weekOffset === 0 && todayDay === index ? " today" : ""}`}
                   key={day}
+                  onMouseEnter={() => setHoverDay(index)}
+                  onMouseLeave={() => setHoverDay(null)}
                   role="group"
                 >
                   {classesByDay[index].map((session) => {
@@ -1546,10 +1558,6 @@ export function ScheduleView() {
                             return;
                           openDetails(session.id, event.currentTarget);
                         }}
-                        onFocus={(event) => {
-                          if (event.target === event.currentTarget)
-                            openDetails(session.id, event.currentTarget);
-                        }}
                         onKeyDown={(event) => {
                           if (event.target !== event.currentTarget) return;
                           if (event.key === "Enter" || event.key === " ") {
@@ -1557,9 +1565,7 @@ export function ScheduleView() {
                             openDetails(session.id, event.currentTarget);
                           }
                         }}
-                        onMouseEnter={(event) =>
-                          openDetails(session.id, event.currentTarget, 90)
-                        }
+                        onMouseEnter={clearPopoverTimer}
                         onMouseLeave={scheduleCloseDetails}
                         tabIndex={0}
                         title={overlapDescription}
@@ -1701,10 +1707,6 @@ export function ScheduleView() {
                           return;
                         openDetails(session.id, event.currentTarget);
                       }}
-                      onFocus={(event) => {
-                        if (event.target === event.currentTarget)
-                          openDetails(session.id, event.currentTarget);
-                      }}
                       onKeyDown={(event) => {
                         if (event.target !== event.currentTarget) return;
                         if (event.key === "Enter" || event.key === " ") {
@@ -1712,9 +1714,7 @@ export function ScheduleView() {
                           openDetails(session.id, event.currentTarget);
                         }
                       }}
-                      onMouseEnter={(event) =>
-                        openDetails(session.id, event.currentTarget, 90)
-                      }
+                      onMouseEnter={clearPopoverTimer}
                       onMouseLeave={scheduleCloseDetails}
                       tabIndex={0}
                     >
@@ -1931,6 +1931,7 @@ function ClassDetailsPopover({
     </div>
   );
 }
+
 const emptyTaskForm = {
   title: "",
   course: "",

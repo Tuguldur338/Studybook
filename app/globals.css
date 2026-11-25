@@ -11694,3 +11694,37 @@ html:not([data-message-motion="on"]) .messenger-bubble {
     transition: none;
   }
 }
+
+/* Timetable: the hovered day (header + subjects) widens together. */
+.timetable-head,
+.timetable-body {
+  transition: grid-template-columns 180ms ease;
+}
+
+.timetable[data-hover-day="0"] :is(.timetable-head, .timetable-body) {
+  grid-template-columns: 64px minmax(0, 1.12fr) repeat(4, minmax(0, 1fr));
+}
+.timetable[data-hover-day="1"] :is(.timetable-head, .timetable-body) {
+  grid-template-columns: 64px minmax(0, 1fr) minmax(0, 1.12fr) repeat(3, minmax(0, 1fr));
+}
+.timetable[data-hover-day="2"] :is(.timetable-head, .timetable-body) {
+  grid-template-columns: 64px repeat(2, minmax(0, 1fr)) minmax(0, 1.12fr) repeat(2, minmax(0, 1fr));
+}
+.timetable[data-hover-day="3"] :is(.timetable-head, .timetable-body) {
+  grid-template-columns: 64px repeat(3, minmax(0, 1fr)) minmax(0, 1.12fr) minmax(0, 1fr);
+}
+.timetable[data-hover-day="4"] :is(.timetable-head, .timetable-body) {
+  grid-template-columns: 64px repeat(4, minmax(0, 1fr)) minmax(0, 1.12fr);
+}
+
+.timetable-day.is-hovered {
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timetable-head,
+  .timetable-body {
+    transition: none;
+  }
+}
