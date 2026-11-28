@@ -11817,6 +11817,18 @@ html:not([data-message-motion="on"]) .messenger-bubble {
   box-shadow: var(--shadow-sm);
 }
 
+.timetable-day.is-hovered,
+.day-lane:hover {
+  position: relative;
+  z-index: 3;
+}
+
+.time-block:hover,
+.time-block:focus-within {
+  z-index: 10;
+  box-shadow: var(--shadow-sm);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .timetable-head,
   .timetable-body {
